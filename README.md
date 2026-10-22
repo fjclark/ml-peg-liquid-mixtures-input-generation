@@ -8,6 +8,10 @@ ml-peg does **not** need this repository to run the benchmark: it reads the
 pre-built boxes and the reference data from S3. This repository records how
 the systems were chosen and lets those inputs be regenerated.
 
+See [`DECISIONS.md`](DECISIONS.md) for a dated record of every decision made
+while selecting the systems (filters, exceptions, dropped and replaced
+systems, box sizes, the box build), with the reasons and the open questions.
+
 ## Requirements
 
 - [pixi](https://pixi.sh).
@@ -59,6 +63,7 @@ against ml-peg's PyPI dependencies:
     within- vs between-run comparison, a finite-size comparison with the
     published 1000-molecule Sage results, and a start-dependence screen
     (replicate 0, the distributed box, against the re-packed replicates).
+- `DECISIONS.md`: the selection decisions and their reasons.
 - `docs/data_issues.md`: data problems found during selection (ml-peg
   references, OpenFF training data, and this benchmark).
 - `selection/`: the committed selection outputs (`candidates.csv`,
