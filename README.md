@@ -49,9 +49,11 @@ against ml-peg's PyPI dependencies:
 ### 1. Select the systems
 
 ```bash
-pixi run -e analysis select --output-dir selection \
-    --fast-set selection/inputs/dataset-fast-converging.csv
+pixi run -e analysis select --output-dir selection
 ```
+
+Add `--fast-set selection/inputs/dataset-fast-converging.csv` to also assess
+the recommended fast-converging list in `report.md`.
 
 This writes, in `--output-dir`:
 
