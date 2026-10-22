@@ -134,3 +134,7 @@ pixi run -e analysis pre-commit install
 - Sage 2.3 refit training/validation sets and published Sage benchmark
   results: `openforcefield/ash-sage-rc2`, pinned commit.
 - Experimental data: NIST TRC ThermoML archive, cited by DOI per point.
+
+## AI Use
+
+Claude Opus 5.5 was used to help plan, draft, and iteratively improve this code, with human verification and approval of all code and decisions.
