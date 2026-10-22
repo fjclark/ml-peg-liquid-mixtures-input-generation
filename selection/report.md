@@ -11,7 +11,7 @@ A system must pass every filter below to be a candidate. The filter names match 
 | (entry) ≥ 3 ΔHmix and ≥ 3 density points | At 297.0–299.5 K, counted per distinct composition. | Three compositions per system need a measured ΔHmix and density. |
 | composition mismatch | Every ΔHmix composition has a density point within \|Δx\| ≤ 0.05. | Both properties are scored on the same box. |
 | missing experimental uncertainty | Every ΔHmix and density point reports an uncertainty. | Needed for the MAZE denominator and to judge agreement. |
-| relative ΔHmix uncertainty > 15 % | Largest relative ΔHmix uncertainty ≤ 15 %. | Errors in the passing pool are 0.5–3.5 %. Larger values are flat 25 % placeholders (e.g. 10.1016/j.jct.2013.09.015) or H^E near zero; either way they would inflate the MAZE denominator. |
+| relative ΔHmix uncertainty > 15 % | Largest relative ΔHmix uncertainty ≤ 15 %. | Relative experimental ΔHmix uncertainties among systems passing the other filters are 0.5–3.5 %. Larger values are flat 25 % uncertainties assigned during dataset curation (e.g. the rc2 entries for 10.1016/j.jct.2013.09.015) or come from H^E near zero; either way they would inflate the MAZE denominator. |
 | missing pure density with uncertainty | Both pure liquids have a density with an uncertainty in the window. | Needed for V^E and for scoring new pure densities. |
 | elements | Only C, H, N, O and Cl. | Chosen scope: common organic and biomolecular elements. |
 | too many heavy atoms | ≤ 10 heavy atoms per molecule. | Keeps boxes small at MLIP cost while holding enough molecules. |

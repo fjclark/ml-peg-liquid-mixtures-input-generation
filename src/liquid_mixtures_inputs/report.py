@@ -356,9 +356,11 @@ def _hard_filters_section() -> list[str]:
             f"relative ΔHmix uncertainty > {100 * ss.MAX_REL_SIGMA_HMIX:.0f} %",
             "Largest relative ΔHmix uncertainty "
             f"≤ {100 * ss.MAX_REL_SIGMA_HMIX:.0f} %.",
-            "Errors in the passing pool are 0.5–3.5 %. Larger values are flat 25 % "
-            "placeholders (e.g. 10.1016/j.jct.2013.09.015) or H^E near zero; "
-            "either way they would inflate the MAZE denominator.",
+            "Relative experimental ΔHmix uncertainties among systems passing the "
+            "other filters are 0.5–3.5 %. Larger values are flat 25 % uncertainties "
+            "assigned during dataset curation (e.g. the rc2 entries for "
+            "10.1016/j.jct.2013.09.015) or come from H^E near zero; either way they "
+            "would inflate the MAZE denominator.",
         ),
         (
             "missing pure density with uncertainty",

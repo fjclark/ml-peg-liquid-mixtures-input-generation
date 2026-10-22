@@ -84,8 +84,9 @@ VISCOUS_SMARTS = {
 UCST_LIMIT = 0.5 * 8.314462618e-3 * 298.15  # RT/2 in kJ/mol
 MAX_REPEAT_SD = {"hmix": 0.10, "density": 0.001}
 MIN_SIGNAL = 0.4  # kJ/mol at x ~ 0.5
-# Relative ΔHmix errors in the passing pool are 0.5-3.5 %. Larger values are
-# either flat 25 % placeholders or come from H^E close to zero.
+# Relative experimental ΔHmix uncertainties among systems passing the other
+# filters are 0.5-3.5 %. Larger values are either flat 25 % uncertainties
+# assigned during dataset curation or come from H^E close to zero.
 MAX_REL_SIGMA_HMIX = 0.15
 
 # Box planning (stage 2 uses these counts).
