@@ -4412,7 +4412,7 @@ packages:
 - pypi: ../ml-peg
   name: ml-peg
   version: 0.6.1
-  sha256: 80500954bf4e587b37b136778fd45c2260f51f55d2887fde4f794ae2a7fbe83a
+  sha256: cef223201a2b55b3f1b6cbf6ccef84bcd5c7d4bbd63ce8af307530bf5c49157d
   requires_dist:
   - ase>=3.28.0
   - boto3>=1.40.49,<2
@@ -4421,7 +4421,6 @@ packages:
   - kaleido>=1.0.0,<2
   - matcalc>=0.4.7,<0.5 ; python_full_version >= '3.11'
   - matminer>=0.9.3,<0.10
-  - matplotlib>=3.8,<4
   - mdanalysis>=2.9.0,<3
   - mlipx>=0.1.5,<0.2
   - molify>=0.2.2,<0.3
