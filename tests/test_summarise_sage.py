@@ -6,8 +6,14 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from liquid_mixtures_inputs.summarise_sage import within_between
+from liquid_mixtures_inputs.summarise_sage import (
+    SIZE_GAP,
+    finite_size_check,
+    mixture_points,
+    within_between,
+)
 from ml_peg.analysis.utils.timeseries import estimate_mean
 
 
@@ -66,3 +72,183 @@ def test_within_between():
     flagged = set(table[table.flag == "high"].box_id)
     assert flagged == {"box0"}
     assert (table.flag == "low").sum() == 0
+
+
+def _runs(x: float, excess_h: float, excess_v: float) -> tuple[pd.DataFrame, ...]:
+    """
+    Build per-run statistics for one mixture box and its two pure boxes.
+
+    Parameters
+    ----------
+    x
+        Mole fraction of component a in the mixture box.
+    excess_h
+        Mixture h minus the mole-fraction average of the pure h (kJ/mol).
+    excess_v
+        Mixture molar volume minus the mole-fraction average (cm3/mol).
+
+    Returns
+    -------
+    tuple[pd.DataFrame, ...]
+        ``runs`` and ``systems`` tables for :func:`mixture_points`.
+    """
+    h = {"a": -45.3, "b": -61.7}
+    v = {"a": 58.4, "b": 147.5}
+    common = {"temperature": 298.15, "h_sigma": 0.01, "v_molar_sigma": 0.02}
+    rows = []
+    for rep in range(3):
+        rows += [
+            {
+                "box_id": "pure_a",
+                "kind": "pure",
+                "smiles": "CCO",
+                "x": 1.0,
+                "replicate": rep,
+                "h_mean": h["a"],
+                "v_molar_mean": v["a"],
+                "density_mean": 0.785,
+                "density_sigma": 1e-4,
+                **common,
+            },
+            {
+                "box_id": "pure_b",
+                "kind": "pure",
+                "smiles": "CCCCCCC",
+                "x": 1.0,
+                "replicate": rep,
+                "h_mean": h["b"],
+                "v_molar_mean": v["b"],
+                "density_mean": 0.680,
+                "density_sigma": 1e-4,
+                **common,
+            },
+            {
+                "box_id": "test_x300",
+                "kind": "mixture",
+                "smiles": "CCO;CCCCCCC",
+                "x": x,
+                "replicate": rep,
+                "h_mean": x * h["a"] + (1 - x) * h["b"] + excess_h,
+                "v_molar_mean": x * v["a"] + (1 - x) * v["b"] + excess_v,
+                "density_mean": 0.72,
+                "density_sigma": 1e-4,
+                **common,
+            },
+        ]
+    systems = pd.DataFrame(
+        [
+            {
+                "system_id": "test",
+                "x_box": x,
+                "a": "CCO",
+                "b": "CCCCCCC",
+                "hmix_exp": 0.0,
+                "hmix_sigma": 0.01,
+                "density_exp": 0.72,
+                "density_sigma": 1e-4,
+                "vex_exp": 0.0,
+            }
+        ]
+    )
+    return pd.DataFrame(rows), systems
+
+
+@pytest.mark.parametrize(("excess_h", "excess_v"), [(0.0, 0.0), (0.7, -0.35)])
+def test_mixture_points_recovers_excess(excess_h, excess_v):
+    """Ideal mixing gives zero ΔHmix and V^E; a known excess is recovered."""
+    runs, systems = _runs(0.3, excess_h, excess_v)
+    points = mixture_points(runs, systems)
+    assert len(points) == 3
+    assert points.hmix.to_numpy() == pytest.approx(excess_h, abs=1e-12)
+    assert points.vex.to_numpy() == pytest.approx(excess_v, abs=1e-12)
+
+
+def _published_density(x):
+    """
+    Return a smooth, curved density for the finite-size test.
+
+    Parameters
+    ----------
+    x
+        Mole fraction of component a.
+
+    Returns
+    -------
+    float
+        Density in g/mL (ideal mixing of 0.885 and 0.699 g/mL liquids with
+        molar masses 116 and 114 g/mol, plus a V^E term).
+    """
+    mass = 116.16 * x + 114.23 * (1 - x)
+    volume = 116.16 * x / 0.885 + 114.23 * (1 - x) / 0.699 + x * (1 - x) * 0.8
+    return mass / volume
+
+
+def _published_hmix(x):
+    """
+    Return a skewed excess enthalpy for the finite-size test.
+
+    Parameters
+    ----------
+    x
+        Mole fraction of component a.
+
+    Returns
+    -------
+    float
+        ΔHmix in kJ/mol.
+    """
+    return x * (1 - x) * (5.6 - 1.2 * (2 * x - 1))
+
+
+def test_finite_size_check_corrects_composition_offset():
+    """
+    Published values at nearby compositions are moved to our composition.
+
+    Our values equal the published curve exactly at our compositions, which
+    are up to 0.0165 from the published ones (as for methylpentanoate +
+    octane), so every difference must vanish. Without the shift the density
+    gap would exceed ``SIZE_GAP``.
+    """
+    x_pub = np.array([0.2465, 0.4896, 0.7399])
+    x_ours = np.array([0.23, 0.49, 0.73])
+    published = pd.DataFrame(
+        [
+            {
+                "smiles_1": "CCCCC(=O)OC",
+                "smiles_2": "CCCCCCCC",
+                "x_1": x,
+                "prop": prop,
+                "value": f(x),
+                "uncertainty": 0.001,
+            }
+            for x in x_pub
+            for prop, f in (("density", _published_density), ("hmix", _published_hmix))
+        ]
+    )
+    # Published in the other orientation, to test the swap as well
+    published.loc[published.prop == "hmix", ["smiles_1", "smiles_2"]] = [
+        "CCCCCCCC",
+        "CCCCC(=O)OC",
+    ]
+    published.loc[published.prop == "hmix", "x_1"] = 1 - x_pub
+    systems = pd.DataFrame(
+        {"system_id": "mo", "a": "CCCCC(=O)OC", "b": "CCCCCCCC", "x_box": x_ours}
+    )
+    summary = pd.DataFrame(
+        {
+            "box_id": [f"mo_x{round(x * 1000):03d}" for x in x_ours],
+            "x": x_ours,
+            "n_rep": 5,
+            "hmix_sage": [_published_hmix(x) for x in x_ours],
+            "hmix_sd": 0.05,
+            "density_sage": [_published_density(x) for x in x_ours],
+            "density_sd": 0.0005,
+        }
+    )
+    finite = finite_size_check(summary, systems, published)
+    assert len(finite) == 6
+    density = finite[finite.prop == "density"]
+    assert density["diff"].abs().max() < 1e-4
+    assert finite[finite.prop == "hmix"]["diff"].abs().max() < 5e-3
+    raw_gap = (density.ours - density.published_nearest).abs().max()
+    assert raw_gap > SIZE_GAP["density"]

@@ -303,9 +303,102 @@ def published_sage(cache_dir: Path) -> pd.DataFrame:
     return data
 
 
+def shift_to_composition(prop: str, xs: np.ndarray, values: np.ndarray, x: float):
+    """
+    Move the published value nearest ``x`` to ``x`` along a fitted curve.
+
+    The curve only supplies the change between the nearest published
+    composition and ``x`` (at most ``PUBLISHED_X_TOLERANCE``), so its shape
+    matters little. For ΔHmix it is a two-term Redlich-Kister fit, which is
+    zero at x = 0 and 1; a straight line to those limits misses the curvature
+    near the ends. For density it is a polynomial of degree up to 2.
+
+    Parameters
+    ----------
+    prop
+        ``hmix`` or ``density``.
+    xs
+        Published mole fractions of component a.
+    values
+        Published values.
+    x
+        Composition to shift to.
+
+    Returns
+    -------
+    float
+        Published value shifted to ``x``.
+    """
+    nearest = int(np.argmin(np.abs(xs - x)))
+    if prop == "hmix":
+
+        def basis(z):
+            """
+            Evaluate the two Redlich-Kister basis functions.
+
+            Parameters
+            ----------
+            z
+                Mole fractions.
+
+            Returns
+            -------
+            np.ndarray
+                Basis values with shape (len(z), 2).
+            """
+            z = np.atleast_1d(z)
+            return np.stack([z * (1 - z), z * (1 - z) * (2 * z - 1)], axis=1)
+
+        coeffs, *_ = np.linalg.lstsq(basis(xs)[:, : len(xs)], values, rcond=None)
+
+        def curve(z):
+            """
+            Evaluate the fitted Redlich-Kister curve.
+
+            Parameters
+            ----------
+            z
+                Mole fraction.
+
+            Returns
+            -------
+            float
+                Fitted ΔHmix.
+            """
+            return float(basis(z)[0, : len(coeffs)] @ coeffs)
+
+    else:
+        poly = np.polyfit(xs, values, min(2, len(xs) - 1))
+
+        def curve(z):
+            """
+            Evaluate the fitted density polynomial.
+
+            Parameters
+            ----------
+            z
+                Mole fraction.
+
+            Returns
+            -------
+            float
+                Fitted density.
+            """
+            return float(np.polyval(poly, z))
+
+    return float(values[nearest] + curve(x) - curve(xs[nearest]))
+
+
 def finite_size_check(summary: pd.DataFrame, systems, published) -> pd.DataFrame:
     """
     Compare our replicate means with published 1000-molecule Sage values.
+
+    The published compositions differ from ours by up to
+    ``PUBLISHED_X_TOLERANCE``, which can shift a density by more than the
+    gaps being tested (about 0.2 g/mL per unit x for some systems), so the
+    nearest published value is shifted to our composition with
+    :func:`shift_to_composition`. Published pure densities are not used, as
+    the published table has no temperatures.
 
     Parameters
     ----------
@@ -343,6 +436,9 @@ def finite_size_check(summary: pd.DataFrame, systems, published) -> pd.DataFrame
             nearest = candidates.iloc[(candidates.xa - point.x).abs().argmin()]
             if abs(nearest.xa - point.x) > PUBLISHED_X_TOLERANCE:
                 continue
+            published_x = shift_to_composition(
+                prop, candidates.xa.to_numpy(), candidates.value.to_numpy(), point.x
+            )
             ours = getattr(point, f"{prop}_sage")
             se_ours = getattr(point, f"{prop}_sd") / np.sqrt(point.n_rep)
             se_pub = nearest.uncertainty / np.sqrt(3)
@@ -353,9 +449,10 @@ def finite_size_check(summary: pd.DataFrame, systems, published) -> pd.DataFrame
                     "x_ours": point.x,
                     "x_published": nearest.xa,
                     "ours": ours,
-                    "published": nearest.value,
-                    "diff": ours - nearest.value,
-                    "z": (ours - nearest.value) / np.hypot(se_ours, se_pub),
+                    "published_nearest": nearest.value,
+                    "published": published_x,
+                    "diff": ours - published_x,
+                    "z": (ours - published_x) / np.hypot(se_ours, se_pub),
                 }
             )
     return pd.DataFrame(rows)
@@ -1119,14 +1216,20 @@ def write_report(out: Path, header, runs, summary, finite, flags, start) -> None
         "## Finite-size check (our boxes vs published 1000-molecule runs)",
         "",
         f"Matched points within |Δx| ≤ {PUBLISHED_X_TOLERANCE}: {len(finite)}. "
+        "The nearest published value is shifted to our composition along a curve "
+        "fitted to the published points (two-term Redlich-Kister for ΔHmix, "
+        "quadratic for density), as a composition offset alone can shift a "
+        "density by more than the gaps tested. "
         f"|z| > 3: {int((finite.z.abs() > 3).sum()) if len(finite) else 0}. "
         "z uses the standard errors of the two replicate means, which are small, "
         "so small systematic offsets reach |z| > 3.",
         "",
-        "| Box | Property | Ours | Published | Diff | z |",
-        "|---|---|---|---|---|---|",
+        "| Box | Property | x ours | x published (nearest) | Ours | "
+        "Published (nearest) | Published (at our x) | Diff | z |",
+        "|---|---|---|---|---|---|---|---|---|",
         *[
-            f"| {r.box_id} | {r.prop} | {r.ours:.4f} | {r.published:.4f} | "
+            f"| {r.box_id} | {r.prop} | {r.x_ours:.4f} | {r.x_published:.4f} | "
+            f"{r.ours:.4f} | {r.published_nearest:.4f} | {r.published:.4f} | "
             f"{r.diff:+.4f} | {r.z:+.1f} |"
             for r in finite.itertuples()
         ],
