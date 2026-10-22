@@ -1119,33 +1119,40 @@ def main() -> None:
 
     references = selection.get("pure_density_references", [])
     systems = [
-        build_system(s, points, sage, mlpeg, args.cache_dir, references)
-        for s in selection["systems"]
+        build_system(spec, points, sage, mlpeg, args.cache_dir, references)
+        for spec in selection["systems"]
     ]
-    write_csv(out / "systems.csv", [row for s in systems for row in s["rows"]])
+    write_csv(
+        out / "systems.csv", [row for system in systems for row in system["rows"]]
+    )
 
     pure_rows, seen = [], set()
-    for s in systems:
-        for c in (s["a"], s["b"]):
-            if (c, s["temperature"]) in seen:
+    for system in systems:
+        temperature = system["temperature"]
+        for smiles in (system["a"], system["b"]):
+            if (smiles, temperature) in seen:
                 continue
-            seen.add((c, s["temperature"]))
-            p = s["pures"][c]
-            box = plan_box(1.0, p["density"] or 1.0, s["info"][c], s["info"][c])
+            seen.add((smiles, temperature))
+            pure = system["pures"][smiles]
+            info = system["info"][smiles]
+            box = plan_box(1.0, pure["density"] or 1.0, info, info)
             pure_rows.append(
                 {
-                    "smiles": c,
-                    "temperature": s["temperature"],
-                    "density": p["density"],
-                    "sigma": p["sigma"],
-                    "source": p["source"],
-                    "in_mlpeg": c in mlpeg,
-                    "scored": c not in mlpeg,
-                    "mlpeg_density": p["mlpeg_density"],
-                    "mlpeg_temperature": p["mlpeg_temperature"],
-                    "spread": round(p["spread"], 5),
-                    "outliers": "; ".join(p["outliers"]),
-                    "checks": "; ".join(f"{k}={v:.5f}" for k, v in p["checks"].items()),
+                    "smiles": smiles,
+                    "temperature": temperature,
+                    "density": pure["density"],
+                    "sigma": pure["sigma"],
+                    "source": pure["source"],
+                    "in_mlpeg": smiles in mlpeg,
+                    "scored": smiles not in mlpeg,
+                    "mlpeg_density": pure["mlpeg_density"],
+                    "mlpeg_temperature": pure["mlpeg_temperature"],
+                    "spread": round(pure["spread"], 5),
+                    "outliers": "; ".join(pure["outliers"]),
+                    "checks": "; ".join(
+                        f"{source}={density:.5f}"
+                        for source, density in pure["checks"].items()
+                    ),
                     "n_molecules": box["n_a"],
                     "n_atoms": box["n_atoms"],
                     "edge": round(box["edge"], 2),
@@ -1155,17 +1162,17 @@ def main() -> None:
 
     iso_rows = [
         {
-            "system_id": s["spec"]["id"],
-            "prop": p.prop,
-            "x": p.x,
-            "temperature": p.temperature,
-            "value": p.value,
-            "sigma": p.sigma,
-            "doi": p.doi,
-            "source": p.source,
+            "system_id": system["spec"]["id"],
+            "prop": point.prop,
+            "x": point.x,
+            "temperature": point.temperature,
+            "value": point.value,
+            "sigma": point.sigma,
+            "doi": point.doi,
+            "source": point.source,
         }
-        for s in systems
-        for p in s["hmix"] + s["density"] + s["vex"]
+        for system in systems
+        for point in system["hmix"] + system["density"] + system["vex"]
     ]
     write_csv(out / "isotherms.csv", iso_rows)
 
