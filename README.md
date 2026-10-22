@@ -4,25 +4,18 @@ System selection, Sage box building and the Sage reference runs for the ml-peg
 `binary_mixtures` benchmark (enthalpy of mixing, mixture density and excess
 volume of 13 binary liquid mixtures).
 
-ml-peg does **not** need this repository to run the benchmark: it reads the
+ml-peg does not need this repository to run the benchmark: it reads the
 pre-built boxes and the reference data from S3. This repository records how
 the systems were chosen and lets those inputs be regenerated.
 
-See [`DECISIONS.md`](DECISIONS.md) for a dated record of every decision made
+See [`DECISIONS.md`](DECISIONS.md) for a dated record of decisions made
 while selecting the systems (filters, exceptions, dropped and replaced
 systems, box sizes, the box build), with the reasons and the open questions.
 
 ## Requirements
 
 - [pixi](https://pixi.sh).
-- An ml-peg checkout at `../ml-peg` on branch `add-liquid-mixture-properties`.
-  The `analysis` environment installs it in editable mode, so it uses whatever
-  branch is checked out there. `summarise_sage` imports its estimators from
-  `ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing`, so the Sage
-  reference and the MLIPs are analysed identically. Once that branch is on
-  GitHub, this dependency will be pinned to a git revision.
-- A CUDA GPU for `build-boxes` and `run-sage` (`--platform CPU` works but is
-  slow).
+- A CUDA GPU for `build-boxes` and `run-sage`
 
 There are two environments, so the conda-only OpenFF stack never has to solve
 against ml-peg's PyPI dependencies:
@@ -40,38 +33,16 @@ against ml-peg's PyPI dependencies:
   - `mlpeg_liquids.yml`: SMILES for ml-peg's liquid_densities liquids, so their
     pure densities are not scored twice.
   - `thermoml.py`: fetches and parses NIST TRC ThermoML records by DOI.
-  - `select_systems.py`: screens the OpenFF Sage physical-property sets, checks
-    the curated systems, pulls full isotherms from ThermoML, cross-checks pure
-    densities and plans box sizes.
+  - `select_systems.py`: screens the OpenFF Sage physical-property sets, checks the curated systems, pulls full isotherms from ThermoML, cross-checks pure densities and plans box sizes.
   - `report.py`: writes the selection report and figures.
-  - `build_boxes.py`: packs, parametrises (openff-2.2.1, NAGL AM1-BCC charges,
-    TIP3P water) and NVT-equilibrates every benchmark box at the experimental
-    density. Each molecule starts from the lowest-MMFF-energy of 10 ETKDG
-    conformers, and the NVT stage includes an anneal (450 K cooled to the
-    target over 1.6 ns) before 500 ps at the target temperature. Packmol copies
-    one conformer into every molecule, and the first Sage reference run (v1)
-    showed that several conformational equilibria take nanoseconds in Sage:
-    tetrahydropyran twist-boat to chair, the Cl-C-C-Cl torsion of
-    1,2-dichloroethane, the O-C-C-N torsion of DMAE and nitrogen inversion in
-    piperidine. Without the anneal, results depended on the starting conformer.
-    Piperidine inversion does not equilibrate even at 500 K, so piperidine +
-    water was dropped (see `selection.yml`).
+  - `build_boxes.py`: packs, parametrises (openff-2.2.1, NAGL AM1-BCC charges, TIP3P water) and NVT-equilibrates every benchmark box at the experimental density. Each molecule starts from the lowest-MMFF-energy of 10 ETKDG conformers, and the NVT stage includes an anneal (450 K cooled to the target over 1.6 ns) before 500 ps at the target temperature. Packmol copies one conformer into every molecule, and an initial Sage reference run (v1) showed that several conformational equilibria take nanoseconds in Sage: tetrahydropyran twist-boat to chair, the Cl-C-C-Cl torsion of 1,2-dichloroethane, the O-C-C-N torsion of DMAE and nitrogen inversion in piperidine. Without the anneal, results depended on the starting conformer.  Piperidine inversion does not equilibrate even at 500 K, so piperidine + water was dropped (see `selection.yml`).
   - `run_sage_benchmark.py`: runs every box with Sage as a reference model
     (5 independent replicates, the benchmark's 0.2 + 2 ns NPT protocol).
-  - `summarise_sage.py`: ΔHmix, densities and V^E per replicate, the pooled
-    replicate SD used as the MAZE denominator, convergence checks, a
-    within- vs between-run comparison, a finite-size comparison with the
-    published 1000-molecule Sage results, and a start-dependence screen
-    (replicate 0, the distributed box, against the re-packed replicates).
+  - `summarise_sage.py`: ΔHmix, densities and V^E per replicate, the pooled replicate SD used as the MAZE denominator, convergence checks, a within- vs between-run comparison, a finite-size comparison with the published 1000-molecule Sage results, and a start-dependence screen (replicate 0, the distributed box, against the re-packed replicates).
 - `DECISIONS.md`: the selection decisions and their reasons.
-- `docs/data_issues.md`: data problems found during selection (ml-peg
-  references, OpenFF training data, and this benchmark).
-- `selection/`: the committed selection outputs (`candidates.csv`,
-  `systems.csv`, `pure.csv`, `isotherms.csv`, `report.md`, `figures/`), and
-  `selection/inputs/dataset-fast-converging.csv`, the `--fast-set` input.
+- `docs/data_issues.md`: potential data problems (to be verified) found during selection (ml-peg references, OpenFF training data, and this benchmark).
+- `selection/`: the committed selection outputs (`candidates.csv`, `systems.csv`, `pure.csv`, `isotherms.csv`, `report.md`, `figures/`), and `selection/inputs/dataset-fast-converging.csv`, the `--fast-set` input.
 - `data/sage_summary/`: the committed Sage reference summary.
-- `data/binary_mixtures/`, `data/sage_runs/`, `data/superseded/`: local only
-  (gitignored). The S3 zip is the source of truth for the boxes.
 
 ## Usage
 
@@ -92,8 +63,6 @@ This writes, in `--output-dir`:
 - `pure.csv`: chosen pure densities with all cross-check values.
 - `isotherms.csv`: the ThermoML points behind each fit.
 - `report.md` and `figures/`.
-
-Downloads are cached in `~/.cache/ml_peg/binary_mixtures_selection`.
 
 ### 2. Build the boxes and run the Sage reference
 
@@ -123,7 +92,7 @@ cd data && zip -r binary_mixtures_v2.zip binary_mixtures
 ml-peg expects it at the S3 key
 `inputs/molecular_dynamics/binary_mixtures/binary_mixtures_v2.zip`, with
 `binary_mixtures/` as the top-level directory. Bump the zip name whenever
-columns change, so ml-peg users don't keep a stale cached copy.
+columns change, to avoid stale ml-peg cached copies.
 
 ## Tests and linting
 
@@ -134,8 +103,7 @@ pixi run -e analysis pre-commit install
 
 ## Data provenance
 
-- OpenFF Sage 2.0 training set: `openforcefield/openff-sage` (MIT), pinned
-  commit in `select_systems.py`.
+- OpenFF Sage 2.0 training set: `openforcefield/openff-sage` (MIT), pinned commit in `select_systems.py`.
 - Sage 2.3 refit training/validation sets and published Sage benchmark
   results: `openforcefield/ash-sage-rc2`, pinned commit.
 - Experimental data: NIST TRC ThermoML archive, cited by DOI per point.
