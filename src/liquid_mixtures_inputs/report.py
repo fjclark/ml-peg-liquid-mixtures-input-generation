@@ -414,8 +414,8 @@ def _hard_filters_section() -> list[str]:
         (
             "small signal",
             f"\\|ΔHmix(x≈0.5)\\| ≥ {ss.MIN_SIGNAL} kJ/mol.",
-            "Expected simulation σ is 0.15–0.25 kJ/mol, so smaller values cannot "
-            "separate models.",
+            "Expected simulation σ is 0.15–0.25 kJ/mol, so smaller values might "
+            "discriminate between models less well.",
         ),
     ]
     return [

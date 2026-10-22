@@ -20,7 +20,7 @@ A system must pass every filter below to be a candidate. The filter names match 
 | two-phase (H^E > RT/2) | ΔHmix(x≈0.5) ≤ RT/2 = 1.24 kJ/mol. | Regular-solution critical value; a conservative screen for an upper critical solution temperature above 298 K. |
 | Sage repeat SD (hmix / density) | Largest published Sage 3-replicate SD over openff-2.0.0 to 2.3.0rc1 ≤ 0.1 kJ/mol (ΔHmix) and ≤ 0.001 g/mL (density). | A large spread between replicates suggests slow equilibration. |
 | no Sage repeat SD (hmix / density) | A published Sage SD exists for the property. | Without it the convergence check above cannot be made. |
-| small signal | \|ΔHmix(x≈0.5)\| ≥ 0.4 kJ/mol. | Expected simulation σ is 0.15–0.25 kJ/mol, so smaller values cannot separate models. |
+| small signal | \|ΔHmix(x≈0.5)\| ≥ 0.4 kJ/mol. | Expected simulation σ is 0.15–0.25 kJ/mol, so smaller values might discriminate between models less well. |
 
 Systems are also checked for literature evidence of miscibility at the run temperature (see Per-system details); that check is manual.
 
