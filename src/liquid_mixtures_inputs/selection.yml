@@ -1,0 +1,278 @@
+# Curated binary mixtures for the ml-peg binary_mixtures benchmark.
+#
+# `select_systems.py` checks every entry against the hard filters, and records
+# the reason for any declared exception. The free-text fields feed the
+# selection report. x always refers to component `a`.
+
+systems:
+  - id: pyrrole_pyridine
+    a: c1cc[nH]c1
+    b: c1ccncc1
+    names: [pyrrole, pyridine]
+    temperature: 298.15
+    interaction: N-H···N hydrogen bond between an aromatic donor and acceptor
+    rationale: >-
+      Largest exothermic signal in the pool (-2.65 kJ/mol), single source paper
+      for both properties, and Sage gets it badly wrong (MAE 1.9 kJ/mol).
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: methanol_water
+    a: CO
+    b: O
+    names: [methanol, water]
+    temperature: 298.15
+    interaction: alcohol-water hydrogen-bond network
+    exception: >-
+      Aqueous exception to rules 1 and 2. The rc2 density and enthalpy
+      compositions differ by 0.06 in x (full ThermoML isotherms remove the
+      mismatch), and water's pure density comes from IAPWS-95.
+    rationale: >-
+      Smallest Sage repeat spread in the pool (0.03 kJ/mol), so it calibrates
+      the noise of the protocol. Methanol and water pure densities are already
+      scored in ml-peg and are not re-scored.
+    miscibility: >-
+      Miscible in all proportions.
+
+  - id: water_pyridine
+    a: O
+    b: c1ccncc1
+    names: [water, pyridine]
+    temperature: 303.15
+    interaction: aromatic nitrogen-water hydrogen bonding
+    extra_dois: [10.1021/je2002495]
+    # The ThermoML record stores 298.15 K, but the paper's title and abstract
+    # state the enthalpies were measured at 303.15 K.
+    temperature_corrections: {10.1021/je2002495: 303.15}
+    exception: >-
+      Aqueous exception: the only data are at 303.15 K and there are no
+      published Sage repeat errors. Enthalpy only unless ThermoML provides a
+      303.15 K mixture density. MAZE uses our own Sage replicates.
+    rationale: Only aromatic-water system available; relevant to biomolecular recognition.
+    miscibility: >-
+      Miscible in all proportions at 303 K (enthalpies measured across x = 0.1–0.9).
+
+  - id: nmp_dichloroethane
+    a: CN1CCCC1=O
+    b: ClCCCl
+    names: [N-methyl-2-pyrrolidone, "1,2-dichloroethane"]
+    temperature: 298.15
+    interaction: tertiary amide with a chloroalkane (C-H···O=C, dipolar)
+    exception: >-
+      Fails rule 1 by a hair on the 3-point rc2 subsets (|dx| = 0.0503 vs 0.05).
+      The full ThermoML isotherms remove the mismatch.
+    rationale: >-
+      Widens the exothermic range (-1.26 kJ/mol) and covers chlorine. Both
+      pure densities are already in ml-peg.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: dmae_methanol
+    a: CN(C)CCO
+    b: CO
+    names: [2-(dimethylamino)ethanol, methanol]
+    temperature: 298.15
+    interaction: amino-alcohol with an alcohol (O-H···N and O-H···O)
+    rationale: Exothermic cross-association between a bifunctional donor/acceptor and an alcohol.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: acetone_nmethylaniline
+    a: CC(C)=O
+    b: CNc1ccccc1
+    names: [acetone, N-methylaniline]
+    temperature: 298.15
+    interaction: aromatic N-H donor with a ketone acceptor
+    rationale: Exothermic N-H···O=C association; adds an aromatic amine.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: methylpentanoate_octane
+    a: CCCCC(=O)OC
+    b: CCCCCCCC
+    names: [methyl pentanoate, octane]
+    temperature: 298.15
+    interaction: dilution of ester dipoles in an alkane
+    rationale: Endothermic dipole dilution, neither component in ml-peg.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below). Endothermic ester + alkane; check the demixing diagnostic in the pilot.
+
+  - id: propanol_benzene
+    a: CCCO
+    b: c1ccccc1
+    names: [1-propanol, benzene]
+    temperature: 298.15
+    interaction: alcohol self-association broken by an aromatic (O-H···π)
+    rationale: >-
+      Alcohol dilution case that also probes O-H···π, replacing isooctane +
+      1-propanol. Both pure densities are already in ml-peg.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: tetrahydropyran_ethanol
+    a: C1CCOCC1
+    b: CCO
+    names: [tetrahydropyran, ethanol]
+    temperature: 298.15
+    interaction: cyclic ether with an alcohol
+    rationale: Endothermic; ether acceptor competes with alcohol self-association.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: dipropylamine_dmf
+    a: CCCNCCC
+    b: CN(C)C=O
+    names: [dipropylamine, "N,N-dimethylformamide"]
+    temperature: 298.15
+    interaction: secondary amine with a tertiary amide
+    rationale: Endothermic amine/amide pair; dipropylamine is new to ml-peg.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: propionitrile_taee
+    a: CCC#N
+    b: CCOC(C)(C)CC
+    names: [propionitrile, tert-amyl ethyl ether]
+    temperature: 298.15
+    interaction: nitrile dipoles diluted in an ether
+    rationale: >-
+      Only nitrile system; both properties from one paper at identical
+      compositions (data at 298.4 K). Neither component in ml-peg.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: butanone_dibutylamine
+    a: CCC(C)=O
+    b: CCCCNCCCC
+    names: [2-butanone, dibutylamine]
+    temperature: 298.15
+    interaction: ketone with a secondary amine
+    rationale: Non-alcohol endothermic system, replacing methyl pentanoate + methanol.
+    miscibility: >-
+      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+  - id: heptane_toluene
+    a: CCCCCCC
+    b: Cc1ccccc1
+    names: [heptane, toluene]
+    temperature: 298.15
+    interaction: dispersion and π control (no polar groups)
+    rationale: >-
+      Non-polar control that separates dispersion/D3 errors from hydrogen-bond
+      errors. Sage handles it well (MAE 0.14 kJ/mol).
+    miscibility: >-
+      Fully miscible hydrocarbons. Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+
+# Reference pure densities that take precedence over data-set values.
+pure_density_references:
+  - smiles: O
+    temperature: 298.15
+    density: 0.997047
+    sigma: 0.000001
+    source: IAPWS-95 (Wagner and Pruss, J. Phys. Chem. Ref. Data 31, 387 (2002))
+  - smiles: O
+    temperature: 303.15
+    density: 0.995649
+    sigma: 0.000001
+    source: IAPWS-95 (Wagner and Pruss, J. Phys. Chem. Ref. Data 31, 387 (2002))
+  - smiles: c1ccncc1
+    temperature: 303.15
+    density: 0.97298
+    sigma: 0.000107
+    source: "thermoml:10.1021/je900874z"
+
+# Systems considered and dropped, for the report.
+dropped:
+  - system: 2-(dimethylamino)ethanol + water
+    a: CN(C)CCO
+    b: O
+    reason: Sage repeat SD 0.126 kJ/mol (above the 0.10 limit).
+  - system: 2-pyrrolidone + water
+    a: O=C1CCCN1
+    b: O
+    reason: >-
+      Viscous lactam that melts at ~25 °C. The Sage data use the imidic acid
+      tautomer (OC1=NCCC1), so there is no valid Sage repeat SD, and the
+      experimental enthalpy uncertainties are a flat 25 % placeholder.
+  - system: piperidine + water
+    a: C1CCNCC1
+    b: O
+    reason: >-
+      Dropped after the Sage reference run (2026-10-20). Nitrogen inversion is
+      frozen in Sage (no axial/equatorial N-H interconversion in 2.2 ns, or in
+      a 500 K anneal), and the real barrier (~25 kJ/mol) suggests ns lifetimes
+      for MLIPs too, so ΔHmix depended on the starting N-H orientation by
+      ~0.3 kJ/mol. It also showed the largest box-size gap against the
+      published 1000-molecule Sage run (-0.35 kJ/mol at x = 0.25) and is
+      microheterogeneous for x between 0.08 and 0.5 (arXiv:2203.01224).
+  - system: ethanol + water
+    a: CCO
+    b: O
+    reason: Already covered by the ethanol_water_density benchmark.
+  - system: pyrrole + benzene
+    a: c1cc[nH]c1
+    b: c1ccccc1
+    reason: Smallest signal and Sage already reproduces it; kept as a reserve.
+  - system: isooctane + 1-propanol
+    a: CC(C)CC(C)(C)C
+    b: CCCO
+    reason: Replaced by 1-propanol + benzene (adds O-H···π, single-paper data).
+  - system: methyl pentanoate + methanol
+    a: CCCCC(=O)OC
+    b: CO
+    reason: Replaced to reduce the number of alcohol systems.
+  - system: NMP + 1,4-dichlorobutane
+    a: CN1CCCC1=O
+    b: ClCCCCCl
+    reason: Replaced by NMP + 1,2-dichloroethane to widen the exothermic range.
+
+# Systems from the recommended fast-converging list that look two-phase.
+two_phase_fast_set:
+  - a: CC(=O)c1ccccc1
+    b: O
+    names: [acetophenone, water]
+    lle: >-
+      Aqueous solubility is about 6 g/L at 25 °C (x ≈ 0.001), and the H^E slopes between x = 0.2, 0.5 and 0.8 are identical (0.677 and 0.671 kJ/mol), the lever-rule signature. The water content of the organic-rich phase was not found; confirm against the IUPAC-NIST Solubility Data Series.
+  - a: CC(=O)CC(C)=O
+    b: O
+    names: [acetylacetone, water]
+    lle: >-
+      Binary mutual solubilities in ThermoML (10.1016/j.fluid.2010.11.029): at 298.15 K the aqueous phase holds an acetylacetone mass fraction of 0.158 (x ≈ 0.033), and the organic phase holds 3–6 wt% water between 288 and 313 K (x(acetylacetone) ≈ 0.75–0.85). The measured compositions (x = 0.2–0.75) are therefore two-phase.
+  - a: CCOC(=O)CC(C)=O
+    b: O
+    names: [ethyl acetoacetate, water]
+    lle: >-
+      Aqueous solubility is of order 3 g/100 mL near room temperature (x ≈ 0.004; handbook value, not yet verified against a primary source). H^E/x is roughly constant (slopes 1.71 and 1.47 kJ/mol); x = 0.75 may lie near the organic-rich phase boundary.
+
+# Candidate additions found during stage 1, pending a decision.
+candidate_additions:
+  - system: N-methylformamide + o-toluidine (308.15 K)
+    a: CNC=O
+    b: Cc1ccccc1N
+    note: >-
+      Closes the N-H amide gap. ThermoML (10.1016/j.tca.2011.06.020) has 18
+      enthalpy points (-0.41 / -0.76 / -0.61 kJ/mol at x = 0.22 / 0.52 / 0.77)
+      and 18 densities at 308.15 K, all with uncertainties, plus same-paper pure
+      densities; strongly single-phase. Costs 5 extra boxes at 308.15 K (3
+      mixtures plus N-methylformamide and o-toluidine pure boxes) and needs our
+      own Sage replicates, as there are no published Sage errors. Single
+      research group; worth a cross-check against an independent source.
+  - system: N-methylformamide + tetrahydropyran (308.15 K)
+    a: CNC=O
+    b: C1CCOCC1
+    note: >-
+      Same paper, +0.32 kJ/mol at equimolar: below the 0.4 kJ/mol signal floor.
+  - system: N-methylformamide + 2-chlorotoluene (308.15 K)
+    a: CNC=O
+    b: Cc1ccccc1Cl
+    note: >-
+      ThermoML 10.1016/j.jct.2013.12.006, +0.49 kJ/mol at equimolar, 18 points
+      of each property with uncertainties. Same research group.
+
+reserves:
+  - pyrrole + benzene
+  - cyclohexane + benzene
+  - methyl pentanoate + methanol
+  - NMP + 1,4-dichlorobutane
+  - isooctane + 1-propanol
+  - propyl acetate + 1,2-dichloroethane

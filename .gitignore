@@ -1,0 +1,10 @@
+.pixi/
+__pycache__/
+*.egg-info/
+*.log
+*.zip
+# Large outputs: the S3 zip is the source of truth for the boxes, and the Sage
+# runs are kept locally only.
+data/binary_mixtures/
+data/sage_runs/
+data/superseded/

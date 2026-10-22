@@ -1,0 +1,62 @@
+# Two environments, so the conda-only OpenFF stack never has to solve against
+# ml-peg's PyPI dependencies:
+# - openff: build the boxes and run the Sage reference (no ml-peg needed).
+# - analysis: system selection, the report and the Sage summary, which share
+#   estimators with the ml-peg analysis and so import ml-peg.
+[workspace]
+name = "liquid-mixtures-inputs"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.12.*"
+
+[pypi-dependencies]
+liquid-mixtures-inputs = { path = ".", editable = true }
+
+[feature.openff.system-requirements]
+cuda = "12"
+
+[feature.openff.dependencies]
+openff-toolkit-base = ">=0.16"
+openff-interchange-base = ">=0.4"
+openff-nagl = ">=0.5"
+openff-nagl-models = ">=0.3"
+openff-forcefields = ">=2024.09.0"
+rdkit = "*"
+openmm = ">=8.2"
+cuda-version = "12.*"
+packmol = "*"
+ase = "*"
+numpy = "*"
+pandas = "*"
+pyyaml = "*"
+matplotlib-base = "*"
+
+[feature.openff.tasks]
+build-boxes = "python -m liquid_mixtures_inputs.build_boxes"
+run-sage = "python -m liquid_mixtures_inputs.run_sage_benchmark"
+
+# ml-peg's binary_mixtures analysis code (branch add-liquid-mixture-properties)
+# is not on GitHub yet, so it is installed from a local checkout next to this
+# repo. Switch to a pinned git rev once it is pushed.
+[feature.analysis.pypi-dependencies]
+ml-peg = { path = "../ml-peg", editable = true }
+# From PyPI rather than conda: molify (an ml-peg dependency) requires the PyPI
+# rdkit, and two copies would conflict.
+rdkit = "*"
+pyyaml = "*"
+pre-commit = "*"
+
+# Mirrors ml-peg's [tool.uv] constraint-dependencies, which pixi does not read.
+[feature.analysis.pypi-options.dependency-overrides]
+pymatgen-core = "<2026.7.24"
+
+[feature.analysis.tasks]
+select = "python -m liquid_mixtures_inputs.select_systems"
+summarise-sage = "python -m liquid_mixtures_inputs.summarise_sage"
+test = "pytest"
+
+[environments]
+openff = { features = ["openff"] }
+analysis = { features = ["analysis"] }
