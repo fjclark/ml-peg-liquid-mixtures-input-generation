@@ -35,6 +35,7 @@ from scipy import stats  # noqa: E402
 
 from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (  # noqa: E402
     MIN_N_EFF,
+    N_BLOCKS,
     box_result,
     frame_checks,
     holm,
@@ -1337,17 +1338,41 @@ def write_report(out: Path, header, runs, summary, finite, flags, start) -> None
         "",
         "## Convergence",
         "",
-        f"- Correlation time of h (production / n_eff): median "
-        f"{runs.h_tau_ps.median():.1f} ps; minimum n_eff {runs.h_n_eff.min():.0f} "
-        f"(below {MIN_N_EFF}: {int((runs.h_n_eff < MIN_N_EFF).sum())} runs).",
-        "- Block-average sem / autocorrelation sem: median "
-        f"{runs.h_block_ratio.median():.2f} (h), "
-        f"{runs.density_block_ratio.median():.2f} (density).",
-        "- Density shift of the first production block (200–400 ps) relative to the "
-        f"rest: median {runs.density_first_block_shift.abs().median():.5f}, max "
-        f"{runs.density_first_block_shift.abs().max():.5f} g/mL.",
-        f"- Drift and half-split tests flagged after Holm correction (p < {FLAG_P}): "
-        f"{len(flags)}.",
+        f"Each run discards {EQUILIBRATION_PS:.0f} ps of equilibration and keeps "
+        f"{PRODUCTION_PS:.0f} ps of production. h is the enthalpy per molecule, "
+        "(E_pot + pV) / N in kJ/mol. The block tests split production into "
+        f"{N_BLOCKS} blocks of {PRODUCTION_PS / N_BLOCKS:.0f} ps.",
+        "",
+        "- **Number of independent samples.** The autocorrelation estimator gives "
+        "n_eff, the number of effectively independent samples of h in a run; "
+        "production time / n_eff is the correlation time, how long h takes to "
+        f"decorrelate. Median n_eff {runs.h_n_eff.median():.0f} (correlation time "
+        f"{runs.h_tau_ps.median():.1f} ps), minimum {runs.h_n_eff.min():.0f}. "
+        f"{int((runs.h_n_eff < MIN_N_EFF).sum())} runs fall below the ml-peg minimum "
+        f"of {MIN_N_EFF}, where the standard error is less reliable.",
+        "- **Cross-check of the standard error.** A second, independent sem comes "
+        f"from the scatter of the {N_BLOCKS} block means (SD / √{N_BLOCKS}). Its "
+        "ratio to the autocorrelation sem should be about 1; well above 1 would mean "
+        "slow correlations the autocorrelation estimator missed, so the reported sem "
+        f"is too small. Median ratio {runs.h_block_ratio.median():.2f} (h), "
+        f"{runs.density_block_ratio.median():.2f} (density). With only {N_BLOCKS} "
+        "blocks, single-run ratios scatter by about "
+        f"±{1 / np.sqrt(2 * (N_BLOCKS - 1)):.0%}, so only the median is meaningful.",
+        "- **Equilibration length.** If equilibration were too short, the density "
+        "would still be relaxing in the first production block "
+        f"({EQUILIBRATION_PS:.0f}–{EQUILIBRATION_PS + PRODUCTION_PS / N_BLOCKS:.0f} "
+        "ps). Mean density of that block minus the mean of the rest of the run: "
+        f"median |shift| {runs.density_first_block_shift.abs().median():.4f} g/mL, "
+        f"max {runs.density_first_block_shift.abs().max():.4f} g/mL. "
+        f"{int((runs.density_first_block_shift.abs() > EARLY_SHIFT).sum())} runs "
+        f"exceed {EARLY_SHIFT} g/mL (listed under systems to inspect).",
+        "- **Trends within a run.** Two tests on the block means of h and density: "
+        "drift (linear fit of block mean against time, testing for a nonzero slope) "
+        f"and half-split (t-test of the first {N_BLOCKS // 2} blocks against the "
+        f"last {N_BLOCKS // 2}). Over {4 * len(runs)} tests (runs × 2 observables "
+        f"× 2 tests), about {4 * len(runs) * FLAG_P:.0f} would reach p < {FLAG_P} "
+        "by chance, so p-values are Holm-corrected, which keeps the chance of any "
+        f"false flag at {FLAG_P}. Tests flagged after correction: {len(flags)}.",
         "",
         *[f"  - {f}" for _, f in flags],
         "",

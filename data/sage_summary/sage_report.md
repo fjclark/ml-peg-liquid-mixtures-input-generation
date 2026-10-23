@@ -264,10 +264,12 @@ Matched points within |Δx| ≤ 0.02: 52. The nearest published value is shifted
 
 ## Convergence
 
-- Correlation time of h (production / n_eff): median 3.6 ps; minimum n_eff 39 (below 100: 9 runs).
-- Block-average sem / autocorrelation sem: median 1.00 (h), 0.95 (density).
-- Density shift of the first production block (200–400 ps) relative to the rest: median 0.00169, max 0.01166 g/mL.
-- Drift and half-split tests flagged after Holm correction (p < 0.05): 0.
+Each run discards 200 ps of equilibration and keeps 2000 ps of production. h is the enthalpy per molecule, (E_pot + pV) / N in kJ/mol. The block tests split production into 10 blocks of 200 ps.
+
+- **Number of independent samples.** The autocorrelation estimator gives n_eff, the number of effectively independent samples of h in a run; production time / n_eff is the correlation time, how long h takes to decorrelate. Median n_eff 548 (correlation time 3.6 ps), minimum 39. 9 runs fall below the ml-peg minimum of 100, where the standard error is less reliable.
+- **Cross-check of the standard error.** A second, independent sem comes from the scatter of the 10 block means (SD / √10). Its ratio to the autocorrelation sem should be about 1; well above 1 would mean slow correlations the autocorrelation estimator missed, so the reported sem is too small. Median ratio 1.00 (h), 0.95 (density). With only 10 blocks, single-run ratios scatter by about ±24%, so only the median is meaningful.
+- **Equilibration length.** If equilibration were too short, the density would still be relaxing in the first production block (200–400 ps). Mean density of that block minus the mean of the rest of the run: median |shift| 0.0017 g/mL, max 0.0117 g/mL. 13 runs exceed 0.005 g/mL (listed under systems to inspect).
+- **Trends within a run.** Two tests on the block means of h and density: drift (linear fit of block mean against time, testing for a nonzero slope) and half-split (t-test of the first 5 blocks against the last 5). Over 1280 tests (runs × 2 observables × 2 tests), about 64 would reach p < 0.05 by chance, so p-values are Holm-corrected, which keeps the chance of any false flag at 0.05. Tests flagged after correction: 0.
 
 
 ### Start dependence (replicate 0 vs re-packed replicates)
