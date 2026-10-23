@@ -85,7 +85,7 @@ The H^E-linearity test flags systems whose enthalpies are consistent with a stra
 | 1 | pyrrole + pyridine | 298.15 | -1.77 / -2.65 / -1.62 | -0.00 / 0.07 / 0.10 | pass | N-H···N hydrogen bond between an aromatic donor and acceptor |
 | 2 | methanol + water | 298.15 | -0.80 / -0.78 / -0.58 | -0.62 / -1.00 / -0.81 | exception. Fails: composition mismatch; missing pure density with uncertainty. The rc2 density and ΔHmix compositions differ by up to \|Δx\| = 0.06 (limit 0.05), and no data set gives water's pure density with an uncertainty. Kept because it is the aqueous calibration system (smallest Sage repeat spread in the pool) and both failures are artefacts of the screening data: the full ThermoML isotherms have a density within \|Δx\| ≤ 0.002 of every box composition, and water's pure density comes from [IAPWS-95](https://doi.org/10.1063/1.1461829). | alcohol-water hydrogen-bond network |
 | 3 | water + pyridine | 303.15 | -1.13 / -1.28 / -1.10 | – / – / – | exception. Fails: not in the screened pool. Not in the Sage training or validation sets; the data come from the recommended fast-converging list. Screened, it would fail the entry filter (3 ΔHmix points but no mixture densities) and both no Sage repeat SD filters (no pyridine + water rows in the [rc2 benchmark outputs](https://github.com/openforcefield/ash-sage-rc2/tree/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output)). The ΔHmix data are also at 303.15 K, outside the 297.0–299.5 K window (the [ThermoML record](https://trc.nist.gov/ThermoML/10.1021/je2002495.json) stores 298.15 K, but the [paper's title](https://doi.org/10.1021/je2002495) gives 303.15 K). Kept because it is the only aromatic-water system available. It is scored on ΔHmix only (unless ThermoML provides a 303.15 K mixture density), and our own Sage replicates replace the missing repeat SDs for MAZE. | aromatic nitrogen-water hydrogen bonding |
-| 4 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 298.15 | -0.82 / -1.26 / -0.85 | -0.09 / -0.12 / -0.08 | exception. Fails: composition mismatch. The 3-point rc2 subsets miss the composition-match limit by a hair (\|Δx\| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove the mismatch (largest box \|Δx\| = 0.047), and the system widens the exothermic range and is the only one with chlorine. | tertiary amide with a chloroalkane (C-H···O=C, dipolar) |
+| 4 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 298.15 | -0.82 / -1.26 / -0.74 | -0.08 / -0.12 / -0.07 | exception. Fails: composition mismatch. The 3-point rc2 subsets miss the composition-match limit by a hair (\|Δx\| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove the mismatch (largest box \|Δx\| = 0.006), and the system widens the exothermic range and is the only one with chlorine. | tertiary amide with a chloroalkane (C-H···O=C, dipolar) |
 | 5 | 2-(dimethylamino)ethanol + methanol | 298.15 | -0.80 / -0.87 / -0.53 | -0.90 / -1.05 / -0.57 | pass | amino-alcohol with an alcohol (O-H···N and O-H···O) |
 | 6 | acetone + N-methylaniline | 298.15 | -0.50 / -0.67 / -0.53 | -0.45 / -0.73 / -0.67 | pass | aromatic N-H donor with a ketone acceptor |
 | 7 | methyl pentanoate + octane | 298.15 | 0.77 / 1.05 / 0.79 | 0.50 / 0.62 / 0.47 | pass | dilution of ester dipoles in an alkane |
@@ -131,7 +131,7 @@ V^E diversity was not a selection criterion. Sign at the three box compositions:
 
 Boxes have edge ≥ 25.0 Å, ≥ 100 molecules and ≥ 20 minority molecules, with x within 0.01 of the measured composition. Evaluator, by comparison, uses a fixed total (1000 molecules for Sage), rounds x·N per component and only requires at least one molecule of each, so at the compositions used here its minority counts are about 200 or more.
 
-Mixture boxes: 1144–2470 atoms (median 1495); total 62760 atoms across 39 boxes. Constraint that sets the size: edge 25, total 14.
+Mixture boxes: 1104–2470 atoms (median 1495); total 62744 atoms across 39 boxes. Constraint that sets the size: edge 25, total 14.
 
 | System | x (box) | Molecules a / b | Total | Atoms | Edge (Å) | Set by |
 |---|---|---|---|---|---|---|
@@ -144,9 +144,9 @@ Mixture boxes: 1144–2470 atoms (median 1495); total 62760 atoms across 39 boxe
 | water + pyridine | 0.296 | 45 / 107 | 152 | 1312 | 25.1 | edge |
 | water + pyridine | 0.495 | 94 / 96 | 190 | 1338 | 25.0 | edge |
 | water + pyridine | 0.700 | 180 / 77 | 257 | 1387 | 25.0 | edge |
-| N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.254 | 29 / 85 | 114 | 1144 | 25.0 | edge |
+| N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.200 | 23 / 92 | 115 | 1104 | 25.0 | edge |
 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.500 | 54 / 54 | 108 | 1296 | 25.1 | edge |
-| N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.740 | 77 / 27 | 104 | 1448 | 25.1 | edge |
+| N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.804 | 82 / 20 | 102 | 1472 | 25.1 | edge |
 | 2-(dimethylamino)ethanol + methanol | 0.247 | 41 / 125 | 166 | 1447 | 25.0 | edge |
 | 2-(dimethylamino)ethanol + methanol | 0.500 | 65 / 65 | 130 | 1495 | 25.1 | edge |
 | 2-(dimethylamino)ethanol + methanol | 0.750 | 81 / 27 | 108 | 1539 | 25.0 | edge |
@@ -288,17 +288,17 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **Interaction:** tertiary amide with a chloroalkane (C-H···O=C, dipolar)
 - **Rationale:** Widens the exothermic range (-1.26 kJ/mol) and covers chlorine. Both pure densities are already in [ml-peg](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/liquid_densities).
 - **Miscibility:** Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-- **Filter exception:** The 3-point rc2 subsets miss the composition-match limit by a hair (|Δx| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove the mismatch (largest box |Δx| = 0.047), and the system widens the exothermic range and is the only one with chlorine.
+- **Filter exception:** The 3-point rc2 subsets miss the composition-match limit by a hair (|Δx| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove the mismatch (largest box |Δx| = 0.006), and the system widens the exothermic range and is the only one with chlorine.
 - **Failed filters:** composition mismatch
-- **ΔHmix data:** 26 points from 10.1021/je020065c (15), 10.1016/j.jct.2008.01.024 (11)
+- **ΔHmix data:** 11 points from 10.1016/j.jct.2008.01.024 (11)
 - **Density data:** 9 points from 10.1021/je7003758 (9)
-- **Single-phase evidence:** ΔHmix measured at 26 compositions spanning x = 0.04–0.96; straight-line fit reduced χ² = 714 (a two-phase region would give ≈ 1).
+- **Single-phase evidence:** ΔHmix measured at 11 compositions spanning x = 0.06–0.96; straight-line fit reduced χ² = 790 (a two-phase region would give ≈ 1).
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
-| 0.254 | 29 / 85 | 1144 | 25.0 | -0.815 ± 0.0152 | 1.1831 ± 0.00025 | -0.094 |
+| 0.200 | 23 / 92 | 1104 | 25.0 | -0.817 ± 0.0050 | 1.1960 ± 0.00025 | -0.076 |
 | 0.500 | 54 / 54 | 1296 | 25.1 | -1.264 ± 0.0055 | 1.1278 ± 0.00020 | -0.120 |
-| 0.740 | 77 / 27 | 1448 | 25.1 | -0.849 ± 0.0160 | 1.0777 ± 0.00020 | -0.085 |
+| 0.804 | 82 / 20 | 1472 | 25.1 | -0.735 ± 0.0045 | 1.0652 ± 0.00015 | -0.072 |
 
 ![nmp_dichloroethane](figures/nmp_dichloroethane.png)
 

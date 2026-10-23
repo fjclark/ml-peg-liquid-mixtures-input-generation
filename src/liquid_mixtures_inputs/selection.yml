@@ -71,10 +71,17 @@ systems:
     names: [N-methyl-2-pyrrolidone, "1,2-dichloroethane"]
     temperature: 298.15
     interaction: tertiary amide with a chloroalkane (C-H···O=C, dipolar)
+    # The two ΔHmix papers disagree away from equimolar: 10.1021/je020065c is
+    # 0.15 kJ/mol less exothermic at x ≈ 0.2 (-0.68 vs -0.83) and 0.07 at
+    # x ≈ 0.8 (-0.66 vs -0.73). 10.1016/j.jct.2008.01.024 has the smaller
+    # uncertainties and matches the fit better, so it alone is used, at its
+    # measured points nearest 0.2, 0.5 and 0.8.
+    hmix_dois: [10.1016/j.jct.2008.01.024]
+    target_x: [0.2, 0.5, 0.8]
     exception: >-
       The 3-point rc2 subsets miss the composition-match limit by a hair
       (|Δx| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove
-      the mismatch (largest box |Δx| = 0.047), and the system widens the
+      the mismatch (largest box |Δx| = 0.006), and the system widens the
       exothermic range and is the only one with chlorine.
     rationale: >-
       Widens the exothermic range (-1.26 kJ/mol) and covers chlorine. Both

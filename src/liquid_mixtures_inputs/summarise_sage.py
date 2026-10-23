@@ -52,6 +52,9 @@ START_T = 4.0  # |t| above which replicate 0 is reported as start-dependent
 # uses openff-gnn-am1bcc-0.1.0-rc.3 where we use 1.0.0.
 PUBLISHED_FF = "openff-2.2.1-ashgc"
 PUBLISHED_X_TOLERANCE = 0.02
+# Systems whose σ_Sage is set to the floor: their replicate spread comes from a
+# Sage artefact that a model need not share (see the report's last section).
+SIGMA_SAGE_AT_FLOOR = {"nmp_dichloroethane"}
 # Thresholds for the "systems to inspect" summary
 SIZE_GAP = {"hmix": 0.15, "density": 0.002}  # kJ/mol, g/mL
 EARLY_SHIFT = 0.005  # g/mL
@@ -211,6 +214,8 @@ def pooled_sigma(points: pd.DataFrame, n_replicates: int) -> pd.DataFrame:
     """
     Replicate SD per point, pooled per system and floored at the median.
 
+    Systems in ``SIGMA_SAGE_AT_FLOOR`` get the floor itself.
+
     Parameters
     ----------
     points
@@ -246,9 +251,9 @@ def pooled_sigma(points: pd.DataFrame, n_replicates: int) -> pd.DataFrame:
             lambda s: float(np.sqrt(np.nanmean(s**2)))
         )
         floor = float(np.nanmedian(pooled))
-        summary[f"sigma_sage_{prop}"] = (
-            summary.system_id.map(pooled).clip(lower=floor).round(6)
-        )
+        sigma = summary.system_id.map(pooled).clip(lower=floor)
+        sigma[summary.system_id.isin(SIGMA_SAGE_AT_FLOOR)] = floor
+        summary[f"sigma_sage_{prop}"] = sigma.round(6)
         summary[f"sigma_ref_{prop}"] = np.sqrt(
             summary[f"sigma_sage_{prop}"] ** 2
             + summary[f"{prop}_exp_sigma"].fillna(0.0) ** 2
@@ -1298,7 +1303,10 @@ def write_report(out: Path, header, runs, summary, finite, flags, start) -> None
         "per-mixture weight: without the floor, the mixtures where Sage happens to "
         "sample most quietly would dominate MAZE, although an MLIP's noise there "
         "need not be as small. With the floor, mixtures are weighted roughly "
-        "evenly and MAZE stays close to the MAE divided by a single σ.",
+        "evenly and MAZE stays close to the MAE divided by a single σ. "
+        "Exception: σ_Sage of "
+        f"{', '.join(sorted(SIGMA_SAGE_AT_FLOOR))} is set to the floor, as its "
+        "Sage spread comes from a force-field artefact (see the last section).",
         "",
         "![replicate spread](figures/replicate_spread.png)",
         "",
@@ -1391,6 +1399,27 @@ def write_report(out: Path, header, runs, summary, finite, flags, start) -> None
         "",
         "Plots: `figures/convergence/<box>.png`, `figures/systems/<system>.png` and "
         "`figures/replicates/<box>.png` (flagged boxes only).",
+        "",
+        "## Why NMP + 1,2-dichloroethane was kept",
+        "",
+        "In Sage the Cl-C-C-Cl torsion of 1,2-dichloroethane (DCE) relaxes "
+        "slowly. In the earlier x = 0.254 and 0.740 boxes, only about 5 % of DCE "
+        "molecules switched between trans and gauche from one 100 ps frame to the "
+        "next (about 50 % if uncorrelated), a relaxation time of about 0.9 ns. With "
+        "20 to 30 DCE molecules in the DCE-poor box, a 2 ns run samples this "
+        "poorly, so the replicates scatter more than their within-run errors. The "
+        "cause is Sage's barrier. In relaxed gas-phase scans (below; energies "
+        "relative to ±165°), the gauche/trans energy gap agrees with the "
+        "MACE-OFF (M) reference, but the trans→gauche barrier is about 6 kJ/mol "
+        "higher (24.4 vs 18.2 kJ/mol above trans; Sage 2.3.0 is 1 kJ/mol higher "
+        "still). That makes Sage's isomerisation roughly 12× too slow. A model "
+        "with a reference-like barrier should relax in about 70 ps, inside the "
+        f"{EQUILIBRATION_PS:.0f} ps equilibration, and sample many flips per run, "
+        "so the system is a fair test for MLIPs and was kept. Its σ_Sage is set to "
+        "the floor (see the MAZE denominator section) so that Sage's slow sampling "
+        "does not loosen the MAZE denominator.",
+        "",
+        "![DCE torsion scan](figures/dce_torsion_scan.png)",
     ]
     (out / "sage_report.md").write_text("\n".join(lines) + "\n")
 

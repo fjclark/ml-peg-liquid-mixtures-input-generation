@@ -981,6 +981,9 @@ def build_system(
     )
 
     hmix = sorted((p for p in mixture if p.prop == "hmix"), key=lambda p: p.x)
+    # Restrict ΔHmix to chosen papers where the sources disagree.
+    if spec.get("hmix_dois"):
+        hmix = [p for p in hmix if p.doi in spec["hmix_dois"]]
     all_dens = sorted((p for p in mixture if p.prop == "density"), key=lambda p: p.x)
     dens = [p for p in all_dens if p.sigma is None or p.sigma <= MAX_DENSITY_SIGMA]
     noisy_density = Counter(p.doi for p in all_dens if p not in dens)
@@ -1057,9 +1060,10 @@ def build_system(
     hmix_fit = fit(hmix, 1e-3)
     vex_fit = fit(vex, 1e-3)
 
-    # Target compositions: measured enthalpy points nearest 0.25, 0.5 and 0.75.
+    # Target compositions: measured enthalpy points nearest 0.25, 0.5 and 0.75,
+    # unless the system sets its own.
     targets = []
-    for goal in (0.25, 0.5, 0.75):
+    for goal in spec.get("target_x", (0.25, 0.5, 0.75)):
         if hmix:
             nearest = min(hmix, key=lambda p: abs(p.x - goal))
             if abs(nearest.x - goal) <= 0.1 and nearest not in targets:

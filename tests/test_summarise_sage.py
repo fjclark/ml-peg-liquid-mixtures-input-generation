@@ -12,6 +12,7 @@ from liquid_mixtures_inputs.summarise_sage import (
     SIZE_GAP,
     finite_size_check,
     mixture_points,
+    pooled_sigma,
     within_between,
 )
 from ml_peg.analysis.utils.timeseries import estimate_mean
@@ -252,3 +253,44 @@ def test_finite_size_check_corrects_composition_offset():
     assert finite[finite.prop == "hmix"]["diff"].abs().max() < 5e-3
     raw_gap = (density.ours - density.published_nearest).abs().max()
     assert raw_gap > SIZE_GAP["density"]
+
+
+def test_pooled_sigma_floor_exception():
+    """Listed systems get the floor even when their own spread is larger."""
+    rng = np.random.default_rng(0)
+    rows = []
+    for system_id, scale in (
+        ("quiet", 0.05),
+        ("noisy", 0.1),
+        ("nmp_dichloroethane", 0.5),
+    ):
+        for replicate in range(5):
+            value = scale * rng.standard_normal()
+            rows.append(
+                {
+                    "system_id": system_id,
+                    "box_id": f"{system_id}_x500",
+                    "x": 0.5,
+                    "replicate": replicate,
+                    "hmix": value,
+                    "hmix_sigma_run": 0.01,
+                    "density": 1.0 + value / 100,
+                    "vex": 0.0,
+                    "hmix_exp": 0.0,
+                    "hmix_exp_sigma": 0.0,
+                    "density_exp": 1.0,
+                    "density_exp_sigma": 0.0,
+                    "vex_exp": 0.0,
+                }
+            )
+    summary = pooled_sigma(pd.DataFrame(rows), 5).set_index("system_id")
+    for prop in ("hmix", "density"):
+        sd = summary[f"{prop}_sd"]
+        floor = float(np.median(sd))
+        assert summary.loc["nmp_dichloroethane", f"sigma_sage_{prop}"] == (
+            pytest.approx(floor, abs=1e-6)
+        )
+        assert sd["nmp_dichloroethane"] > floor
+        assert summary.loc["quiet", f"sigma_sage_{prop}"] == pytest.approx(
+            floor, abs=1e-6
+        )
