@@ -26,11 +26,11 @@ systems:
     exception: >-
       Aqueous exception to rules 1 and 2. The rc2 density and enthalpy
       compositions differ by 0.06 in x (full ThermoML isotherms remove the
-      mismatch), and water's pure density comes from IAPWS-95.
+      mismatch), and water's pure density comes from [IAPWS-95](https://doi.org/10.1063/1.1461829).
     rationale: >-
       Smallest Sage repeat spread in the pool (0.03 kJ/mol), so it calibrates
       the noise of the protocol. Methanol and water pure densities are already
-      scored in ml-peg and are not re-scored.
+      scored in [ml-peg](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/liquid_densities) and are not re-scored.
     miscibility: >-
       Miscible in all proportions.
 
@@ -45,9 +45,14 @@ systems:
     # state the enthalpies were measured at 303.15 K.
     temperature_corrections: {10.1021/je2002495: 303.15}
     exception: >-
-      Aqueous exception: the only data are at 303.15 K and there are no
-      published Sage repeat errors. Enthalpy only unless ThermoML provides a
-      303.15 K mixture density. MAZE uses our own Sage replicates.
+      Aqueous exception: the only data are at 303.15 K (the
+      [ThermoML record](https://trc.nist.gov/ThermoML/10.1021/je2002495.json)
+      stores 298.15 K, but the [paper's title](https://doi.org/10.1021/je2002495)
+      gives 303.15 K) and there are no published Sage repeat errors (no
+      pyridine + water rows in the
+      [rc2 benchmark outputs](https://github.com/openforcefield/ash-sage-rc2/tree/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output)).
+      Enthalpy only unless ThermoML provides a 303.15 K mixture density. MAZE
+      uses our own Sage replicates.
     rationale: Only aromatic-water system available; relevant to biomolecular recognition.
     miscibility: >-
       Miscible in all proportions at 303 K (enthalpies measured across x = 0.1–0.9).
@@ -63,7 +68,7 @@ systems:
       The full ThermoML isotherms remove the mismatch.
     rationale: >-
       Widens the exothermic range (-1.26 kJ/mol) and covers chlorine. Both
-      pure densities are already in ml-peg.
+      pure densities are already in [ml-peg](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/liquid_densities).
     miscibility: >-
       Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
 
@@ -105,7 +110,7 @@ systems:
     interaction: alcohol self-association broken by an aromatic (O-H···π)
     rationale: >-
       Alcohol dilution case that also probes O-H···π, replacing isooctane +
-      1-propanol. Both pure densities are already in ml-peg.
+      1-propanol. Both pure densities are already in [ml-peg](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/liquid_densities).
     miscibility: >-
       Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
 
@@ -191,24 +196,32 @@ dropped:
     a: O=C1CCCN1
     b: O
     reason: >-
-      Viscous lactam that melts at ~25 °C. The Sage data use the imidic acid
-      tautomer (OC1=NCCC1), so there is no valid Sage repeat SD, and the
-      experimental enthalpy uncertainties are a flat 25 % placeholder.
+      Viscous lactam that melts at ~25 °C
+      ([PubChem](https://pubchem.ncbi.nlm.nih.gov/compound/12025#section=Melting-Point)).
+      The Sage data sets and benchmarks encode it as the imidic acid tautomer
+      OC1=NCCC1 (e.g. [Sage 2.0 training set](https://github.com/openforcefield/openff-sage/blob/a6a061ba8ebc144e3fda46f5f7a9e7a352b9cd2f/data-set-curation/physical-property/optimizations/data-sets/sage-train-v1.csv?plain=1#L145),
+      [rc2 training set](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/training-set.csv?plain=1#L769),
+      [rc2 benchmark, openff-2.0.0](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1#L2843)), so the published Sage
+      repeat SDs are for a different molecule. The rc2 enthalpy uncertainties
+      are a flat 25 % placeholder (σ = 0.1695 for ΔHmix = -0.678 kJ/mol,
+      [same rc2 row](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/training-set.csv?plain=1#L769)).
   - system: piperidine + water
     a: C1CCNCC1
     b: O
     reason: >-
       Dropped after the Sage reference run (2026-10-20). Nitrogen inversion is
       frozen in Sage (no axial/equatorial N-H interconversion in 2.2 ns, or in
-      a 500 K anneal), and the real barrier (~25 kJ/mol) suggests ns lifetimes
-      for MLIPs too, so ΔHmix depended on the starting N-H orientation by
-      ~0.3 kJ/mol. It also showed the largest box-size gap against the
-      published 1000-molecule Sage run (-0.35 kJ/mol at x = 0.25) and is
-      microheterogeneous for x between 0.08 and 0.5 (arXiv:2203.01224).
+      a 500 K anneal), and the real barrier (ΔG‡ = 6.1 kcal/mol ≈ 25 kJ/mol,
+      [Anet and Yavari 1977](https://doi.org/10.1021/ja00450a064)) suggests ns
+      lifetimes for MLIPs too, so ΔHmix depended on the starting N-H
+      orientation by ~0.3 kJ/mol. It also showed the largest box-size gap
+      against the published 1000-molecule Sage run (-0.35 kJ/mol at x = 0.25;
+      [published openff-2.2.1 value](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1#L4806)) and is microheterogeneous
+      for x between 0.08 and 0.5 ([arXiv:2203.01224](https://arxiv.org/abs/2203.01224)).
   - system: ethanol + water
     a: CCO
     b: O
-    reason: Already covered by the ethanol_water_density benchmark.
+    reason: Already covered by the [ethanol_water_density](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/ethanol_water_density) benchmark.
   - system: pyrrole + benzene
     a: c1cc[nH]c1
     b: c1ccccc1
@@ -232,17 +245,17 @@ two_phase_fast_set:
     b: O
     names: [acetophenone, water]
     lle: >-
-      Aqueous solubility is about 6 g/L at 25 °C (x ≈ 0.001), and the H^E slopes between x = 0.2, 0.5 and 0.8 are identical (0.677 and 0.671 kJ/mol), the lever-rule signature. The water content of the organic-rich phase was not found; confirm against the IUPAC-NIST Solubility Data Series.
+      Aqueous solubility is 6.13 g/L at 25 °C (x ≈ 0.001; Southworth and Keller 1986, via [PubChem](https://pubchem.ncbi.nlm.nih.gov/compound/7410#section=Solubility)), and the H^E slopes between x = 0.2, 0.5 and 0.8 are identical (0.677 and 0.671 kJ/mol), the lever-rule signature. The water content of the organic-rich phase was not found; confirm against the IUPAC-NIST Solubility Data Series.
   - a: CC(=O)CC(C)=O
     b: O
     names: [acetylacetone, water]
     lle: >-
-      Binary mutual solubilities in ThermoML (10.1016/j.fluid.2010.11.029): at 298.15 K the aqueous phase holds an acetylacetone mass fraction of 0.158 (x ≈ 0.033), and the organic phase holds 3–6 wt% water between 288 and 313 K (x(acetylacetone) ≈ 0.75–0.85). The measured compositions (x = 0.2–0.75) are therefore two-phase.
+      Binary mutual solubilities in ThermoML ([10.1016/j.fluid.2010.11.029](https://trc.nist.gov/ThermoML/10.1016/j.fluid.2010.11.029.json)): at 298.15 K the aqueous phase holds an acetylacetone mass fraction of 0.158 (x ≈ 0.033), and the organic phase holds 3–6 wt% water between 288 and 313 K (x(acetylacetone) ≈ 0.75–0.85). The measured compositions (x = 0.2–0.75) are therefore two-phase.
   - a: CCOC(=O)CC(C)=O
     b: O
     names: [ethyl acetoacetate, water]
     lle: >-
-      Aqueous solubility is of order 3 g/100 mL near room temperature (x ≈ 0.004; handbook value, not yet verified against a primary source). H^E/x is roughly constant (slopes 1.71 and 1.47 kJ/mol); x = 0.75 may lie near the organic-rich phase boundary.
+      Aqueous solubility is 2.86 g/100 mL at 20 °C (x ≈ 0.004; ICSC, via [PubChem](https://pubchem.ncbi.nlm.nih.gov/compound/8868#section=Solubility)). PubChem also lists 110 g/L at 17 °C (AQUASOL, x ≈ 0.016); the sources disagree and no primary measurement was checked, but either value puts x = 0.2 inside the two-phase region. H^E/x is roughly constant (slopes 1.71 and 1.47 kJ/mol); x = 0.75 may lie near the organic-rich phase boundary.
 
 # Candidate additions found during stage 1, pending a decision.
 candidate_additions:
@@ -250,7 +263,7 @@ candidate_additions:
     a: CNC=O
     b: Cc1ccccc1N
     note: >-
-      Closes the N-H amide gap. ThermoML (10.1016/j.tca.2011.06.020) has 18
+      Closes the N-H amide gap. ThermoML ([10.1016/j.tca.2011.06.020](https://trc.nist.gov/ThermoML/10.1016/j.tca.2011.06.020.json)) has 18
       enthalpy points (-0.41 / -0.76 / -0.61 kJ/mol at x = 0.22 / 0.52 / 0.77)
       and 18 densities at 308.15 K, all with uncertainties, plus same-paper pure
       densities; strongly single-phase. Costs 5 extra boxes at 308.15 K (3
@@ -266,7 +279,7 @@ candidate_additions:
     a: CNC=O
     b: Cc1ccccc1Cl
     note: >-
-      ThermoML 10.1016/j.jct.2013.12.006, +0.49 kJ/mol at equimolar, 18 points
+      ThermoML [10.1016/j.jct.2013.12.006](https://trc.nist.gov/ThermoML/10.1016/j.jct.2013.12.006.json), +0.49 kJ/mol at equimolar, 18 points
       of each property with uncertainties. Same research group.
 
 reserves:

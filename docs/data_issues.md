@@ -45,8 +45,8 @@ have a 298.15 K pure density in the Sage sets. 17 of them differ by more than
 - The four within 0.002 g/mL are 1,3-dioxolane, ethyl acetate, hexane and pyridine.
   Pyridine's two Sage values themselves disagree (see 2.3), and its ml-peg value
   (0.9819) is the 20 °C handbook value.
-- **Water:** ml-peg uses 0.998 at 298 K. That is the 20 °C value (0.99820); IAPWS-95
-  gives 0.99705 at 298.15 K.
+- **Water:** ml-peg uses 0.998 at 298 K. That is the 20 °C value (0.99820);
+  [IAPWS-95](https://doi.org/10.1063/1.1461829) gives 0.99705 at 298.15 K.
 - **Known 20 °C handbook values:** methanol 0.7914, ethanol 0.7893, benzene 0.8765 and
   toluene 0.8668 match common 20 °C handbook values exactly.
 - **Caveats:**
@@ -93,10 +93,10 @@ against ThermoML.
 
 - **Error:** 2-pyrrolidone appears as `OC1=NCCC1` (the imidic acid) instead of
   `O=C1CCCN1` in:
-  - the Sage 2.0 training set (31 rows);
-  - the rc2 training set (30 rows);
-  - the rc2 validation set (1 row);
-  - the rc2 benchmark outputs (`04_benchmark`).
+  - the Sage 2.0 training set (31 rows, e.g. [line 145](https://github.com/openforcefield/openff-sage/blob/a6a061ba8ebc144e3fda46f5f7a9e7a352b9cd2f/data-set-curation/physical-property/optimizations/data-sets/sage-train-v1.csv?plain=1#L145));
+  - the rc2 training set (30 rows, e.g. [line 769](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/training-set.csv?plain=1#L769));
+  - the rc2 validation set (1 row, [line 45](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/validation-set.csv?plain=1#L45));
+  - the rc2 benchmark outputs (`04_benchmark`, e.g. [line 2843](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1#L2843)).
 - **Consequence:** the force field was fitted to, and benchmarked on, a different
   molecule, so the published Sage errors and replicate SDs for 2-pyrrolidone systems are
   not meaningful.
@@ -109,10 +109,12 @@ against ThermoML.
 
 ### 2.2 Pyridine + water ΔHmix temperature mislabelled (verified)
 
-- **Error:** the ThermoML record for 10.1021/je2002495 stores its ΔHmix at 298.15 K,
-  but the paper's title and abstract say 303.15 K.
+- **Error:** the [ThermoML record](https://trc.nist.gov/ThermoML/10.1021/je2002495.json)
+  for 10.1021/je2002495 stores its ΔHmix at 298.15 K, but the
+  [paper's](https://doi.org/10.1021/je2002495) title ("... Enthalpy of Mixing of
+  Pyridine + Water at 303.15 K") and abstract say 303.15 K.
 - **Where it propagates:** the Sage curation, including `dataset-fast-converging.csv`
-  (three points at 298.15 K).
+  (three points at 298.15 K, [lines 14-16](../selection/inputs/dataset-fast-converging.csv)).
 - **Consequence:** any fit or benchmark that used these points compared a 298.15 K
   simulation with 303.15 K data.
 - **Suggested fix:** report it to NIST TRC.
@@ -161,8 +163,10 @@ Mixture densities from 10.1016/j.jct.2005.10.011 (heptane + toluene) also carry
 
 - **Placeholder values:** 10.1016/j.jct.2013.09.015 (2-pyrrolidone + water,
   2-pyrrolidone + pyridine, NMP + pyridine) has ΔHmix uncertainties of exactly 25 % of
-  the value in the Sage 2.0 and rc2 training sets. These are curation placeholders, not
-  measured errors.
+  the value in the rc2 training set (e.g. σ = 0.1695 for ΔHmix = -0.678,
+  [line 769](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/training-set.csv?plain=1#L769)). These are curation placeholders, not measured errors. (The
+  Sage 2.0 training set has no ΔHmix uncertainties at all, e.g.
+  [line 145](https://github.com/openforcefield/openff-sage/blob/a6a061ba8ebc144e3fda46f5f7a9e7a352b9cd2f/data-set-curation/physical-property/optimizations/data-sets/sage-train-v1.csv?plain=1#L145).)
 - **Large but not placeholders:** several other systems have relative uncertainties
   above 15 % because their H^E is close to zero rather than because of placeholders:
   - ester + dibromoalkane systems (10.1016/j.jct.2005.07.009, 10.1016/j.jct.2006.05.004);
@@ -180,9 +184,9 @@ poor fitting targets.
 
 | System | Slopes between the three points | Evidence | Status |
 |---|---|---|---|
-| acetophenone + water | 0.677, 0.671 | Aqueous solubility ≈ 6 g/L at 25 °C (x ≈ 0.001) | Two-phase verified by linearity; organic-rich solubility limit not found |
-| acetylacetone + water | 0.840, 0.867 | ThermoML mutual solubilities (10.1016/j.fluid.2010.11.029): aqueous phase x ≈ 0.033, organic phase x ≈ 0.75–0.85 at 288–313 K | Verified |
-| ethyl acetoacetate + water | 1.710, 1.469 | Aqueous solubility of order 3 g/100 mL (x ≈ 0.004); handbook value | Suspected; x = 0.75 may be single-phase |
+| acetophenone + water | 0.677, 0.671 | Aqueous solubility 6.13 g/L at 25 °C (x ≈ 0.001; Southworth and Keller 1986, via [PubChem](https://pubchem.ncbi.nlm.nih.gov/compound/7410#section=Solubility)) | Two-phase verified by linearity; organic-rich solubility limit not found |
+| acetylacetone + water | 0.840, 0.867 | ThermoML mutual solubilities ([10.1016/j.fluid.2010.11.029](https://trc.nist.gov/ThermoML/10.1016/j.fluid.2010.11.029.json)): aqueous phase x ≈ 0.033, organic phase x ≈ 0.75–0.85 at 288–313 K | Verified |
+| ethyl acetoacetate + water | 1.710, 1.469 | Aqueous solubility 2.86 g/100 mL at 20 °C (x ≈ 0.004; ICSC via [PubChem](https://pubchem.ncbi.nlm.nih.gov/compound/8868#section=Solubility)); PubChem also lists 110 g/L at 17 °C (AQUASOL); no primary source checked | Suspected; x = 0.75 may be single-phase |
 
 ### 2.7 Disagreement between ΔHmix papers (verified)
 
@@ -277,7 +281,8 @@ packmol, followed by 500 ps NVT. Checks on that run:
   without). The v2 start-dependence screen checks every box.
 - **Piperidine + water was dropped** (see `selection.yml`). It also had the largest
   box-size gap against the published 1000-molecule Sage run (ΔHmix −1.09 vs −0.74
-  kJ/mol at x = 0.249, z = −4.8; the median gap over 35 points was 0.07 kJ/mol)
-  and is microheterogeneous for x between 0.08 and 0.5 (arXiv:2203.01224).
+  kJ/mol at x = 0.249, z = −4.8, [published value](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1#L4806); the median gap
+  over 35 points was 0.07 kJ/mol) and is microheterogeneous for x between 0.08 and
+  0.5 ([arXiv:2203.01224](https://arxiv.org/abs/2203.01224)).
 - All boxes were rebuilt with the anneal and the Sage reference run repeated (v2).
   `summarise_sage.py` now reports the replicate-0 start-dependence screen.

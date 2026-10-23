@@ -43,6 +43,24 @@ def _fmt(value, digits: int = 3) -> str:
     return f"{value:.{digits}f}"
 
 
+def _github(raw_url: str) -> str:
+    """
+    Convert a raw GitHub file URL into a line-linkable GitHub page URL.
+
+    Parameters
+    ----------
+    raw_url
+        ``raw.githubusercontent.com`` URL pinned to a commit.
+
+    Returns
+    -------
+    str
+        The ``github.com/.../blob/...?plain=1`` URL for the same file.
+    """
+    repo, path = raw_url.removeprefix(ss.RAW + "/").split("/", 1)
+    return f"https://github.com/openforcefield/{repo}/blob/{path}?plain=1"
+
+
 def _names(system: dict) -> str:
     """
     Return the display name of a system.
@@ -396,7 +414,10 @@ def _hard_filters_section() -> list[str]:
         (
             "two-phase (H^E > RT/2)",
             f"ΔHmix(x≈0.5) ≤ RT/2 = {ss.UCST_LIMIT:.2f} kJ/mol.",
-            "Regular-solution critical value; a conservative screen for an "
+            "Regular-solution critical value: H^E = βx(1 − x) splits into two "
+            "phases below T_c = β/(2R) ([derivation]"
+            "(https://scipython.com/blog/the-miscibility-of-a-regular-solution/)), "
+            "and H^E(0.5) = β/4 = RT/2 at T_c. A conservative screen for an "
             "upper critical solution temperature above 298 K.",
         ),
         (
@@ -414,8 +435,9 @@ def _hard_filters_section() -> list[str]:
         (
             "small signal",
             f"\\|ΔHmix(x≈0.5)\\| ≥ {ss.MIN_SIGNAL} kJ/mol.",
-            "Expected simulation σ is 0.15–0.25 kJ/mol, so smaller values might "
-            "discriminate between models less well.",
+            "Our estimate of the simulation σ is 0.15–0.25 kJ/mol (see "
+            "`DECISIONS.md`), so smaller values might discriminate between "
+            "models less well.",
         ),
     ]
     return [
@@ -491,13 +513,18 @@ def write_report(
         *_hard_filters_section(),
         "## Data sources",
         "",
-        f"- OpenFF Sage 2.0 training set (openff-sage@{ss.SAGE_COMMIT[:7]}): no "
-        "experimental uncertainties.",
-        "- Sage 2.3 refit training and validation sets "
+        "- OpenFF Sage 2.0 training set "
+        f"([openff-sage@{ss.SAGE_COMMIT[:7]}]({_github(ss.SOURCES['sage-2.0-train'])})): "
+        "no experimental uncertainties.",
+        "- Sage 2.3 refit "
+        f"[training]({_github(ss.SOURCES['rc2-train'])}) and "
+        f"[validation]({_github(ss.SOURCES['rc2-validation'])}) sets "
         f"(ash-sage-rc2@{ss.ASH_COMMIT[:7]}): "
         "experimental uncertainties for every point.",
-        "- Published Sage benchmark results (ash-sage-rc2 `04_benchmark`): mean and SD "
-        "over 3 independent replicates for openff-2.0.0, 2.1.0, 2.2.1 and 2.3.0rc1.",
+        "- Published Sage benchmark results (ash-sage-rc2 "
+        f"[`04_benchmark`]({_github(ss.SAGE_BENCHMARKS['training-hmix'])})): mean "
+        "and SD over 3 independent replicates for openff-2.0.0, 2.1.0, 2.2.1 and "
+        "2.3.0rc1.",
         "- Full isotherms and pure densities from the NIST TRC ThermoML archive, "
         "fetched by DOI. ThermoML stores either a standard uncertainty (one "
         "standard deviation) or an expanded uncertainty (a 95 % interval, "
@@ -532,7 +559,9 @@ def write_report(
             if c["linear_two_phase"]
         )
         + ". Large relative uncertainties can hide real curvature, so a flag on data "
-        "with errors of ~25 % (placeholder values in the rc2 sets) is inconclusive "
+        "with errors of ~25 % (placeholder values in the rc2 sets, e.g. "
+        f"[σ = 0.1695 for ΔHmix = -0.678]({_github(ss.SOURCES['rc2-train'])}#L769)) "
+        "is inconclusive "
         "rather than evidence of two phases. Such systems are also rejected by the "
         "relative-uncertainty filter.",
         "",
@@ -641,7 +670,8 @@ def write_report(
     lines += [
         "Each pure density is taken from the paper that supplies most of the mixture "
         "densities, so V^E is self-consistent, unless an explicit reference is given "
-        f"(water from IAPWS-95). Other sources disagreeing by more than "
+        "(water from [IAPWS-95](https://doi.org/10.1063/1.1461829)). Other sources "
+        "disagreeing by more than "
         f"{ss.PURE_DENSITY_TOLERANCE} g/mL are listed.",
         "",
         "| Component | T (K) | ρ (g/mL) | σ | Source | In ml-peg | ml-peg value | "
@@ -666,7 +696,8 @@ def write_report(
         "",
         "Many ml-peg liquid_densities references appear to be measured about 5 K "
         "below their labelled temperature (20 °C values labelled 298 K, 25 °C values "
-        "labelled 303 K), so they are not used here; see `docs/data_issues.md`. "
+        "labelled 303 K), so they are not used here; see "
+        "[`docs/data_issues.md`](../docs/data_issues.md) section 1.1. "
         "Pure densities of components already in ml-peg are simulated (needed for "
         "ΔHmix) but not re-scored.",
         "",
