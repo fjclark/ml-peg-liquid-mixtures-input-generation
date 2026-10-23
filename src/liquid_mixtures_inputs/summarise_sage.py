@@ -34,7 +34,6 @@ import pandas as pd  # noqa: E402
 from scipy import stats  # noqa: E402
 
 from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (  # noqa: E402
-    BIN_PS,
     MIN_N_EFF,
     box_result,
     frame_checks,
@@ -79,7 +78,7 @@ def load_run(task: tuple) -> dict | None:
     n_mol = int(reference.info["n_molecules"])
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
-        result = box_result(prod, n_mol, EQUILIBRATION_PS)
+        result = box_result(prod, n_mol)
     row = {
         "box_id": box["box_id"],
         "replicate": int(csv_path.stem[3:]),
@@ -1076,8 +1075,8 @@ def interpretation(
         "g/mL.",
         "",
         "**Within-run vs between-run uncertainty.** Within-run standard errors "
-        f"come from the autocorrelation (Chodera) estimator on {BIN_PS:.0f} ps bin "
-        "averages. Pooled over all boxes, the SD of the replicate means is "
+        "come from the autocorrelation (Chodera) estimator on every logged "
+        "sample. Pooled over all boxes, the SD of the replicate means is "
         f"{h_ratio:.2f}× the within-run sem for h and {rho_ratio:.2f}× for density "
         f"(1 expected; p = {pooled_box.loc['h', 'p']:.1g} and "
         f"{pooled_box.loc['density', 'p']:.1g}). "

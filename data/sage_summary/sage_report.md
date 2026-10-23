@@ -4,54 +4,51 @@
 
 320 runs (64 boxes × 5 replicates) finished. Against experiment, Sage's replicate-mean ΔHmix MAE is 0.581 kJ/mol and its mixture density MAE 0.0120 g/mL.
 
-**Within-run vs between-run uncertainty.** Within-run standard errors come from the autocorrelation (Chodera) estimator on 1 ps bin averages. Pooled over all boxes, the SD of the replicate means is 1.23× the within-run sem for h and 1.16× for density (1 expected; p = 4e-07 and 0.0004). 5 (h) and 4 (density) of 64 boxes have p_high < 0.01, against 0.6 expected by chance; none is significantly too small. 0 tests remain significant after Holm correction. The replicates start from independently built boxes, so their spread includes slow modes a single run cannot see. MLIP runs are single runs, so their confidence intervals will be narrower than the true run-to-run spread by roughly this factor.
+**Within-run vs between-run uncertainty.** Within-run standard errors come from the autocorrelation (Chodera) estimator on every logged sample. Pooled over all boxes, the SD of the replicate means is 1.26× the within-run sem for h and 1.17× for density (1 expected; p = 2e-08 and 0.0002). 6 (h) and 4 (density) of 64 boxes have p_high < 0.01, against 0.6 expected by chance; none is significantly too small. 0 tests remain significant after Holm correction. The replicates start from independently built boxes, so their spread includes slow modes a single run cannot see. MLIP runs are single runs, so their confidence intervals will be narrower than the true run-to-run spread by roughly this factor.
 
 ![within vs between](figures/within_between.png)
 
 | Statistic | Observable | Tests | Median ratio | Pooled ratio | p | p_high < 0.01 | p_low < 0.01 |
 |---|---|---|---|---|---|---|---|
-| box | h | 64 | 1.08 | 1.23 | 4e-07 | 5 | 0 |
-| box | density | 64 | 1.06 | 1.16 | 0.0004 | 4 | 0 |
-| point | hmix | 39 | 1.07 | 1.17 | 0.002 | 3 | 0 |
-| point | vex | 39 | 0.90 | 0.96 | 0.5 | 0 | 1 |
+| box | h | 64 | 1.11 | 1.26 | 2e-08 | 6 | 0 |
+| box | density | 64 | 1.06 | 1.17 | 0.0002 | 4 | 0 |
+| point | hmix | 39 | 1.08 | 1.20 | 0.0005 | 4 | 0 |
+| point | vex | 39 | 0.90 | 0.96 | 0.6 | 0 | 1 |
 
-**39 boxes or systems to inspect** (54 items). Categories are in rough order of concern for the benchmark.
+**37 boxes or systems to inspect** (50 items). Categories are in rough order of concern for the benchmark.
 
-### within/between mismatch (12)
+### within/between mismatch (14)
 
 Replicates (independently built boxes) scatter more than the within-run standard errors allow. Likely a slow mode (conformers, local structure) that one 2 ns run does not sample, so a single run's CI is too narrow here. Check the replicate time series for offsets that persist all run.
 
 | Box / system | Evidence | Plots |
 |---|---|---|
-| butanone_dibutylamine_x220 | density: replicate SD 1.8× the within-run sem (p_high = 0.009, p < 0.01 unadjusted only) | [replicates](figures/replicates/butanone_dibutylamine_x220.png), [convergence](figures/convergence/butanone_dibutylamine_x220.png) |
-| heptane_toluene_x250 | h: replicate SD 1.9× the within-run sem (p_high = 0.006, p < 0.01 unadjusted only) | [replicates](figures/replicates/heptane_toluene_x250.png), [convergence](figures/convergence/heptane_toluene_x250.png) |
+| butanone_dibutylamine_x220 | density: replicate SD 1.9× the within-run sem (p_high = 0.008, p < 0.01 unadjusted only) | [replicates](figures/replicates/butanone_dibutylamine_x220.png), [convergence](figures/convergence/butanone_dibutylamine_x220.png) |
+| heptane_toluene_x250 | h: replicate SD 2.0× the within-run sem (p_high = 0.004, p < 0.01 unadjusted only) | [replicates](figures/replicates/heptane_toluene_x250.png), [convergence](figures/convergence/heptane_toluene_x250.png) |
 | heptane_toluene_x250 | density: replicate SD 1.9× the within-run sem (p_high = 0.005, p < 0.01 unadjusted only) | [replicates](figures/replicates/heptane_toluene_x250.png), [convergence](figures/convergence/heptane_toluene_x250.png) |
-| methylpentanoate_octane_x730 | h: replicate SD 2.3× the within-run sem (p_high = 0.0002, p < 0.01 unadjusted only) | [replicates](figures/replicates/methylpentanoate_octane_x730.png), [convergence](figures/convergence/methylpentanoate_octane_x730.png) |
+| methylpentanoate_octane_x730 | h: replicate SD 2.4× the within-run sem (p_high = 0.0002, p < 0.01 unadjusted only) | [replicates](figures/replicates/methylpentanoate_octane_x730.png), [convergence](figures/convergence/methylpentanoate_octane_x730.png) |
 | nmp_dichloroethane_x254 | density: replicate SD 1.9× the within-run sem (p_high = 0.008, p < 0.01 unadjusted only) | [replicates](figures/replicates/nmp_dichloroethane_x254.png), [convergence](figures/convergence/nmp_dichloroethane_x254.png) |
-| nmp_dichloroethane_x740 | h: replicate SD 2.5× the within-run sem (p_high = 8e-05, p < 0.01 unadjusted only) | [replicates](figures/replicates/nmp_dichloroethane_x740.png), [convergence](figures/convergence/nmp_dichloroethane_x740.png) |
+| nmp_dichloroethane_x740 | h: replicate SD 2.6× the within-run sem (p_high = 3e-05, p < 0.01 unadjusted only) | [replicates](figures/replicates/nmp_dichloroethane_x740.png), [convergence](figures/convergence/nmp_dichloroethane_x740.png) |
 | nmp_dichloroethane_x740 | density: replicate SD 1.9× the within-run sem (p_high = 0.006, p < 0.01 unadjusted only) | [replicates](figures/replicates/nmp_dichloroethane_x740.png), [convergence](figures/convergence/nmp_dichloroethane_x740.png) |
-| propionitrile_taee_x500 | h: replicate SD 2.1× the within-run sem (p_high = 0.002, p < 0.01 unadjusted only) | [replicates](figures/replicates/propionitrile_taee_x500.png), [convergence](figures/convergence/propionitrile_taee_x500.png) |
+| propionitrile_taee_x500 | h: replicate SD 2.1× the within-run sem (p_high = 0.001, p < 0.01 unadjusted only) | [replicates](figures/replicates/propionitrile_taee_x500.png), [convergence](figures/convergence/propionitrile_taee_x500.png) |
 | pure_n_methylaniline_298 | h: replicate SD 2.0× the within-run sem (p_high = 0.003, p < 0.01 unadjusted only) | [replicates](figures/replicates/pure_n_methylaniline_298.png), [convergence](figures/convergence/pure_n_methylaniline_298.png) |
-| heptane_toluene_x750 | hmix: replicate SD 1.9× the within-run sem (p_high = 0.008, p < 0.01 unadjusted only) | [replicates](figures/replicates/heptane_toluene_x750.png), [convergence](figures/convergence/heptane_toluene_x750.png) |
-| methylpentanoate_octane_x490 | hmix: replicate SD 2.1× the within-run sem (p_high = 0.002, p < 0.01 unadjusted only) | [replicates](figures/replicates/methylpentanoate_octane_x490.png), [convergence](figures/convergence/methylpentanoate_octane_x490.png) |
-| nmp_dichloroethane_x740 | hmix: replicate SD 2.0× the within-run sem (p_high = 0.003, p < 0.01 unadjusted only) | [replicates](figures/replicates/nmp_dichloroethane_x740.png), [convergence](figures/convergence/nmp_dichloroethane_x740.png) |
+| pure_octane_298 | h: replicate SD 1.8× the within-run sem (p_high = 0.009, p < 0.01 unadjusted only) | [replicates](figures/replicates/pure_octane_298.png), [convergence](figures/convergence/pure_octane_298.png) |
+| heptane_toluene_x750 | hmix: replicate SD 1.9× the within-run sem (p_high = 0.005, p < 0.01 unadjusted only) | [replicates](figures/replicates/heptane_toluene_x750.png), [convergence](figures/convergence/heptane_toluene_x750.png) |
+| methylpentanoate_octane_x230 | hmix: replicate SD 1.9× the within-run sem (p_high = 0.007, p < 0.01 unadjusted only) | [replicates](figures/replicates/methylpentanoate_octane_x230.png), [convergence](figures/convergence/methylpentanoate_octane_x230.png) |
+| methylpentanoate_octane_x490 | hmix: replicate SD 2.1× the within-run sem (p_high = 0.001, p < 0.01 unadjusted only) | [replicates](figures/replicates/methylpentanoate_octane_x490.png), [convergence](figures/convergence/methylpentanoate_octane_x490.png) |
+| nmp_dichloroethane_x740 | hmix: replicate SD 2.1× the within-run sem (p_high = 0.002, p < 0.01 unadjusted only) | [replicates](figures/replicates/nmp_dichloroethane_x740.png), [convergence](figures/convergence/nmp_dichloroethane_x740.png) |
 
-### low sampling (10)
+### low sampling (5)
 
 Long correlation times (viscous or slowly reorganising liquids). Check that block means still wander in the convergence plot.
 
 | Box / system | Evidence | Plots |
 |---|---|---|
-| butanone_dibutylamine_x220 | 2 replicate(s) with n_eff < 100 (minimum 52, τ up to 38 ps) | [replicates](figures/replicates/butanone_dibutylamine_x220.png), [convergence](figures/convergence/butanone_dibutylamine_x220.png) |
-| butanone_dibutylamine_x790 | 1 replicate(s) with n_eff < 100 (minimum 81, τ up to 25 ps) | [replicates](figures/replicates/butanone_dibutylamine_x790.png), [convergence](figures/convergence/butanone_dibutylamine_x790.png) |
-| dmae_methanol_x247 | 1 replicate(s) with n_eff < 100 (minimum 93, τ up to 21 ps) | [replicates](figures/replicates/dmae_methanol_x247.png), [convergence](figures/convergence/dmae_methanol_x247.png) |
-| dmae_methanol_x500 | 1 replicate(s) with n_eff < 100 (minimum 37, τ up to 54 ps) | [replicates](figures/replicates/dmae_methanol_x500.png), [convergence](figures/convergence/dmae_methanol_x500.png) |
-| dmae_methanol_x750 | 4 replicate(s) with n_eff < 100 (minimum 31, τ up to 64 ps) | [replicates](figures/replicates/dmae_methanol_x750.png), [convergence](figures/convergence/dmae_methanol_x750.png) |
-| propanol_benzene_x750 | 2 replicate(s) with n_eff < 100 (minimum 89, τ up to 22 ps) | [replicates](figures/replicates/propanol_benzene_x750.png), [convergence](figures/convergence/propanol_benzene_x750.png) |
-| pure_2_dimethylamino_ethanol_298 | 4 replicate(s) with n_eff < 100 (minimum 56, τ up to 35 ps) | [replicates](figures/replicates/pure_2_dimethylamino_ethanol_298.png), [convergence](figures/convergence/pure_2_dimethylamino_ethanol_298.png) |
-| pure_dibutylamine_298 | 2 replicate(s) with n_eff < 100 (minimum 44, τ up to 46 ps) | [replicates](figures/replicates/pure_dibutylamine_298.png), [convergence](figures/convergence/pure_dibutylamine_298.png) |
-| pure_dipropylamine_298 | 1 replicate(s) with n_eff < 100 (minimum 96, τ up to 21 ps) | [replicates](figures/replicates/pure_dipropylamine_298.png), [convergence](figures/convergence/pure_dipropylamine_298.png) |
-| pure_n_methylaniline_298 | 3 replicate(s) with n_eff < 100 (minimum 25, τ up to 81 ps) | [replicates](figures/replicates/pure_n_methylaniline_298.png), [convergence](figures/convergence/pure_n_methylaniline_298.png) |
+| dmae_methanol_x500 | 1 replicate(s) with n_eff < 100 (minimum 64, τ up to 31 ps) | [replicates](figures/replicates/dmae_methanol_x500.png), [convergence](figures/convergence/dmae_methanol_x500.png) |
+| dmae_methanol_x750 | 2 replicate(s) with n_eff < 100 (minimum 48, τ up to 42 ps) | [replicates](figures/replicates/dmae_methanol_x750.png), [convergence](figures/convergence/dmae_methanol_x750.png) |
+| pure_2_dimethylamino_ethanol_298 | 3 replicate(s) with n_eff < 100 (minimum 89, τ up to 22 ps) | [replicates](figures/replicates/pure_2_dimethylamino_ethanol_298.png), [convergence](figures/convergence/pure_2_dimethylamino_ethanol_298.png) |
+| pure_dibutylamine_298 | 1 replicate(s) with n_eff < 100 (minimum 70, τ up to 28 ps) | [replicates](figures/replicates/pure_dibutylamine_298.png), [convergence](figures/convergence/pure_dibutylamine_298.png) |
+| pure_n_methylaniline_298 | 3 replicate(s) with n_eff < 100 (minimum 39, τ up to 51 ps) | [replicates](figures/replicates/pure_n_methylaniline_298.png), [convergence](figures/convergence/pure_n_methylaniline_298.png) |
 
 ### start dependence (1)
 
@@ -101,20 +98,19 @@ Sage itself shows like-like clustering beyond random mixing; MLIP demixing flags
 | water_pyridine_x495 | like-neighbour fraction 0.604 vs 0.497 for random mixing | [replicates](figures/replicates/water_pyridine_x495.png), [convergence](figures/convergence/water_pyridine_x495.png) |
 | water_pyridine_x700 | like-neighbour fraction 0.682 vs 0.579 for random mixing | [replicates](figures/replicates/water_pyridine_x700.png), [convergence](figures/convergence/water_pyridine_x700.png) |
 
-### box-size gap (8)
+### box-size gap (7)
 
 Differs from the published 1000-molecule runs beyond the threshold. Could be box size or NAGL vs AM1-BCC charges.
 
 | Box / system | Evidence | Plots |
 |---|---|---|
-| butanone_dibutylamine_x220 | hmix: ours − published -0.2629 (z = -3.1) | [system](figures/systems/butanone_dibutylamine.png) |
-| butanone_dibutylamine_x500 | hmix: ours − published -0.2108 (z = -3.9) | [system](figures/systems/butanone_dibutylamine.png) |
-| dipropylamine_dmf_x750 | hmix: ours − published -0.1560 (z = -6.1) | [system](figures/systems/dipropylamine_dmf.png) |
-| dmae_methanol_x500 | hmix: ours − published -0.2461 (z = -4.5) | [system](figures/systems/dmae_methanol.png) |
-| dmae_methanol_x750 | hmix: ours − published -0.2423 (z = -2.4) | [system](figures/systems/dmae_methanol.png) |
-| methylpentanoate_octane_x230 | density: ours − published -0.0028 (z = -12.2) | [system](figures/systems/methylpentanoate_octane.png) |
-| methylpentanoate_octane_x730 | density: ours − published -0.0021 (z = -9.3) | [system](figures/systems/methylpentanoate_octane.png) |
-| nmp_dichloroethane_x500 | density: ours − published -0.0031 (z = -6.0) | [system](figures/systems/nmp_dichloroethane.png) |
+| butanone_dibutylamine_x220 | hmix: ours − published -0.2656 (z = -3.2) | [system](figures/systems/butanone_dibutylamine.png) |
+| butanone_dibutylamine_x500 | hmix: ours − published -0.2106 (z = -3.9) | [system](figures/systems/butanone_dibutylamine.png) |
+| dipropylamine_dmf_x750 | hmix: ours − published -0.1559 (z = -6.0) | [system](figures/systems/dipropylamine_dmf.png) |
+| dmae_methanol_x247 | hmix: ours − published -0.1521 (z = -3.4) | [system](figures/systems/dmae_methanol.png) |
+| dmae_methanol_x500 | hmix: ours − published -0.2483 (z = -4.5) | [system](figures/systems/dmae_methanol.png) |
+| dmae_methanol_x750 | hmix: ours − published -0.2405 (z = -2.4) | [system](figures/systems/dmae_methanol.png) |
+| nmp_dichloroethane_x500 | density: ours − published -0.0026 (z = -4.9) | [system](figures/systems/nmp_dichloroethane.png) |
 
 ![finite size](figures/finite_size.png)
 
@@ -194,67 +190,67 @@ Largest within/between mismatches:
 
 ## Finite-size check (our boxes vs published 1000-molecule runs)
 
-Matched points within |Δx| ≤ 0.02: 52. |z| > 3: 20. z uses the standard errors of the two replicate means, which are small, so small systematic offsets reach |z| > 3.
+Matched points within |Δx| ≤ 0.02: 52. The nearest published value is shifted to our composition along a curve fitted to the published points (two-term Redlich-Kister for ΔHmix, quadratic for density), as a composition offset alone can shift a density by more than the gaps tested. |z| > 3: 18. z uses the standard errors of the two replicate means, which are small, so small systematic offsets reach |z| > 3.
 
-| Box | Property | Ours | Published | Diff | z |
-|---|---|---|---|---|---|
-| acetone_nmethylaniline_x230 | hmix | -0.5381 | -0.6150 | +0.0770 | +0.8 |
-| acetone_nmethylaniline_x505 | hmix | -0.7842 | -0.8762 | +0.0920 | +1.4 |
-| acetone_nmethylaniline_x505 | density | 0.9045 | 0.9061 | -0.0016 | -6.0 |
-| acetone_nmethylaniline_x709 | hmix | -0.5955 | -0.7228 | +0.1274 | +3.7 |
-| butanone_dibutylamine_x220 | hmix | -0.1008 | 0.1621 | -0.2629 | -3.1 |
-| butanone_dibutylamine_x500 | hmix | 0.0547 | 0.2655 | -0.2108 | -3.9 |
-| butanone_dibutylamine_x500 | density | 0.7612 | 0.7606 | +0.0007 | +2.0 |
-| butanone_dibutylamine_x790 | hmix | 0.0943 | 0.1749 | -0.0805 | -1.9 |
-| dipropylamine_dmf_x248 | hmix | 0.1854 | 0.1509 | +0.0345 | +0.7 |
-| dipropylamine_dmf_x248 | density | 0.8528 | 0.8537 | -0.0009 | -2.8 |
-| dipropylamine_dmf_x500 | hmix | 0.1227 | 0.1503 | -0.0275 | -1.1 |
-| dipropylamine_dmf_x500 | density | 0.8037 | 0.8030 | +0.0007 | +1.8 |
-| dipropylamine_dmf_x750 | hmix | 0.0143 | 0.1703 | -0.1560 | -6.1 |
-| dipropylamine_dmf_x750 | density | 0.7639 | 0.7642 | -0.0003 | -1.0 |
-| dmae_methanol_x247 | hmix | -1.3032 | -1.1534 | -0.1498 | -3.3 |
-| dmae_methanol_x500 | hmix | -1.6240 | -1.3779 | -0.2461 | -4.5 |
-| dmae_methanol_x500 | density | 0.8610 | 0.8596 | +0.0013 | +3.0 |
-| dmae_methanol_x750 | hmix | -1.0942 | -0.8519 | -0.2423 | -2.4 |
-| methanol_water_x500 | hmix | 0.1183 | 0.1242 | -0.0059 | -0.3 |
-| methanol_water_x500 | density | 0.8388 | 0.8384 | +0.0004 | +0.8 |
-| methanol_water_x701 | hmix | 0.0509 | 0.0492 | +0.0017 | +0.2 |
-| methylpentanoate_octane_x230 | hmix | 1.0662 | 1.0873 | -0.0212 | -0.3 |
-| methylpentanoate_octane_x230 | density | 0.7228 | 0.7256 | -0.0028 | -12.2 |
-| methylpentanoate_octane_x490 | hmix | 1.4176 | 1.3225 | +0.0952 | +1.3 |
-| methylpentanoate_octane_x490 | density | 0.7685 | 0.7693 | -0.0008 | -5.2 |
-| methylpentanoate_octane_x730 | hmix | 0.9363 | 1.0154 | -0.0791 | -1.2 |
-| methylpentanoate_octane_x730 | density | 0.8179 | 0.8200 | -0.0021 | -9.3 |
-| nmp_dichloroethane_x254 | hmix | -0.4317 | -0.5099 | +0.0781 | +3.2 |
-| nmp_dichloroethane_x500 | hmix | -0.5040 | -0.6079 | +0.1039 | +3.4 |
-| nmp_dichloroethane_x500 | density | 1.1057 | 1.1088 | -0.0031 | -6.0 |
-| nmp_dichloroethane_x740 | hmix | -0.3904 | -0.4535 | +0.0631 | +1.0 |
-| propanol_benzene_x246 | hmix | 1.2830 | 1.2108 | +0.0723 | +1.6 |
-| propanol_benzene_x246 | density | 0.8422 | 0.8411 | +0.0011 | +2.5 |
-| propanol_benzene_x500 | hmix | 1.3732 | 1.2648 | +0.1084 | +2.0 |
-| propanol_benzene_x500 | density | 0.8263 | 0.8255 | +0.0008 | +4.7 |
-| propanol_benzene_x750 | hmix | 0.8935 | 0.7647 | +0.1288 | +2.4 |
-| propanol_benzene_x750 | density | 0.8098 | 0.8106 | -0.0008 | -3.1 |
-| propionitrile_taee_x200 | hmix | 0.1771 | 0.1845 | -0.0074 | -0.1 |
-| propionitrile_taee_x200 | density | 0.7634 | 0.7632 | +0.0002 | +0.6 |
-| propionitrile_taee_x500 | hmix | 0.2602 | 0.2827 | -0.0225 | -0.5 |
-| propionitrile_taee_x500 | density | 0.7676 | 0.7684 | -0.0008 | -2.3 |
-| propionitrile_taee_x700 | hmix | 0.1888 | 0.2811 | -0.0924 | -3.5 |
-| propionitrile_taee_x700 | density | 0.7712 | 0.7717 | -0.0005 | -1.5 |
-| pyrrole_pyridine_x240 | hmix | -0.1136 | -0.1439 | +0.0303 | +2.0 |
-| pyrrole_pyridine_x240 | density | 0.9748 | 0.9760 | -0.0012 | -3.4 |
-| pyrrole_pyridine_x508 | hmix | -0.0710 | -0.1193 | +0.0484 | +3.2 |
-| pyrrole_pyridine_x763 | hmix | 0.0612 | -0.0080 | +0.0692 | +5.7 |
-| pyrrole_pyridine_x763 | density | 0.9769 | 0.9772 | -0.0004 | -1.8 |
-| tetrahydropyran_ethanol_x250 | hmix | 0.6502 | 0.6431 | +0.0071 | +0.1 |
-| tetrahydropyran_ethanol_x504 | hmix | 0.9679 | 0.9341 | +0.0338 | +1.1 |
-| tetrahydropyran_ethanol_x504 | density | 0.8351 | 0.8348 | +0.0003 | +0.8 |
-| tetrahydropyran_ethanol_x755 | hmix | 0.9273 | 0.8482 | +0.0791 | +1.7 |
+| Box | Property | x ours | x published (nearest) | Ours | Published (nearest) | Published (at our x) | Diff | z |
+|---|---|---|---|---|---|---|---|---|
+| acetone_nmethylaniline_x230 | hmix | 0.2300 | 0.2316 | -0.5381 | -0.6150 | -0.6120 | +0.0739 | +0.8 |
+| acetone_nmethylaniline_x505 | hmix | 0.5050 | 0.5086 | -0.7842 | -0.8762 | -0.8763 | +0.0921 | +1.4 |
+| acetone_nmethylaniline_x505 | density | 0.5050 | 0.4948 | 0.9045 | 0.9061 | 0.9040 | +0.0005 | +2.0 |
+| acetone_nmethylaniline_x709 | hmix | 0.7091 | 0.7097 | -0.5955 | -0.7228 | -0.7237 | +0.1282 | +3.7 |
+| butanone_dibutylamine_x220 | hmix | 0.2200 | 0.2154 | -0.1008 | 0.1621 | 0.1648 | -0.2656 | -3.2 |
+| butanone_dibutylamine_x500 | hmix | 0.5000 | 0.5044 | 0.0547 | 0.2655 | 0.2654 | -0.2106 | -3.9 |
+| butanone_dibutylamine_x500 | density | 0.5000 | 0.5018 | 0.7612 | 0.7606 | 0.7605 | +0.0007 | +2.1 |
+| butanone_dibutylamine_x790 | hmix | 0.7900 | 0.7922 | 0.0943 | 0.1749 | 0.1762 | -0.0819 | -1.9 |
+| dipropylamine_dmf_x248 | hmix | 0.2476 | 0.2482 | 0.1854 | 0.1509 | 0.1506 | +0.0347 | +0.8 |
+| dipropylamine_dmf_x248 | density | 0.2476 | 0.2523 | 0.8528 | 0.8537 | 0.8548 | -0.0020 | -6.0 |
+| dipropylamine_dmf_x500 | hmix | 0.5000 | 0.4995 | 0.1227 | 0.1503 | 0.1503 | -0.0275 | -1.1 |
+| dipropylamine_dmf_x500 | density | 0.5000 | 0.5034 | 0.8037 | 0.8030 | 0.8037 | +0.0001 | +0.1 |
+| dipropylamine_dmf_x750 | hmix | 0.7500 | 0.7496 | 0.0143 | 0.1703 | 0.1702 | -0.1559 | -6.0 |
+| dipropylamine_dmf_x750 | density | 0.7500 | 0.7459 | 0.7639 | 0.7642 | 0.7636 | +0.0003 | +1.0 |
+| dmae_methanol_x247 | hmix | 0.2470 | 0.2479 | -1.3032 | -1.1534 | -1.1511 | -0.1521 | -3.4 |
+| dmae_methanol_x500 | hmix | 0.5000 | 0.4972 | -1.6240 | -1.3779 | -1.3757 | -0.2483 | -4.5 |
+| dmae_methanol_x500 | density | 0.5000 | 0.5020 | 0.8610 | 0.8596 | 0.8594 | +0.0015 | +3.5 |
+| dmae_methanol_x750 | hmix | 0.7500 | 0.7506 | -1.0942 | -0.8519 | -0.8537 | -0.2405 | -2.4 |
+| methanol_water_x500 | hmix | 0.5000 | 0.5000 | 0.1183 | 0.1242 | 0.1242 | -0.0059 | -0.3 |
+| methanol_water_x500 | density | 0.5000 | 0.4997 | 0.8388 | 0.8384 | 0.8383 | +0.0005 | +0.9 |
+| methanol_water_x701 | hmix | 0.7014 | 0.7000 | 0.0509 | 0.0492 | 0.0489 | +0.0020 | +0.2 |
+| methylpentanoate_octane_x230 | hmix | 0.2300 | 0.2255 | 1.0662 | 1.0873 | 1.1005 | -0.0343 | -0.5 |
+| methylpentanoate_octane_x230 | density | 0.2300 | 0.2465 | 0.7228 | 0.7256 | 0.7228 | +0.0000 | +0.0 |
+| methylpentanoate_octane_x490 | hmix | 0.4900 | 0.4887 | 1.4176 | 1.3225 | 1.3220 | +0.0957 | +1.3 |
+| methylpentanoate_octane_x490 | density | 0.4900 | 0.4896 | 0.7685 | 0.7693 | 0.7694 | -0.0009 | -5.7 |
+| methylpentanoate_octane_x730 | hmix | 0.7300 | 0.7323 | 0.9363 | 1.0154 | 1.0216 | -0.0853 | -1.3 |
+| methylpentanoate_octane_x730 | density | 0.7300 | 0.7399 | 0.8179 | 0.8200 | 0.8179 | -0.0000 | -0.1 |
+| nmp_dichloroethane_x254 | hmix | 0.2544 | 0.2531 | -0.4317 | -0.5099 | -0.5114 | +0.0796 | +3.3 |
+| nmp_dichloroethane_x500 | hmix | 0.5000 | 0.5000 | -0.5040 | -0.6079 | -0.6079 | +0.1039 | +3.4 |
+| nmp_dichloroethane_x500 | density | 0.5000 | 0.4975 | 1.1057 | 1.1088 | 1.1082 | -0.0026 | -4.9 |
+| nmp_dichloroethane_x740 | hmix | 0.7404 | 0.7367 | -0.3904 | -0.4535 | -0.4489 | +0.0585 | +0.9 |
+| propanol_benzene_x246 | hmix | 0.2455 | 0.2493 | 1.2830 | 1.2108 | 1.2019 | +0.0811 | +1.8 |
+| propanol_benzene_x246 | density | 0.2455 | 0.2385 | 0.8422 | 0.8411 | 0.8407 | +0.0015 | +3.4 |
+| propanol_benzene_x500 | hmix | 0.5000 | 0.4996 | 1.3732 | 1.2648 | 1.2643 | +0.1088 | +2.0 |
+| propanol_benzene_x500 | density | 0.5000 | 0.5023 | 0.8263 | 0.8255 | 0.8257 | +0.0006 | +3.8 |
+| propanol_benzene_x750 | hmix | 0.7500 | 0.7501 | 0.8935 | 0.7647 | 0.7650 | +0.1285 | +2.4 |
+| propanol_benzene_x750 | density | 0.7500 | 0.7453 | 0.8098 | 0.8106 | 0.8103 | -0.0005 | -2.0 |
+| propionitrile_taee_x200 | hmix | 0.2000 | 0.2009 | 0.1771 | 0.1845 | 0.1838 | -0.0067 | -0.1 |
+| propionitrile_taee_x200 | density | 0.2000 | 0.2009 | 0.7634 | 0.7632 | 0.7632 | +0.0002 | +0.7 |
+| propionitrile_taee_x500 | hmix | 0.5000 | 0.5025 | 0.2602 | 0.2827 | 0.2824 | -0.0222 | -0.5 |
+| propionitrile_taee_x500 | density | 0.5000 | 0.5025 | 0.7676 | 0.7684 | 0.7684 | -0.0007 | -2.2 |
+| propionitrile_taee_x700 | hmix | 0.7000 | 0.7012 | 0.1888 | 0.2811 | 0.2816 | -0.0929 | -3.6 |
+| propionitrile_taee_x700 | density | 0.7000 | 0.7012 | 0.7712 | 0.7717 | 0.7717 | -0.0005 | -1.4 |
+| pyrrole_pyridine_x240 | hmix | 0.2397 | 0.2395 | -0.1136 | -0.1439 | -0.1440 | +0.0303 | +2.0 |
+| pyrrole_pyridine_x240 | density | 0.2397 | 0.2273 | 0.9748 | 0.9760 | 0.9760 | -0.0012 | -3.5 |
+| pyrrole_pyridine_x508 | hmix | 0.5079 | 0.5095 | -0.0710 | -0.1193 | -0.1199 | +0.0489 | +3.2 |
+| pyrrole_pyridine_x763 | hmix | 0.7634 | 0.7602 | 0.0612 | -0.0080 | -0.0070 | +0.0682 | +5.6 |
+| pyrrole_pyridine_x763 | density | 0.7634 | 0.7554 | 0.9769 | 0.9772 | 0.9773 | -0.0004 | -1.9 |
+| tetrahydropyran_ethanol_x250 | hmix | 0.2500 | 0.2500 | 0.6502 | 0.6431 | 0.6431 | +0.0071 | +0.1 |
+| tetrahydropyran_ethanol_x504 | hmix | 0.5042 | 0.5000 | 0.9679 | 0.9341 | 0.9363 | +0.0316 | +1.0 |
+| tetrahydropyran_ethanol_x504 | density | 0.5042 | 0.5040 | 0.8351 | 0.8348 | 0.8348 | +0.0003 | +0.8 |
+| tetrahydropyran_ethanol_x755 | hmix | 0.7547 | 0.7500 | 0.9273 | 0.8482 | 0.8396 | +0.0877 | +1.9 |
 
 ## Convergence
 
-- Correlation time of h (production / n_eff): median 6.4 ps; minimum n_eff 25 (below 100: 21 runs).
-- Block-average sem / autocorrelation sem: median 0.99 (h), 0.95 (density).
+- Correlation time of h (production / n_eff): median 3.6 ps; minimum n_eff 39 (below 100: 9 runs).
+- Block-average sem / autocorrelation sem: median 1.00 (h), 0.95 (density).
 - Density shift of the first production block (200–400 ps) relative to the rest: median 0.00169, max 0.01166 g/mL.
 - Drift and half-split tests flagged after Holm correction (p < 0.01): 0.
 
