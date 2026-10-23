@@ -20,6 +20,9 @@ from liquid_mixtures_inputs import select_systems as ss  # noqa: E402
 from liquid_mixtures_inputs.thermoml import canonical_smiles  # noqa: E402
 
 AMIDE_SMILES = {canonical_smiles(s) for s in ("CNC=O", "CC(=O)NC", "CC(=O)N", "NC=O")}
+_FF_DIR = f"{ss.RAW}/ash-sage-rc2/{ss.ASH_COMMIT}/04_benchmark/forcefields"
+RC2_OFFXML = f"{_FF_DIR}/sage-2.3.0rc2-v3-k100.offxml"
+FB_FIT_OFFXML = f"{_FF_DIR}/{ss.SAGE_RC2}.offxml"
 
 
 def _fmt(value, digits: int = 3) -> str:
@@ -170,29 +173,34 @@ def _sage_table(systems: list[dict]) -> list[str]:
     list[str]
         Markdown lines.
     """
+    columns = {ff: ff for ff in ss.SAGE_FORCE_FIELDS} | {ss.SAGE_RC2: "openff-2.3.0rc2"}
     lines = [
         "| System | Max rep. SD ΔHmix | Max rep. SD ρ | "
-        + " | ".join(f"{ff} ΔHmix MAE" for ff in ss.SAGE_FORCE_FIELDS)
+        + " | ".join(f"{label} ΔHmix MAE" for label in columns.values())
         + " | openff-2.2.1 ρ MAE |",
-        "|---" * (4 + len(ss.SAGE_FORCE_FIELDS)) + "|",
+        "|---" * (4 + len(columns)) + "|",
     ]
     for s in systems:
         rows = s["sage"]
         if not rows:
             lines.append(
                 f"| {_names(s)} | – | – | "
-                + " | ".join("–" for _ in ss.SAGE_FORCE_FIELDS)
+                + " | ".join("–" for _ in columns)
                 + " | – |"
             )
             continue
+        # SDs over the same force fields as the repeat-SD filter.
+        filtered = [r for r in rows if r["forcefield"] in ss.SAGE_FORCE_FIELDS]
         sd_h = max(
-            (r["sd"] for r in rows if r["prop"] == "hmix" and r["sd"]), default=None
+            (r["sd"] for r in filtered if r["prop"] == "hmix" and r["sd"]),
+            default=None,
         )
         sd_d = max(
-            (r["sd"] for r in rows if r["prop"] == "density" and r["sd"]), default=None
+            (r["sd"] for r in filtered if r["prop"] == "density" and r["sd"]),
+            default=None,
         )
         maes = []
-        for ff in ss.SAGE_FORCE_FIELDS:
+        for ff in columns:
             errs = [
                 abs(r["value"] - r["reference"])
                 for r in rows
@@ -533,8 +541,13 @@ def write_report(
         "experimental uncertainties for every point.",
         "- Published Sage benchmark results (ash-sage-rc2 "
         f"[`04_benchmark`]({_github(ss.SAGE_BENCHMARKS['training-hmix'])})): mean "
-        "and SD over 3 independent replicates for openff-2.0.0, 2.1.0, 2.2.1 and "
-        "2.3.0rc1.",
+        "and SD over 3 independent replicates for openff-2.0.0, 2.1.0, 2.2.1, "
+        "2.3.0rc1 and 2.3.0rc2 (labelled `fb-fit-v3-single-mean-k100` in the "
+        "benchmark files; "
+        f"[`sage-2.3.0rc2-v3-k100.offxml`]({_github(RC2_OFFXML)}) is identical to "
+        f"[`fb-fit-v3-single-mean-k100.offxml`]({_github(FB_FIT_OFFXML)})). "
+        "2.3.0rc2 is shown in the Sage baseline table only and is not used by "
+        "the repeat-SD filter.",
         "- Full isotherms and pure densities from the NIST TRC ThermoML archive, "
         "fetched by DOI. ThermoML stores either a standard uncertainty (one "
         "standard deviation) or an expanded uncertainty (a 95 % interval, "

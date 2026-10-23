@@ -64,6 +64,10 @@ SAGE_BENCHMARKS = {
     for prop, name in (("hmix", "EnthalpyOfMixing"), ("density", "Density"))
 }
 SAGE_FORCE_FIELDS = ("openff-2.0.0", "openff-2.1.0", "openff-2.2.1", "openff-2.3.0rc1")
+# Sage 2.3.0rc2 is benchmarked under its fit name: 04_benchmark/forcefields/
+# sage-2.3.0rc2-v3-k100.offxml is byte-identical to fb-fit-v3-single-mean-k100.offxml.
+# Tabulated in the report only, not used by the repeat-SD filter.
+SAGE_RC2 = "fb-fit-v3-single-mean-k100"
 
 # The Sage sets encode 2-pyrrolidone as its imidic acid tautomer.
 TAUTOMER_FIXES = {"OC1=NCCC1": "O=C1CCCN1"}
@@ -276,7 +280,10 @@ def load_sage_benchmarks(cache: Path) -> dict[tuple[str, str], list[dict]]:
         path = fetch(url, cache / f"{name}.csv")
         with path.open() as handle:
             for row in csv.DictReader(handle):
-                if row["forcefield"] not in SAGE_FORCE_FIELDS or not row["smiles_2"]:
+                if (
+                    row["forcefield"] not in (*SAGE_FORCE_FIELDS, SAGE_RC2)
+                    or not row["smiles_2"]
+                ):
                     continue
                 key = tuple(
                     sorted((fix_smiles(row["smiles_1"]), fix_smiles(row["smiles_2"])))
@@ -456,7 +463,13 @@ def screen_candidates(
         sage_rows = [r for r in sage.get((a, b), []) if not r["tautomer_error"]]
         sd = {
             prop: max(
-                (r["sd"] for r in sage_rows if r["prop"] == prop and r["sd"]),
+                (
+                    r["sd"]
+                    for r in sage_rows
+                    if r["prop"] == prop
+                    and r["sd"]
+                    and r["forcefield"] in SAGE_FORCE_FIELDS
+                ),
                 default=None,
             )
             for prop in ("hmix", "density")

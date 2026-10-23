@@ -28,7 +28,7 @@ Systems are also checked for literature evidence of miscibility at the run tempe
 
 - OpenFF Sage 2.0 training set ([openff-sage@a6a061b](https://github.com/openforcefield/openff-sage/blob/a6a061ba8ebc144e3fda46f5f7a9e7a352b9cd2f/data-set-curation/physical-property/optimizations/data-sets/sage-train-v1.csv?plain=1)): no experimental uncertainties.
 - Sage 2.3 refit [training](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/training-set.csv?plain=1) and [validation](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/validation-set.csv?plain=1) sets (ash-sage-rc2@00c9524): experimental uncertainties for every point.
-- Published Sage benchmark results (ash-sage-rc2 [`04_benchmark`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1)): mean and SD over 3 independent replicates for openff-2.0.0, 2.1.0, 2.2.1 and 2.3.0rc1.
+- Published Sage benchmark results (ash-sage-rc2 [`04_benchmark`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1)): mean and SD over 3 independent replicates for openff-2.0.0, 2.1.0, 2.2.1, 2.3.0rc1 and 2.3.0rc2 (labelled `fb-fit-v3-single-mean-k100` in the benchmark files; [`sage-2.3.0rc2-v3-k100.offxml`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/forcefields/sage-2.3.0rc2-v3-k100.offxml?plain=1) is identical to [`fb-fit-v3-single-mean-k100.offxml`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/forcefields/fb-fit-v3-single-mean-k100.offxml?plain=1)). 2.3.0rc2 is shown in the Sage baseline table only and is not used by the repeat-SD filter.
 - Full isotherms and pure densities from the NIST TRC ThermoML archive, fetched by DOI. ThermoML stores either a standard uncertainty (one standard deviation) or an expanded uncertainty (a 95 % interval, coverage factor k = 2). Standard uncertainties are used as given; expanded ones are divided by 2. Every σ in this report is therefore a standard uncertainty. The ash-sage-rc2 sets use the same convention: their σ equals half the ThermoML expanded value.
 - ml-peg's liquid_densities inputs, to avoid re-scoring pure densities.
 
@@ -177,21 +177,21 @@ Mixture boxes: 1144–2470 atoms (median 1495); total 62760 atoms across 39 boxe
 
 ## Sage baseline (published, 1000-molecule boxes)
 
-| System | Max rep. SD ΔHmix | Max rep. SD ρ | openff-2.0.0 ΔHmix MAE | openff-2.1.0 ΔHmix MAE | openff-2.2.1 ΔHmix MAE | openff-2.3.0rc1 ΔHmix MAE | openff-2.2.1 ρ MAE |
-|---|---|---|---|---|---|---|---|
-| pyrrole + pyridine | 0.078 | 0.0005 | 1.905 | 1.922 | 1.930 | 2.023 | 0.0053 |
-| methanol + water | 0.030 | 0.0010 | 0.815 | 0.826 | 0.825 | 0.833 | 0.0396 |
-| water + pyridine | – | – | – | – | – | – | – |
-| N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.062 | 0.0008 | 0.520 | 0.520 | 0.454 | 0.577 | 0.0216 |
-| 2-(dimethylamino)ethanol + methanol | 0.075 | 0.0005 | 0.069 | 0.326 | 0.393 | 0.171 | 0.0087 |
-| acetone + N-methylaniline | 0.091 | 0.0004 | 0.024 | 0.126 | 0.172 | 0.088 | 0.0055 |
-| methyl pentanoate + octane | 0.083 | 0.0004 | 0.366 | 0.275 | 0.277 | 0.274 | 0.0073 |
-| 1-propanol + benzene | 0.075 | 0.0004 | 0.212 | 0.195 | 0.227 | 0.292 | 0.0131 |
-| tetrahydropyran + ethanol | 0.077 | 0.0005 | 0.047 | 0.096 | 0.084 | 0.154 | 0.0089 |
-| dipropylamine + N,N-dimethylformamide | 0.069 | 0.0004 | 0.375 | 0.483 | 0.473 | 0.407 | 0.0087 |
-| propionitrile + tert-amyl ethyl ether | 0.061 | 0.0003 | 0.286 | 0.355 | 0.347 | 0.382 | 0.0003 |
-| 2-butanone + dibutylamine | 0.093 | 0.0004 | 0.281 | 0.246 | 0.286 | 0.283 | 0.0097 |
-| heptane + toluene | 0.076 | 0.0006 | 0.137 | 0.124 | 0.140 | 0.168 | 0.0163 |
+| System | Max rep. SD ΔHmix | Max rep. SD ρ | openff-2.0.0 ΔHmix MAE | openff-2.1.0 ΔHmix MAE | openff-2.2.1 ΔHmix MAE | openff-2.3.0rc1 ΔHmix MAE | openff-2.3.0rc2 ΔHmix MAE | openff-2.2.1 ρ MAE |
+|---|---|---|---|---|---|---|---|---|
+| pyrrole + pyridine | 0.078 | 0.0005 | 1.905 | 1.922 | 1.930 | 2.023 | 1.896 | 0.0053 |
+| methanol + water | 0.030 | 0.0010 | 0.815 | 0.826 | 0.825 | 0.833 | 0.703 | 0.0396 |
+| water + pyridine | – | – | – | – | – | – | – | – |
+| N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.062 | 0.0008 | 0.520 | 0.520 | 0.454 | 0.577 | 0.556 | 0.0216 |
+| 2-(dimethylamino)ethanol + methanol | 0.075 | 0.0005 | 0.069 | 0.326 | 0.393 | 0.171 | 0.405 | 0.0087 |
+| acetone + N-methylaniline | 0.091 | 0.0004 | 0.024 | 0.126 | 0.172 | 0.088 | 0.091 | 0.0055 |
+| methyl pentanoate + octane | 0.083 | 0.0004 | 0.366 | 0.275 | 0.277 | 0.274 | 0.253 | 0.0073 |
+| 1-propanol + benzene | 0.075 | 0.0004 | 0.212 | 0.195 | 0.227 | 0.292 | 0.310 | 0.0131 |
+| tetrahydropyran + ethanol | 0.077 | 0.0005 | 0.047 | 0.096 | 0.084 | 0.154 | 0.099 | 0.0089 |
+| dipropylamine + N,N-dimethylformamide | 0.069 | 0.0004 | 0.375 | 0.483 | 0.473 | 0.407 | 0.481 | 0.0087 |
+| propionitrile + tert-amyl ethyl ether | 0.061 | 0.0003 | 0.286 | 0.355 | 0.347 | 0.382 | 0.370 | 0.0003 |
+| 2-butanone + dibutylamine | 0.093 | 0.0004 | 0.281 | 0.246 | 0.286 | 0.283 | 0.365 | 0.0097 |
+| heptane + toluene | 0.076 | 0.0006 | 0.137 | 0.124 | 0.140 | 0.168 | 0.194 | 0.0163 |
 
 ## Pure densities
 
