@@ -991,7 +991,8 @@ CATEGORY_NOTES = {
         "Replicates (independently built boxes) scatter more than the within-run "
         "standard errors allow. Likely a slow mode (conformers, local structure) "
         "that one 2 ns run does not sample, so a single run's CI is too narrow "
-        "here. Check the replicate time series for offsets that persist all run."
+        "here. Check the replicate time series for offsets that persist all run. "
+        'Entries marked "unadjusted only" do not survive Holm correction.'
     ),
     "low sampling": (
         "Long correlation times (viscous or slowly reorganising liquids). Check "
@@ -1061,6 +1062,10 @@ def interpretation(
     h_ratio = pooled_box.loc["h", "pooled_ratio"]
     rho_ratio = pooled_box.loc["density", "pooled_ratio"]
     n_targets = len({i["target"] for i in items})
+    passed = pooled[pooled.p * len(pooled) < FLAG_P]
+    bonferroni_pass = (
+        ", ".join(f"{r.level} {r.observable}" for r in passed.itertuples()) or "none"
+    )
     lines = [
         "# Sage (openff-2.2.1) reference run",
         "",
@@ -1101,6 +1106,18 @@ def interpretation(
             f"{r.pooled_ratio:.2f} | {r.p:.1g} | {r.n_p01_high} | {r.n_p01_low} |"
             for r in pooled.itertuples()
         ],
+        "",
+        "**Multiple testing.** The pooled ratios are one test per row of the "
+        f"table ({len(pooled)} tests, uncorrected). With a Bonferroni correction "
+        f"over the {len(pooled)}, {bonferroni_pass} stay significant at p < "
+        f"{FLAG_P}. The per-box and "
+        f"per-point tests are two-sided and Holm-corrected together ({len(wb)} "
+        f"tests, flagged at adjusted p < {FLAG_P}). The p_high < 0.01 counts "
+        "above are unadjusted and should be read against the number expected by "
+        'chance. Boxes listed under "within/between mismatch" below as '
+        '"p < 0.01 unadjusted only" are places to look, not individually '
+        "significant results; the evidence that within-run sems are too small "
+        "comes from the pooled test.",
         "",
         f"**{n_targets} boxes or systems to inspect** ({len(items)} items). "
         "Categories are in rough order of concern for the benchmark.",

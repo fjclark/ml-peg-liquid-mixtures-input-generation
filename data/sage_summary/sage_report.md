@@ -15,11 +15,13 @@
 | point | hmix | 39 | 1.08 | 1.20 | 0.0005 | 4 | 0 |
 | point | vex | 39 | 0.90 | 0.96 | 0.6 | 0 | 1 |
 
+**Multiple testing.** The pooled ratios are one test per row of the table (4 tests, uncorrected). With a Bonferroni correction over the 4, box h, box density, point hmix stay significant at p < 0.01. The per-box and per-point tests are two-sided and Holm-corrected together (206 tests, flagged at adjusted p < 0.01). The p_high < 0.01 counts above are unadjusted and should be read against the number expected by chance. Boxes listed under "within/between mismatch" below as "p < 0.01 unadjusted only" are places to look, not individually significant results; the evidence that within-run sems are too small comes from the pooled test.
+
 **37 boxes or systems to inspect** (50 items). Categories are in rough order of concern for the benchmark.
 
 ### within/between mismatch (14)
 
-Replicates (independently built boxes) scatter more than the within-run standard errors allow. Likely a slow mode (conformers, local structure) that one 2 ns run does not sample, so a single run's CI is too narrow here. Check the replicate time series for offsets that persist all run.
+Replicates (independently built boxes) scatter more than the within-run standard errors allow. Likely a slow mode (conformers, local structure) that one 2 ns run does not sample, so a single run's CI is too narrow here. Check the replicate time series for offsets that persist all run. Entries marked "unadjusted only" do not survive Holm correction.
 
 | Box / system | Evidence | Plots |
 |---|---|---|
