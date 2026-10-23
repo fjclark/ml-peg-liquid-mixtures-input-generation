@@ -116,7 +116,7 @@ Sage itself shows like-like clustering beyond random mixing; MLIP demixing flags
 | water_pyridine_x495 | like-neighbour fraction 0.604 vs 0.497 for random mixing | [replicates](figures/replicates/water_pyridine_x495.png), [convergence](figures/convergence/water_pyridine_x495.png) |
 | water_pyridine_x700 | like-neighbour fraction 0.682 vs 0.579 for random mixing | [replicates](figures/replicates/water_pyridine_x700.png), [convergence](figures/convergence/water_pyridine_x700.png) |
 
-### box-size gap (2)
+### published-Sage gap (2)
 
 Our replicate mean minus the published openff-2.2.1-ashgc mean (3 replicates, 1000 molecules) at our composition, beyond 0.15 kJ/mol or 0.002 g/mL. Both use openff-2.2.1 parameters with NAGL charges (published: model 0.1.0-rc.3, ours: 1.0.0), so the gap comes from box size, protocol (run length, equilibration, starting conformers) or the NAGL model version. z is the gap over the combined standard error of the two means: it tests whether the gap exceeds replicate noise, not what causes it. The plot shows every matched point (± 2 se), with the thresholds dotted.
 

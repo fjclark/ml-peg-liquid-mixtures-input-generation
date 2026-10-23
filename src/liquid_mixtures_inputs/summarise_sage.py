@@ -970,7 +970,7 @@ def inspection_items(runs, summary, finite, run_flags, start, wb, boxes) -> list
         if abs(r.diff) > SIZE_GAP[r.prop]:
             items.append(
                 {
-                    "category": "box-size gap",
+                    "category": "published-Sage gap",
                     "target": r.box_id,
                     "evidence": f"{r.prop}: ours − published {r.diff:+.4f} "
                     f"(z = {r.z:+.1f})",
@@ -1021,7 +1021,7 @@ CATEGORY_NOTES = {
         "Sage itself shows like-like clustering beyond random mixing; MLIP "
         "demixing flags for this box compare against this Sage value."
     ),
-    "box-size gap": (
+    "published-Sage gap": (
         f"Our replicate mean minus the published {PUBLISHED_FF} mean (3 "
         "replicates, 1000 molecules) at our composition, beyond "
         f"{SIZE_GAP['hmix']} kJ/mol or {SIZE_GAP['density']} g/mL. Both use "
@@ -1175,7 +1175,7 @@ def interpretation(
                 ],
                 "",
             ]
-        if category == "box-size gap":
+        if category == "published-Sage gap":
             lines += ["![finite size](figures/finite_size.png)", ""]
         if category == "force-field miss (not a run problem)":
             lines += ["![Sage vs experiment](figures/sage_vs_exp.png)", ""]
