@@ -24,9 +24,13 @@ systems:
     temperature: 298.15
     interaction: alcohol-water hydrogen-bond network
     exception: >-
-      Aqueous exception to rules 1 and 2. The rc2 density and enthalpy
-      compositions differ by 0.06 in x (full ThermoML isotherms remove the
-      mismatch), and water's pure density comes from [IAPWS-95](https://doi.org/10.1063/1.1461829).
+      The rc2 density and ΔHmix compositions differ by up to |Δx| = 0.06
+      (limit 0.05), and no data set gives water's pure density with an
+      uncertainty. Kept because it is the aqueous calibration system (smallest
+      Sage repeat spread in the pool) and both failures are artefacts of the
+      screening data: the full ThermoML isotherms have a density within
+      |Δx| ≤ 0.002 of every box composition, and water's pure density comes
+      from [IAPWS-95](https://doi.org/10.1063/1.1461829).
     rationale: >-
       Smallest Sage repeat spread in the pool (0.03 kJ/mol), so it calibrates
       the noise of the protocol. Methanol and water pure densities are already
@@ -45,14 +49,18 @@ systems:
     # state the enthalpies were measured at 303.15 K.
     temperature_corrections: {10.1021/je2002495: 303.15}
     exception: >-
-      Aqueous exception: the only data are at 303.15 K (the
+      Not in the Sage training or validation sets; the data come from the
+      recommended fast-converging list. Screened, it would fail the entry
+      filter (3 ΔHmix points but no mixture densities) and both no Sage repeat
+      SD filters (no pyridine + water rows in the
+      [rc2 benchmark outputs](https://github.com/openforcefield/ash-sage-rc2/tree/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output)).
+      The ΔHmix data are also at 303.15 K, outside the 297.0–299.5 K window (the
       [ThermoML record](https://trc.nist.gov/ThermoML/10.1021/je2002495.json)
       stores 298.15 K, but the [paper's title](https://doi.org/10.1021/je2002495)
-      gives 303.15 K) and there are no published Sage repeat errors (no
-      pyridine + water rows in the
-      [rc2 benchmark outputs](https://github.com/openforcefield/ash-sage-rc2/tree/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output)).
-      Enthalpy only unless ThermoML provides a 303.15 K mixture density. MAZE
-      uses our own Sage replicates.
+      gives 303.15 K). Kept because it is the only aromatic-water system
+      available. It is scored on ΔHmix only (unless ThermoML provides a
+      303.15 K mixture density), and our own Sage replicates replace the
+      missing repeat SDs for MAZE.
     rationale: Only aromatic-water system available; relevant to biomolecular recognition.
     miscibility: >-
       Miscible in all proportions at 303 K (enthalpies measured across x = 0.1–0.9).
@@ -64,8 +72,10 @@ systems:
     temperature: 298.15
     interaction: tertiary amide with a chloroalkane (C-H···O=C, dipolar)
     exception: >-
-      Fails rule 1 by a hair on the 3-point rc2 subsets (|dx| = 0.0503 vs 0.05).
-      The full ThermoML isotherms remove the mismatch.
+      The 3-point rc2 subsets miss the composition-match limit by a hair
+      (|Δx| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove
+      the mismatch (largest box |Δx| = 0.047), and the system widens the
+      exothermic range and is the only one with chlorine.
     rationale: >-
       Widens the exothermic range (-1.26 kJ/mol) and covers chlorine. Both
       pure densities are already in [ml-peg](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/liquid_densities).

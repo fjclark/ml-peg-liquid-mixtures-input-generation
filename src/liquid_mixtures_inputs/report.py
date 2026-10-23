@@ -259,7 +259,7 @@ def _fast_set_section(path: Path, candidates: list[dict], selection: dict) -> li
             )
     by_pair = {(c["a"], c["b"]): c for c in candidates}
     chosen = {
-        tuple(sorted((canonical_smiles(s["a"]), canonical_smiles(s["b"]))))
+        tuple(sorted((canonical_smiles(s["a"]), canonical_smiles(s["b"])))): s
         for s in selection["systems"]
     }
     dropped = {
@@ -286,6 +286,16 @@ def _fast_set_section(path: Path, candidates: list[dict], selection: dict) -> li
         linear = ss.two_phase_signature(h)
         if key in chosen:
             outcome = "selected"
+            corrections = chosen[key].get("temperature_corrections", {})
+            for doi in sorted({p.doi for p in pts if p.doi in corrections}):
+                listed = sorted({p.temperature for p in pts if p.doi == doi})
+                if listed != [corrections[doi]]:
+                    outcome += (
+                        f". Note: the list gives "
+                        f"{', '.join(f'{t:.2f}' for t in listed)} K for "
+                        f"[{doi}](https://doi.org/{doi}), which is incorrect; the "
+                        f"paper reports measurements at {corrections[doi]:.2f} K"
+                    )
         elif key in dropped:
             outcome = f"excluded: {dropped[key]}"
         elif key in lle:
@@ -445,8 +455,8 @@ def _hard_filters_section() -> list[str]:
         "",
         "A system must pass every filter below to be a candidate. The filter names "
         "match the labels in the funnel table and in the `failures` column of "
-        "`candidates.csv`. Water mixtures can be admitted as listed exceptions to "
-        "the composition-match and Sage repeat-SD filters (see Selected systems).",
+        "`candidates.csv`. A few systems are admitted as listed exceptions; the "
+        "Selected systems table gives the filters each one fails and why it was kept.",
         "",
         "| Filter | Rule | Why |",
         "|---|---|---|",
@@ -590,7 +600,12 @@ def write_report(
     for i, s in enumerate(systems, 1):
         key = tuple(sorted((s["a"], s["b"])))
         cand = by_pair.get(key)
-        status = "pass" if cand and cand["passes"] else "exception"
+        if cand and cand["passes"]:
+            status = "pass"
+        else:
+            failed = cand["failures"] if cand else "not in the screened pool"
+            reason = s["spec"].get("exception", "TODO").replace("|", "\\|")
+            status = f"exception. Fails: {failed}. {reason}"
         h = " / ".join(_fmt(r["hmix_exp"], 2) for r in s["rows"])
         v = " / ".join(_fmt(r["vex_exp"], 2) for r in s["rows"])
         lines.append(
