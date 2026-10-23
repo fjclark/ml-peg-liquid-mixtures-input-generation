@@ -9,7 +9,7 @@ Run in the ``analysis`` pixi environment after ``run_sage_benchmark.py``::
 It computes ΔHmix, mixture density and V^E for every replicate, the replicate
 spread used as the MAZE denominator (σ_Sage, pooled per system), convergence
 diagnostics, a comparison of within-run and between-run uncertainties, and a
-finite-size check against the published 1000-molecule openff-2.2.1 results.
+finite-size check against the published 1000-molecule openff-2.2.1-ashgc results.
 Per-run statistics use the same estimators as the benchmark analysis
 (``ml_peg/analysis/molecular_dynamics/binary_mixtures/mixing.py``).
 ``systems.csv`` and ``boxes.csv`` in ``--data-dir`` are updated in place with
@@ -46,7 +46,10 @@ EQUILIBRATION_PS = 200.0
 PRODUCTION_PS = 2000.0
 FLAG_P = 0.05
 START_T = 4.0  # |t| above which replicate 0 is reported as start-dependent
-SAGE_FF = "openff-2.2.1"
+# openff-2.2.1 parameters with NAGL (AshGC) charges, like our runs; the published
+# "openff-2.2.1" rows use AM1-BCC. 04_benchmark/forcefields/openff-2.2.1-ashgc.offxml
+# uses openff-gnn-am1bcc-0.1.0-rc.3 where we use 1.0.0.
+PUBLISHED_FF = "openff-2.2.1-ashgc"
 PUBLISHED_X_TOLERANCE = 0.02
 # Thresholds for the "systems to inspect" summary
 SIZE_GAP = {"hmix": 0.15, "density": 0.002}  # kJ/mol, g/mL
@@ -254,7 +257,7 @@ def pooled_sigma(points: pd.DataFrame, n_replicates: int) -> pd.DataFrame:
 
 def published_sage(cache_dir: Path) -> pd.DataFrame:
     """
-    Load the published openff-2.2.1 results (3 replicates, 1000 molecules).
+    Load the published openff-2.2.1-ashgc results (3 replicates, 1000 molecules).
 
     Parameters
     ----------
@@ -277,7 +280,7 @@ def published_sage(cache_dir: Path) -> pd.DataFrame:
         if path.exists():
             frames.append(pd.read_csv(path))
     data = pd.concat(frames)
-    data = data[data.forcefield == SAGE_FF].copy()
+    data = data[data.forcefield == PUBLISHED_FF].copy()
 
     def x_first(row) -> float:
         """
@@ -807,6 +810,7 @@ def plot_finite_size(finite: pd.DataFrame, path: Path) -> None:
         for sign in (-1, 1):
             ax.axvline(sign * SIZE_GAP[prop], color="tab:red", ls=":", lw=0.8)
         ax.set_yticks(np.arange(len(data)), data.box_id, fontsize=6)
+        ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(5))
         ax.set_xlabel(f"ours - published: {unit} (± 2 se)")
     fig.tight_layout()
     fig.savefig(path, dpi=110)
@@ -1018,8 +1022,16 @@ CATEGORY_NOTES = {
         "demixing flags for this box compare against this Sage value."
     ),
     "box-size gap": (
-        "Differs from the published 1000-molecule runs beyond the threshold. "
-        "Could be box size or NAGL vs AM1-BCC charges."
+        f"Our replicate mean minus the published {PUBLISHED_FF} mean (3 "
+        "replicates, 1000 molecules) at our composition, beyond "
+        f"{SIZE_GAP['hmix']} kJ/mol or {SIZE_GAP['density']} g/mL. Both use "
+        "openff-2.2.1 parameters with NAGL charges (published: model 0.1.0-rc.3, "
+        "ours: 1.0.0), so the gap comes from box size, protocol (run length, "
+        "equilibration, starting conformers) or the NAGL model version. z is "
+        "the gap over the combined "
+        "standard error of the two means: it tests whether the gap exceeds "
+        "replicate noise, not what causes it. The plot shows every matched point "
+        "(± 2 se), with the thresholds dotted."
     ),
     "force-field miss (not a run problem)": (
         "Sage is far from experiment; expected for some systems and useful "
