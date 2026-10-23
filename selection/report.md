@@ -1,6 +1,6 @@
 # Binary mixtures benchmark: system selection report
 
-Generated 2026-10-22 by `select_systems.py`.
+Generated 2026-10-23 by `select_systems.py`.
 
 ## Hard filters
 
@@ -34,7 +34,7 @@ Systems are also checked for literature evidence of miscibility at the run tempe
 
 ## Screening funnel
 
-- Binary systems in the Sage sets: 370.
+- Distinct binary systems across the Sage 2.0 training set and the Sage 2.3 rc2 training and validation sets: 370.
 - With ≥ 3 ΔHmix and ≥ 3 density points at 297.0–299.5 K: 248.
 - Passing every hard filter: 36.
 

@@ -509,7 +509,8 @@ def write_report(
         "",
         "## Screening funnel",
         "",
-        f"- Binary systems in the Sage sets: {n_binary}.",
+        "- Distinct binary systems across the Sage 2.0 training set and the "
+        f"Sage 2.3 rc2 training and validation sets: {n_binary}.",
         f"- With ≥ 3 ΔHmix and ≥ 3 density points at {ss.SCREEN_T_RANGE[0]}–"
         f"{ss.SCREEN_T_RANGE[1]} K: {len(candidates)}.",
         f"- Passing every hard filter: {sum(c['passes'] for c in candidates)}.",
