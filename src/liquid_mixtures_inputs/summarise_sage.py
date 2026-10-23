@@ -44,7 +44,7 @@ from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (  # noqa:
 
 EQUILIBRATION_PS = 200.0
 PRODUCTION_PS = 2000.0
-FLAG_P = 0.01
+FLAG_P = 0.05
 START_T = 4.0  # |t| above which replicate 0 is reported as start-dependent
 SAGE_FF = "openff-2.2.1"
 PUBLISHED_X_TOLERANCE = 0.02
@@ -656,8 +656,8 @@ def pooled_ratio(table: pd.DataFrame) -> pd.DataFrame:
                 "median_ratio": float(group.ratio.median()),
                 "pooled_ratio": float(np.sqrt(chi / dof)),
                 "p": float(min(1.0, p)),
-                "n_p01_high": int((group.p_high < 0.01).sum()),
-                "n_p01_low": int((group.p_low < 0.01).sum()),
+                "n_sig_high": int((group.p_high < FLAG_P).sum()),
+                "n_sig_low": int((group.p_low < FLAG_P).sum()),
             }
         )
     return pd.DataFrame(rows)
@@ -704,17 +704,17 @@ def plot_within_between(table: pd.DataFrame, path: Path) -> None:
         lo, hi = data.sem_within.min() / 1.5, data.sem_within.max() * 1.5
         grid = np.geomspace(lo, hi, 50)
         ax.plot(grid, grid, "k-", lw=0.8, label="SD = sem")
-        for q in (0.005, 0.995):
+        for q in (FLAG_P / 2, 1 - FLAG_P / 2):
             factor = np.sqrt(stats.chi2.ppf(q, n - 1) / (n - 1))
             ax.plot(grid, grid * factor, "k--", lw=0.6)
-        flagged = data.p_high < 0.01
+        flagged = data.p_high < FLAG_P
         ax.scatter(data.sem_within[~flagged], data.sd_between[~flagged], s=12)
         ax.scatter(
             data.sem_within[flagged],
             data.sd_between[flagged],
             s=16,
             c="tab:red",
-            label="p_high < 0.01",
+            label=f"p_high < {FLAG_P}",
         )
         for r in data[flagged].itertuples():
             ax.annotate(r.box_id, (r.sem_within, r.sd_between), fontsize=6)
@@ -722,7 +722,7 @@ def plot_within_between(table: pd.DataFrame, path: Path) -> None:
         ax.set_yscale("log")
         ax.set_xlabel(f"within-run sem, RMS over replicates: {unit}")
         ax.set_ylabel(f"SD of replicate means: {unit}")
-        ax.set_title(f"{obs}: dashed lines are the 99 % χ²({n - 1}) range")
+        ax.set_title(f"{obs}: dashed lines are the {1 - FLAG_P:.0%} χ²({n - 1}) range")
         ax.legend(fontsize=7)
     fig.tight_layout()
     fig.savefig(path, dpi=110)
@@ -876,8 +876,13 @@ def inspection_items(runs, summary, finite, run_flags, start, wb, boxes) -> list
         to plot, or ``None`` for a system-level item).
     """
     items = []
-    for r in wb[(wb.flag != "") | (wb.p_high < 0.01)].itertuples():
-        strength = "Holm-significant" if r.flag else "p < 0.01 unadjusted only"
+    mismatch = wb[(wb.flag != "") | (wb.p_high < FLAG_P)]
+    # Holm-significant first, then by unadjusted p (many adjusted p tie at 1)
+    mismatch = mismatch.assign(unflagged=mismatch.flag == "").sort_values(
+        ["unflagged", "p_high"]
+    )
+    for r in mismatch.itertuples():
+        strength = "Holm-significant" if r.flag else f"p < {FLAG_P} unadjusted only"
         items.append(
             {
                 "category": "within/between mismatch",
@@ -1085,25 +1090,28 @@ def interpretation(
         f"{h_ratio:.2f}× the within-run sem for h and {rho_ratio:.2f}× for density "
         f"(1 expected; p = {pooled_box.loc['h', 'p']:.1g} and "
         f"{pooled_box.loc['density', 'p']:.1g}). "
-        f"{pooled_box.loc['h', 'n_p01_high']} (h) and "
-        f"{pooled_box.loc['density', 'n_p01_high']} (density) of "
-        f"{pooled_box.loc['h', 'n_tests']} boxes have p_high < 0.01, against "
-        f"{0.01 * pooled_box.loc['h', 'n_tests']:.1f} expected by chance; none "
-        "is significantly too small. "
-        f"{int((wb.flag != '').sum())} tests remain significant after Holm "
-        "correction. The replicates start from independently built boxes, so "
-        "their spread includes slow modes a single run cannot see. MLIP runs "
-        "are single runs, so their confidence intervals will be narrower than "
-        "the true run-to-run spread by roughly this factor.",
+        f"{pooled_box.loc['h', 'n_sig_high']} (h) and "
+        f"{pooled_box.loc['density', 'n_sig_high']} (density) of "
+        f"{pooled_box.loc['h', 'n_tests']} boxes have p_high < {FLAG_P}, against "
+        f"{FLAG_P * pooled_box.loc['h', 'n_tests']:.1f} expected by chance "
+        "in each; "
+        f"{pooled_box.loc['h', 'n_sig_low']} (h) and "
+        f"{pooled_box.loc['density', 'n_sig_low']} (density) have p_low < "
+        f"{FLAG_P}. "
+        "Tests still significant after Holm correction: "
+        f"{int((wb.flag != '').sum())}. The replicates start from independently "
+        "built boxes, so their spread includes slow modes a single run cannot "
+        "see. MLIP runs are single runs, so their confidence intervals will be "
+        "narrower than the true run-to-run spread by roughly this factor.",
         "",
         "![within vs between](figures/within_between.png)",
         "",
         "| Statistic | Observable | Tests | Median ratio | Pooled ratio | p | "
-        "p_high < 0.01 | p_low < 0.01 |",
+        f"p_high < {FLAG_P} | p_low < {FLAG_P} |",
         "|---|---|---|---|---|---|---|---|",
         *[
             f"| {r.level} | {r.observable} | {r.n_tests} | {r.median_ratio:.2f} | "
-            f"{r.pooled_ratio:.2f} | {r.p:.1g} | {r.n_p01_high} | {r.n_p01_low} |"
+            f"{r.pooled_ratio:.2f} | {r.p:.1g} | {r.n_sig_high} | {r.n_sig_low} |"
             for r in pooled.itertuples()
         ],
         "",
@@ -1112,10 +1120,10 @@ def interpretation(
         f"over the {len(pooled)}, {bonferroni_pass} stay significant at p < "
         f"{FLAG_P}. The per-box and "
         f"per-point tests are two-sided and Holm-corrected together ({len(wb)} "
-        f"tests, flagged at adjusted p < {FLAG_P}). The p_high < 0.01 counts "
+        f"tests, flagged at adjusted p < {FLAG_P}). The p_high < {FLAG_P} counts "
         "above are unadjusted and should be read against the number expected by "
         'chance. Boxes listed under "within/between mismatch" below as '
-        '"p < 0.01 unadjusted only" are places to look, not individually '
+        f'"p < {FLAG_P} unadjusted only" are places to look, not individually '
         "significant results; the evidence that within-run sems are too small "
         "comes from the pooled test.",
         "",

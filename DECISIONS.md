@@ -100,6 +100,7 @@ Known gaps, accepted and stated in the report: there is no N-H (secondary) amide
 | 2026-10-22 | One estimator for Sage and the MLIPs (ml-peg's `timeseries.py`, applied after 1 ps binning), replacing pymbar. Sage is shown as a plot trace, not a table row. | User (recommended options) | Sage and MLIP uncertainties become directly comparable. |
 | 2026-10-22 | Changing the estimator to close the within- vs between-run gap (within-run sem about 20 to 25 % low on average) is left to the user. | User | Not yet decided. |
 | 2026-10-23 | Drop the 1 ps binning: Chodera is applied to every logged sample. | User ("Skip the binning for the sake of simplicity") | Over the 320 Sage runs, the raw sem / binned sem has a median of 1.00 (h and density). Only 5 % (h) and 2 % (density) of runs are more than 10 % lower, worst 0.67. The pooled replicate SD / within-run sem changes from 1.24 to 1.26 (h) and 1.21 to 1.22 (density). Not checked at the 10 fs MLIP logging interval. |
+| 2026-10-23 | Significance threshold `FLAG_P` raised from 0.01 to 0.05 (Holm-adjusted for per-box tests, Bonferroni over the 4 pooled tests). The hard-coded 0.01 in the within/between counts, plot and inspection list now follow `FLAG_P`. | User ("make that change", recommended option) | 0.05 family-wise is the conventional level and still conservative after Holm. NMP + DCE x=0.74 (h) becomes Holm-significant; the pooled conclusions are unchanged. |
 
 ## 8. Open questions
 
