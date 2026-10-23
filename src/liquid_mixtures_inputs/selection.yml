@@ -267,8 +267,15 @@ two_phase_fast_set:
     lle: >-
       Aqueous solubility is 2.86 g/100 mL at 20 °C (x ≈ 0.004; ICSC, via [PubChem](https://pubchem.ncbi.nlm.nih.gov/compound/8868#section=Solubility)). PubChem also lists 110 g/L at 17 °C (AQUASOL, x ≈ 0.016); the sources disagree and no primary measurement was checked, but either value puts x = 0.2 inside the two-phase region. H^E/x is roughly constant (slopes 1.71 and 1.47 kJ/mol); x = 0.75 may lie near the organic-rich phase boundary.
 
-# Candidate additions found during stage 1, pending a decision.
-candidate_additions:
+reserves:
+  - system: pyrrole + benzene
+  - system: cyclohexane + benzene
+  - system: methyl pentanoate + methanol
+  - system: NMP + 1,4-dichlorobutane
+  - system: isooctane + 1-propanol
+  - system: propyl acetate + 1,2-dichloroethane
+  # N-H amide systems found during stage 1. Reviewed 2026-10-23 and not
+  # added yet; kept as reserves.
   - system: N-methylformamide + o-toluidine (308.15 K)
     a: CNC=O
     b: Cc1ccccc1N
@@ -291,11 +298,3 @@ candidate_additions:
     note: >-
       ThermoML [10.1016/j.jct.2013.12.006](https://trc.nist.gov/ThermoML/10.1016/j.jct.2013.12.006.json), +0.49 kJ/mol at equimolar, 18 points
       of each property with uncertainties. Same research group.
-
-reserves:
-  - pyrrole + benzene
-  - cyclohexane + benzene
-  - methyl pentanoate + methanol
-  - NMP + 1,4-dichlorobutane
-  - isooctane + 1-propanol
-  - propyl acetate + 1,2-dichloroethane

@@ -464,16 +464,10 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
   - `C1CCOCC1` + `CNC=O`: 6 points (0 with uncertainties) from sage-2.0-train
   - `CNC=O` + `Cc1ccccc1Cl`: 6 points (0 with uncertainties) from sage-2.0-train
 
-  The Sage 2.0 set drops their uncertainties and has enthalpies only at 308.15 K, but the ThermoML records carry full uncertainties (and the standard-InChI conversion would otherwise turn N-methylformamide into `CN=CO`; `thermoml.py` repairs amide tautomers). See candidate additions.
+  The Sage 2.0 set drops their uncertainties and has enthalpies only at 308.15 K, but the ThermoML records carry full uncertainties (and the standard-InChI conversion would otherwise turn N-methylformamide into `CN=CO`; `thermoml.py` repairs amide tautomers). See reserves.
 - **No amide-water system.** 2-pyrrolidone + water was dropped (see below).
 - **Selection bias.** Every system comes from the Sage training/validation pools, so the set reflects ThermoML coverage and Sage's curation choices rather than a designed spread.
 - **Endothermic range is capped** at RT/2 by the two-phase screen.
-
-## Candidate additions (pending decision)
-
-- **N-methylformamide + o-toluidine (308.15 K)**: Closes the N-H amide gap. ThermoML ([10.1016/j.tca.2011.06.020](https://trc.nist.gov/ThermoML/10.1016/j.tca.2011.06.020.json)) has 18 enthalpy points (-0.41 / -0.76 / -0.61 kJ/mol at x = 0.22 / 0.52 / 0.77) and 18 densities at 308.15 K, all with uncertainties, plus same-paper pure densities; strongly single-phase. Costs 5 extra boxes at 308.15 K (3 mixtures plus N-methylformamide and o-toluidine pure boxes) and needs our own Sage replicates, as there are no published Sage errors. Single research group; worth a cross-check against an independent source.
-- **N-methylformamide + tetrahydropyran (308.15 K)**: Same paper, +0.32 kJ/mol at equimolar: below the 0.4 kJ/mol signal floor.
-- **N-methylformamide + 2-chlorotoluene (308.15 K)**: ThermoML [10.1016/j.jct.2013.12.006](https://trc.nist.gov/ThermoML/10.1016/j.jct.2013.12.006.json), +0.49 kJ/mol at equimolar, 18 points of each property with uncertainties. Same research group.
 
 ## Dropped systems
 
@@ -494,6 +488,9 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - NMP + 1,4-dichlorobutane
 - isooctane + 1-propanol
 - propyl acetate + 1,2-dichloroethane
+- **N-methylformamide + o-toluidine (308.15 K)**: Closes the N-H amide gap. ThermoML ([10.1016/j.tca.2011.06.020](https://trc.nist.gov/ThermoML/10.1016/j.tca.2011.06.020.json)) has 18 enthalpy points (-0.41 / -0.76 / -0.61 kJ/mol at x = 0.22 / 0.52 / 0.77) and 18 densities at 308.15 K, all with uncertainties, plus same-paper pure densities; strongly single-phase. Costs 5 extra boxes at 308.15 K (3 mixtures plus N-methylformamide and o-toluidine pure boxes) and needs our own Sage replicates, as there are no published Sage errors. Single research group; worth a cross-check against an independent source.
+- **N-methylformamide + tetrahydropyran (308.15 K)**: Same paper, +0.32 kJ/mol at equimolar: below the 0.4 kJ/mol signal floor.
+- **N-methylformamide + 2-chlorotoluene (308.15 K)**: ThermoML [10.1016/j.jct.2013.12.006](https://trc.nist.gov/ThermoML/10.1016/j.jct.2013.12.006.json), +0.49 kJ/mol at equimolar, 18 points of each property with uncertainties. Same research group.
 
 ## Reproduce
 

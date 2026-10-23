@@ -814,19 +814,12 @@ def write_report(
         "  The Sage 2.0 set drops their uncertainties and has enthalpies only at "
         "308.15 K, but the ThermoML records carry full uncertainties (and the "
         "standard-InChI conversion would otherwise turn N-methylformamide into "
-        "`CN=CO`; `thermoml.py` repairs amide tautomers). See candidate additions.",
+        "`CN=CO`; `thermoml.py` repairs amide tautomers). See reserves.",
         "- **No amide-water system.** 2-pyrrolidone + water was dropped (see below).",
         "- **Selection bias.** Every system comes from the Sage training/validation "
         "pools, so the set reflects ThermoML coverage and Sage's curation choices "
         "rather than a designed spread.",
         "- **Endothermic range is capped** at RT/2 by the two-phase screen.",
-        "",
-        "## Candidate additions (pending decision)",
-        "",
-        *[
-            f"- **{c['system']}**: {c['note']}"
-            for c in selection.get("candidate_additions", [])
-        ],
         "",
         "## Dropped systems",
         "",
@@ -834,7 +827,10 @@ def write_report(
         "",
         "## Reserves",
         "",
-        *[f"- {r}" for r in selection.get("reserves", [])],
+        *[
+            f"- **{r['system']}**: {r['note']}" if "note" in r else f"- {r['system']}"
+            for r in selection.get("reserves", [])
+        ],
         "",
         "## Reproduce",
         "",

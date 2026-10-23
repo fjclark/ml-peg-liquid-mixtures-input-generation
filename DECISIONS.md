@@ -74,7 +74,8 @@ Known gaps, accepted and stated in the report: there is no N-H (secondary) amide
 
 | Date | Candidate | Outcome | By |
 |---|---|---|---|
-| 2026-10-19 | N-methylformamide + o-toluidine at 308.15 K (would close the N-H amide gap; 5 extra boxes) | Not added: "Do not add NMA / o-toluidine for now". It stays in `selection.yml` under `candidate_additions`. | User |
+| 2026-10-23 | N-methylformamide + o-toluidine, N-methylformamide + tetrahydropyran and N-methylformamide + 2-chlorotoluene at 308.15 K (the former "Candidate additions" report section) | Reviewed; not added yet. Moved to the report's Reserves section with their notes unchanged. | User |
+| 2026-10-19 | N-methylformamide + o-toluidine at 308.15 K (would close the N-H amide gap; 5 extra boxes) | Not added: "Do not add NMA / o-toluidine for now". It stays in `selection.yml` under `reserves`. | User |
 | 2026-10-14 | Fluorinated systems (2,2,2-trifluoroethanol with THF, water, THP, ethanol or methanol), suggested in a review session because fluorination flips the sign of ΔHmix against the non-fluorinated analogues | Not adopted. The element set stayed H/C/N/O/Cl. No explicit decision or reason is recorded in the logs. | Unrecorded |
 
 ## 6. Box sizes
