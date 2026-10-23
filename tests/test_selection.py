@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from rdkit import Chem
+import yaml
 
 from liquid_mixtures_inputs import select_systems as ss
 from liquid_mixtures_inputs.thermoml import (
@@ -23,6 +24,28 @@ def test_inchi_round_trip_keeps_amides(smiles):
     assert Chem.MolToSmiles(mol_from_inchi(inchi)) == Chem.MolToSmiles(
         Chem.MolFromSmiles(smiles)
     )
+
+
+@pytest.mark.parametrize(
+    ("smiles", "problem"),
+    [
+        ("C[NH3+]", "formal charge"),
+        ("OC1=NCCC1", "imidic acid"),
+        ("C=C(C)O", "enol"),
+        ("Oc1ccccn1", "canonical tautomer"),
+    ],
+)
+def test_structure_problems_flags_bad_structures(smiles, problem):
+    """Test charged species and minor tautomers are flagged."""
+    assert any(problem in p for p in ss.structure_problems(smiles))
+
+
+def test_selection_passes_structure_checks():
+    """Test every curated component passes the structure checks."""
+    selection = yaml.safe_load((ss.HERE / "selection.yml").read_text())
+    ss.check_structures(selection["systems"])
+    with pytest.raises(ValueError, match="enol"):
+        ss.check_structures([{"a": "C=C(C)O", "b": "O"}])
 
 
 def _points(xs, values, sigma=0.005):

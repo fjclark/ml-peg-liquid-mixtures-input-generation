@@ -27,6 +27,7 @@ The rules themselves are implemented in `select_systems.py` and listed in
 | 2026-10-14 | Use the ash-sage-rc2 (Sage 2.3 refit) training and validation sets as the main pool, because they carry experimental uncertainties (the Sage 2.0 set has none). Pin all sources to commit SHAs. | Recommended | Uncertainties are needed for MAZE and for the relative-error filter. |
 | 2026-10-14 | Take pure densities and full isotherms from each mixture's own source paper through the NIST ThermoML archive, and cross-check every pure density (ml-peg, Sage 2.0, DIPPR/NIST), flagging differences > 0.002 g/mL. | Recommended | The rc2 pure densities include wrong values (DMF, 1-propanol, piperidine) that flip the sign of V^E. The rc2 sets also keep only 3 points per isotherm. |
 | 2026-10-14 | Fix the 2-pyrrolidone tautomer (`OC1=NCCC1` → `O=C1CCCN1`) and guard every InChI round trip against imidic acid tautomers. | Recommended | The Sage data encode the wrong tautomer. |
+| 2026-10-23 | Check every curated component before selection runs: zero formal charge, no enol or imidic acid motif, and a match to RDKit's canonical tautomer (unless listed in `TAUTOMER_REVIEWED`). | User (recommended option) | Guards `selection.yml` edits against the 2-pyrrolidone kind of error. A wrong starting species cannot be recovered in MD: acetone's enol is ~10⁻⁸ of the equilibrium mixture ([Chiang et al. 1984](https://doi.org/10.1021/ja00314a055)), so no correct model converts it back in 2 ns. |
 
 ## 2. Hard filters
 

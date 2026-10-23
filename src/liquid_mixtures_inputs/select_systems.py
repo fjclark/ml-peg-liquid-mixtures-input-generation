@@ -33,6 +33,7 @@ from ase.io import read
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import Descriptors
+from rdkit.Chem.MolStandardize import rdMolStandardize
 import yaml
 
 from liquid_mixtures_inputs.thermoml import (
@@ -71,6 +72,15 @@ SAGE_RC2 = "fb-fit-v3-single-mean-k100"
 
 # The Sage sets encode 2-pyrrolidone as its imidic acid tautomer.
 TAUTOMER_FIXES = {"OC1=NCCC1": "O=C1CCCN1"}
+
+# Structure checks on every curated component. An OH on a non-aromatic carbon
+# double-bonded to C or N is an enol or imidic acid, never the dominant form
+# of our neutral liquids.
+ENOL_OR_IMIDIC_ACID = Chem.MolFromSmarts("[OX2H1]-[#6;!a]=[#6,#7]")
+TAUTOMER_ENUMERATOR = rdMolStandardize.TautomerEnumerator()
+# RDKit's canonical tautomer follows scoring rules, not solution stability.
+# Canonical SMILES reviewed and kept despite differing from it.
+TAUTOMER_REVIEWED: set[str] = set()
 
 # Hard-filter settings (see the plan / report for the rationale).
 SCREEN_T_RANGE = (297.0, 299.5)
@@ -178,6 +188,60 @@ def fix_smiles(smiles: str) -> str:
         Canonical SMILES of the intended molecule.
     """
     return canonical_smiles(TAUTOMER_FIXES.get(smiles, smiles))
+
+
+def structure_problems(smiles: str) -> list[str]:
+    """
+    Check a component for charges and unlikely tautomers.
+
+    Parameters
+    ----------
+    smiles
+        Molecule SMILES.
+
+    Returns
+    -------
+    list[str]
+        Problems found (empty if the structure passes).
+    """
+    mol = Chem.MolFromSmiles(smiles)
+    problems = []
+    if any(atom.GetFormalCharge() for atom in mol.GetAtoms()):
+        problems.append("non-zero formal charge")
+    if mol.HasSubstructMatch(ENOL_OR_IMIDIC_ACID):
+        problems.append("enol or imidic acid tautomer")
+    stored = Chem.MolToSmiles(mol)
+    canonical = Chem.MolToSmiles(TAUTOMER_ENUMERATOR.Canonicalize(mol))
+    if canonical != stored and stored not in TAUTOMER_REVIEWED:
+        problems.append(
+            f"RDKit canonical tautomer is {canonical} (review, then add "
+            "to TAUTOMER_REVIEWED if correct)"
+        )
+    return problems
+
+
+def check_structures(systems: list[dict]) -> None:
+    """
+    Raise if any curated component fails the structure checks.
+
+    Parameters
+    ----------
+    systems
+        ``systems`` entries from ``selection.yml``.
+
+    Raises
+    ------
+    ValueError
+        Listing every failing component.
+    """
+    smiles = sorted({spec[key] for spec in systems for key in ("a", "b")})
+    failures = [
+        f"{s}: {'; '.join(problems)}"
+        for s in smiles
+        if (problems := structure_problems(s))
+    ]
+    if failures:
+        raise ValueError("Structure checks failed:\n" + "\n".join(failures))
 
 
 def molecule_info(smiles: str) -> dict:
@@ -1124,6 +1188,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     selection = yaml.safe_load((HERE / "selection.yml").read_text())
+    check_structures(selection["systems"])
     points = load_points(args.cache_dir)
     sage = load_sage_benchmarks(args.cache_dir)
     mlpeg = load_mlpeg_liquids()
