@@ -23,6 +23,11 @@ systems:
     names: [methanol, water]
     temperature: 298.15
     interaction: alcohol-water hydrogen-bond network
+    # Densities from one paper only, which also reports both pure liquids, so
+    # V^E and the box densities use the same pure values. 10.1021/je700300y
+    # (12 points) is left out: it reports no pure water, and its pure methanol
+    # (0.78657 g/mL) differs from this paper's (0.78720 g/mL).
+    density_dois: [10.1016/j.jct.2007.05.004]
     exception: >-
       The rc2 density and ΔHmix compositions differ by up to |Δx| = 0.06
       (limit 0.05), and no data set gives water's pure density with an

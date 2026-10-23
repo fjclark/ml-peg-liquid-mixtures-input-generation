@@ -30,6 +30,7 @@ Systems are also checked for literature evidence of miscibility at the run tempe
 - Sage 2.3 refit [training](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/training-set.csv?plain=1) and [validation](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/validation-set.csv?plain=1) sets (ash-sage-rc2@00c9524): experimental uncertainties for every point.
 - Published Sage benchmark results (ash-sage-rc2 [`04_benchmark`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1)): mean and SD over 3 independent replicates for openff-2.0.0, 2.1.0, 2.2.1, 2.3.0rc1 and 2.3.0rc2 (labelled `fb-fit-v3-single-mean-k100` in the benchmark files; [`sage-2.3.0rc2-v3-k100.offxml`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/forcefields/sage-2.3.0rc2-v3-k100.offxml?plain=1) is identical to [`fb-fit-v3-single-mean-k100.offxml`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/forcefields/fb-fit-v3-single-mean-k100.offxml?plain=1)). 2.3.0rc2 is shown in the Sage baseline table only and is not used by the repeat-SD filter.
 - Full isotherms and pure densities from the NIST TRC ThermoML archive, fetched by DOI. ThermoML stores either a standard uncertainty (one standard deviation) or an expanded uncertainty (a 95 % interval, coverage factor k = 2). Standard uncertainties are used as given; expanded ones are divided by 2. Every σ in this report is therefore a standard uncertainty. The ash-sage-rc2 sets use the same convention: their σ equals half the ThermoML expanded value.
+- V^E is derived from mixture densities and the pure densities of the same paper. ThermoML gives one combined density σ, often a flat ~0.1 % assessed by the TRC data-file compiler, which is mostly calibration and purity error shared by every density in the paper. It is treated as fully correlated within a paper, so it largely cancels in V^E (the larger of a common scale error and a common offset is kept). The random part is each paper's RMS residual about the Redlich-Kister fit, added in quadrature. A pure density from another source is uncorrelated and adds in quadrature. Mixture density σ is used unchanged, since there the shared error counts.
 - ml-peg's liquid_densities inputs, to avoid re-scoring pure densities.
 
 ## Screening funnel
@@ -83,14 +84,14 @@ The H^E-linearity test flags systems whose enthalpies are consistent with a stra
 | # | System | T (K) | ΔHmix at box x (kJ/mol) | V^E at box x (cm³/mol) | Hard filters | Interaction |
 |---|---|---|---|---|---|---|
 | 1 | pyrrole + pyridine | 298.15 | -1.77 / -2.65 / -1.62 | -0.00 / 0.07 / 0.10 | pass | N-H···N hydrogen bond between an aromatic donor and acceptor |
-| 2 | methanol + water | 298.15 | -0.80 / -0.78 / -0.58 | -0.62 / -1.00 / -0.81 | exception. Fails: composition mismatch; missing pure density with uncertainty. The rc2 density and ΔHmix compositions differ by up to \|Δx\| = 0.06 (limit 0.05), and no data set gives water's pure density with an uncertainty. Kept because it is the aqueous calibration system (smallest Sage repeat spread in the pool) and both failures are artefacts of the screening data: the full ThermoML isotherms have a density within \|Δx\| ≤ 0.002 of every box composition, and water's pure density comes from [IAPWS-95](https://doi.org/10.1063/1.1461829). | alcohol-water hydrogen-bond network |
+| 2 | methanol + water | 298.15 | -0.80 / -0.78 / -0.58 | -0.61 / -1.00 / -0.81 | exception. Fails: composition mismatch; missing pure density with uncertainty. The rc2 density and ΔHmix compositions differ by up to \|Δx\| = 0.06 (limit 0.05), and no data set gives water's pure density with an uncertainty. Kept because it is the aqueous calibration system (smallest Sage repeat spread in the pool) and both failures are artefacts of the screening data: the full ThermoML isotherms have a density within \|Δx\| ≤ 0.002 of every box composition, and water's pure density comes from [IAPWS-95](https://doi.org/10.1063/1.1461829). | alcohol-water hydrogen-bond network |
 | 3 | water + pyridine | 303.15 | -1.13 / -1.28 / -1.10 | – / – / – | exception. Fails: not in the screened pool. Not in the Sage training or validation sets; the data come from the recommended fast-converging list. Screened, it would fail the entry filter (3 ΔHmix points but no mixture densities) and both no Sage repeat SD filters (no pyridine + water rows in the [rc2 benchmark outputs](https://github.com/openforcefield/ash-sage-rc2/tree/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output)). The ΔHmix data are also at 303.15 K, outside the 297.0–299.5 K window (the [ThermoML record](https://trc.nist.gov/ThermoML/10.1021/je2002495.json) stores 298.15 K, but the [paper's title](https://doi.org/10.1021/je2002495) gives 303.15 K). Kept because it is the only aromatic-water system available. It is scored on ΔHmix only (unless ThermoML provides a 303.15 K mixture density), and our own Sage replicates replace the missing repeat SDs for MAZE. | aromatic nitrogen-water hydrogen bonding |
 | 4 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 298.15 | -0.82 / -1.26 / -0.74 | -0.08 / -0.12 / -0.07 | exception. Fails: composition mismatch. The 3-point rc2 subsets miss the composition-match limit by a hair (\|Δx\| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove the mismatch (largest box \|Δx\| = 0.006), and the system widens the exothermic range and is the only one with chlorine. | tertiary amide with a chloroalkane (C-H···O=C, dipolar) |
 | 5 | 2-(dimethylamino)ethanol + methanol | 298.15 | -0.80 / -0.87 / -0.53 | -0.90 / -1.05 / -0.57 | pass | amino-alcohol with an alcohol (O-H···N and O-H···O) |
 | 6 | acetone + N-methylaniline | 298.15 | -0.50 / -0.67 / -0.53 | -0.45 / -0.73 / -0.67 | pass | aromatic N-H donor with a ketone acceptor |
 | 7 | methyl pentanoate + octane | 298.15 | 0.77 / 1.05 / 0.79 | 0.50 / 0.62 / 0.47 | pass | dilution of ester dipoles in an alkane |
 | 8 | 1-propanol + benzene | 298.15 | 1.04 / 0.97 / 0.55 | 0.14 / 0.09 / 0.02 | pass | alcohol self-association broken by an aromatic (O-H···π) |
-| 9 | tetrahydropyran + ethanol | 298.15 | 0.57 / 0.85 / 0.75 | -0.01 / 0.01 / 0.04 | pass | cyclic ether with an alcohol |
+| 9 | tetrahydropyran + ethanol | 298.15 | 0.57 / 0.85 / 0.75 | -0.02 / 0.01 / 0.04 | pass | cyclic ether with an alcohol |
 | 10 | dipropylamine + N,N-dimethylformamide | 298.15 | 0.61 / 0.75 / 0.53 | -0.25 / -0.29 / -0.21 | pass | secondary amine with a tertiary amide |
 | 11 | propionitrile + tert-amyl ethyl ether | 298.15 | 0.50 / 0.70 / 0.59 | -0.22 / -0.37 / -0.33 | pass | nitrile dipoles diluted in an ether |
 | 12 | 2-butanone + dibutylamine | 298.15 | 0.42 / 0.62 / 0.43 | 0.17 / 0.26 / 0.20 | pass | ketone with a secondary amine |
@@ -201,7 +202,7 @@ Each pure density is taken from the paper that supplies most of the mixture dens
 |---|---|---|---|---|---|---|---|
 | `c1cc[nH]c1` | 298.15 | 0.96554 | 0.00006 | thermoml:10.1016/j.fluid.2013.10.029 | no | – | – |
 | `c1ccncc1` | 298.15 | 0.97801 | 0.00006 | thermoml:10.1016/j.fluid.2013.10.029 | yes | 0.9819 @ 298 K | thermoml:10.1016/j.fluid.2015.04.031, sage-2.0-train:10.1016/j.fluid.2015.04.031, ml-peg |
-| `CO` | 298.15 | 0.78657 | 0.00012 | thermoml:10.1021/je700300y | yes | 0.7914 @ 298 K | ml-peg |
+| `CO` | 298.15 | 0.78720 | 0.00023 | thermoml:10.1016/j.jct.2007.05.004 | yes | 0.7914 @ 298 K | ml-peg |
 | `O` | 298.15 | 0.99705 | 0.00000 | IAPWS-95 (Wagner and Pruss, J. Phys. Chem. Ref. Data 31, 387 (2002)) | yes | 0.9980 @ 298 K | – |
 | `O` | 303.15 | 0.99565 | 0.00000 | IAPWS-95 (Wagner and Pruss, J. Phys. Chem. Ref. Data 31, 387 (2002)) | yes | 0.9980 @ 298 K | – |
 | `c1ccncc1` | 303.15 | 0.97298 | 0.00011 | thermoml:10.1021/je900874z | yes | 0.9819 @ 298 K | – |
@@ -237,6 +238,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 38 points from 10.1016/j.fluid.2013.10.029 (38)
 - **Density data:** 15 points from 10.1016/j.fluid.2013.10.029 (15)
 - **Single-phase evidence:** ΔHmix measured at 38 compositions spanning x = 0.03–0.97; straight-line fit reduced χ² = 918 (a two-phase region would give ≈ 1).
+- **V^E fit:** 15 points derived from densities; RMS residual 0.0031 cm³/mol, median σ 0.0036 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
@@ -254,14 +256,15 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **Filter exception:** The rc2 density and ΔHmix compositions differ by up to |Δx| = 0.06 (limit 0.05), and no data set gives water's pure density with an uncertainty. Kept because it is the aqueous calibration system (smallest Sage repeat spread in the pool) and both failures are artefacts of the screening data: the full ThermoML isotherms have a density within |Δx| ≤ 0.002 of every box composition, and water's pure density comes from [IAPWS-95](https://doi.org/10.1063/1.1461829).
 - **Failed filters:** composition mismatch; missing pure density with uncertainty
 - **ΔHmix data:** 11 points from 10.1016/j.tca.2006.02.028 (11)
-- **Density data:** 23 points from 10.1021/je700300y (12), 10.1016/j.jct.2007.05.004 (11)
+- **Density data:** 11 points from 10.1016/j.jct.2007.05.004 (11)
 - **Single-phase evidence:** ΔHmix measured at 11 compositions spanning x = 0.05–0.90; straight-line fit reduced χ² = 202 (a two-phase region would give ≈ 1).
+- **V^E fit:** 11 points derived from densities; RMS residual 0.0066 cm³/mol, median σ 0.0083 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
-| 0.199 | 86 / 346 | 1554 | 25.0 | -0.805 ± 0.0045 | 0.9473 ± 0.00006 | -0.615 |
-| 0.500 | 168 / 168 | 1512 | 25.0 | -0.777 ± 0.0045 | 0.8813 ± 0.00009 | -1.003 |
-| 0.701 | 202 / 86 | 1470 | 25.0 | -0.581 ± 0.0035 | 0.8401 ± 0.00010 | -0.811 |
+| 0.199 | 86 / 346 | 1554 | 25.0 | -0.805 ± 0.0045 | 0.9472 ± 0.00011 | -0.608 |
+| 0.500 | 168 / 168 | 1512 | 25.0 | -0.777 ± 0.0045 | 0.8818 ± 0.00016 | -1.003 |
+| 0.701 | 202 / 86 | 1470 | 25.0 | -0.581 ± 0.0035 | 0.8407 ± 0.00019 | -0.813 |
 
 ![methanol_water](figures/methanol_water.png)
 
@@ -293,6 +296,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 11 points from 10.1016/j.jct.2008.01.024 (11)
 - **Density data:** 9 points from 10.1021/je7003758 (9)
 - **Single-phase evidence:** ΔHmix measured at 11 compositions spanning x = 0.06–0.96; straight-line fit reduced χ² = 790 (a two-phase region would give ≈ 1).
+- **V^E fit:** 9 points derived from densities; RMS residual 0.0022 cm³/mol, median σ 0.0030 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
@@ -310,10 +314,11 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 19 points from 10.1021/je800334m (19)
 - **Density data:** 9 points from 10.1016/j.tca.2014.03.038 (9)
 - **Single-phase evidence:** ΔHmix measured at 19 compositions spanning x = 0.05–0.95; straight-line fit reduced χ² = 291 (a two-phase region would give ≈ 1).
+- **V^E fit:** 9 points derived from densities; RMS residual 0.0121 cm³/mol, median σ 0.0162 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
-| 0.247 | 41 / 125 | 1447 | 25.0 | -0.804 ± 0.0087 | 0.8437 ± 0.00014 | -0.897 |
+| 0.247 | 41 / 125 | 1447 | 25.0 | -0.804 ± 0.0087 | 0.8437 ± 0.00014 | -0.898 |
 | 0.500 | 65 / 65 | 1495 | 25.1 | -0.865 ± 0.0094 | 0.8684 ± 0.00015 | -1.048 |
 | 0.750 | 81 / 27 | 1539 | 25.0 | -0.533 ± 0.0059 | 0.8777 ± 0.00017 | -0.566 |
 
@@ -327,6 +332,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 9 points from 10.1021/je200333p (9)
 - **Density data:** 19 points from 10.1021/je900874z (19)
 - **Single-phase evidence:** ΔHmix measured at 9 compositions spanning x = 0.13–0.90; straight-line fit reduced χ² = 393 (a two-phase region would give ≈ 1).
+- **V^E fit:** 19 points derived from densities; RMS residual 0.0034 cm³/mol, median σ 0.0040 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
@@ -344,12 +350,13 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 19 points from 10.1021/acs.jced.5b00813 (19)
 - **Density data:** 19 points from 10.1021/acs.jced.5b00813 (19)
 - **Single-phase evidence:** ΔHmix measured at 19 compositions spanning x = 0.07–0.96; straight-line fit reduced χ² = 656 (a two-phase region would give ≈ 1).
+- **V^E fit:** 19 points derived from densities; RMS residual 0.0108 cm³/mol, median σ 0.0121 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
 | 0.230 | 23 / 77 | 2462 | 29.6 | 0.769 ± 0.0080 | 0.7323 ± 0.00051 | 0.499 |
 | 0.490 | 49 / 51 | 2306 | 29.1 | 1.053 ± 0.0115 | 0.7764 ± 0.00051 | 0.616 |
-| 0.730 | 73 / 27 | 2162 | 28.6 | 0.789 ± 0.0085 | 0.8234 ± 0.00051 | 0.465 |
+| 0.730 | 73 / 27 | 2162 | 28.6 | 0.789 ± 0.0085 | 0.8234 ± 0.00051 | 0.466 |
 
 ![methylpentanoate_octane](figures/methylpentanoate_octane.png)
 
@@ -361,6 +368,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 19 points from 10.1016/j.jct.2015.01.003 (19)
 - **Density data:** 18 points from 10.1021/je700254t (18)
 - **Single-phase evidence:** ΔHmix measured at 19 compositions spanning x = 0.05–0.95; straight-line fit reduced χ² = 142 (a two-phase region would give ≈ 1).
+- **V^E fit:** 18 points derived from densities; RMS residual 0.0030 cm³/mol, median σ 0.0034 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
@@ -378,12 +386,13 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 19 points from 10.1021/je049852v (19)
 - **Density data:** 11 points from 10.1021/je201140q (11)
 - **Single-phase evidence:** ΔHmix measured at 19 compositions spanning x = 0.05–0.95; straight-line fit reduced χ² = 374 (a two-phase region would give ≈ 1).
+- **V^E fit:** 11 points derived from densities; RMS residual 0.0035 cm³/mol, median σ 0.0044 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
 | 0.250 | 34 / 102 | 1462 | 25.0 | 0.570 ± 0.0055 | 0.8189 ± 0.00013 | -0.015 |
 | 0.504 | 60 / 59 | 1491 | 25.0 | 0.851 ± 0.0079 | 0.8441 ± 0.00010 | 0.014 |
-| 0.755 | 80 / 26 | 1514 | 25.0 | 0.747 ± 0.0071 | 0.8633 ± 0.00008 | 0.044 |
+| 0.755 | 80 / 26 | 1514 | 25.0 | 0.747 ± 0.0071 | 0.8633 ± 0.00008 | 0.045 |
 
 ![tetrahydropyran_ethanol](figures/tetrahydropyran_ethanol.png)
 
@@ -395,6 +404,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 19 points from 10.1016/j.fluid.2019.112283 (19)
 - **Density data:** 15 points from 10.1021/acs.jced.5b00802 (15)
 - **Single-phase evidence:** ΔHmix measured at 19 compositions spanning x = 0.05–0.96; straight-line fit reduced χ² = 99 (a two-phase region would give ≈ 1).
+- **V^E fit:** 15 points derived from densities; RMS residual 0.0030 cm³/mol, median σ 0.0043 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
@@ -412,11 +422,12 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 9 points from 10.1021/je301238f (9)
 - **Density data:** 9 points from 10.1021/je301238f (9)
 - **Single-phase evidence:** ΔHmix measured at 9 compositions spanning x = 0.10–0.90; straight-line fit reduced χ² = 398 (a two-phase region would give ≈ 1).
+- **V^E fit:** 9 points derived from densities; RMS residual 0.0081 cm³/mol, median σ 0.0108 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
-| 0.200 | 20 / 80 | 2100 | 28.3 | 0.501 ± 0.0069 | 0.7638 ± 0.00025 | -0.217 |
-| 0.500 | 50 / 50 | 1650 | 26.4 | 0.703 ± 0.0095 | 0.7683 ± 0.00035 | -0.371 |
+| 0.200 | 20 / 80 | 2100 | 28.3 | 0.501 ± 0.0069 | 0.7638 ± 0.00025 | -0.218 |
+| 0.500 | 50 / 50 | 1650 | 26.4 | 0.703 ± 0.0095 | 0.7683 ± 0.00035 | -0.369 |
 | 0.700 | 70 / 30 | 1350 | 25.1 | 0.588 ± 0.0080 | 0.7715 ± 0.00040 | -0.330 |
 
 ![propionitrile_taee](figures/propionitrile_taee.png)
@@ -429,6 +440,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 9 points from 10.1016/j.fluid.2013.01.011 (9)
 - **Density data:** 19 points from 10.1016/j.tca.2010.09.004 (19)
 - **Single-phase evidence:** ΔHmix measured at 9 compositions spanning x = 0.12–0.89; straight-line fit reduced χ² = 324 (a two-phase region would give ≈ 1).
+- **V^E fit:** 19 points derived from densities; RMS residual 0.0043 cm³/mol, median σ 0.0048 cm³/mol.
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
@@ -446,11 +458,12 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 - **ΔHmix data:** 187 points from 10.1021/je400184t (168), 10.1016/j.jct.2008.12.004 (19)
 - **Density data:** 15 points from 10.1021/je400184t (15)
 - **Single-phase evidence:** ΔHmix measured at 187 compositions spanning x = 0.01–0.99; straight-line fit reduced χ² = 514 (a two-phase region would give ≈ 1).
+- **V^E fit:** 15 points derived from densities; RMS residual 0.0020 cm³/mol, median σ 0.0023 cm³/mol.
 - **Density points not used for V^E** (σ > 0.002 g/mL): 10.1016/j.jct.2005.10.011 (10)
 
 | x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
 |---|---|---|---|---|---|---|
-| 0.250 | 25 / 75 | 1700 | 26.9 | 0.451 ± 0.0030 | 0.8039 ± 0.00011 | 0.114 |
+| 0.250 | 25 / 75 | 1700 | 26.9 | 0.451 ± 0.0030 | 0.8039 ± 0.00011 | 0.115 |
 | 0.500 | 50 / 50 | 1900 | 27.6 | 0.556 ± 0.0036 | 0.7554 ± 0.00012 | 0.146 |
 | 0.750 | 75 / 25 | 2100 | 28.4 | 0.391 ± 0.0026 | 0.7145 ± 0.00013 | 0.109 |
 

@@ -904,6 +904,162 @@ def choose_pure_density(
     }
 
 
+def excess_volumes(
+    dens: list[Point],
+    thermo_pure: dict[str, list[Point]],
+    pures: dict[str, dict],
+    a: str,
+    b: str,
+    ma: float,
+    mb: float,
+) -> list[Point]:
+    """
+    Derive V^E from mixture densities, with correlated uncertainties.
+
+    V^E = M/rho - x M_a/rho_a - (1 - x) M_b/rho_b. Each point uses the pure
+    densities of its own paper (closest temperature in the state window)
+    where it reports them, so calibration and purity errors common to the
+    paper largely cancel; otherwise it falls back to the chosen reference
+    pure density.
+
+    ThermoML gives one combined uncertainty with no split into systematic and
+    random parts. All of it is treated as systematic: one error shared by the
+    densities from the same paper. Its V^E uncertainty is the larger of two
+    shared errors, a common scale error of the largest relative sigma and a
+    common offset of the largest sigma among the densities used. The random
+    part is added from the scatter about the fit by :func:`add_fit_scatter`.
+    A pure density from another source is uncorrelated with the mixture and
+    adds in quadrature.
+
+    Parameters
+    ----------
+    dens
+        Mixture densities in g/mL, x of component a.
+    thermo_pure
+        Pure densities per component from the fetched ThermoML records.
+    pures
+        Chosen reference pure densities per component.
+    a, b
+        Component SMILES.
+    ma, mb
+        Molar masses in g/mol.
+
+    Returns
+    -------
+    list[Point]
+        V^E points in cm3/mol with their correlated standard uncertainty.
+    """
+    vex = []
+    for point in dens:
+        x = point.x
+        # (density, sigma, same_paper) for the mixture, a and b.
+        densities = [(point.value, point.sigma, True)]
+        for component in (a, b):
+            same_paper = [
+                pure
+                for pure in thermo_pure.get(component, [])
+                if pure.doi == point.doi
+                and abs(pure.temperature - point.temperature) <= STATE_T_TOLERANCE
+            ]
+            if same_paper:
+                pure = min(
+                    same_paper, key=lambda q: abs(q.temperature - point.temperature)
+                )
+                densities.append((pure.value, pure.sigma, True))
+            else:
+                chosen = pures[component]
+                densities.append((chosen["density"], chosen["sigma"], False))
+        (rho_mix, _, _), (rho_a, _, _), (rho_b, _, _) = densities
+        mean_mass = x * ma + (1 - x) * mb
+        value = mean_mass / rho_mix - x * ma / rho_a - (1 - x) * mb / rho_b
+        # Sensitivities dV^E/drho for the mixture, a and b.
+        sensitivities = [
+            -mean_mass / rho_mix**2,
+            x * ma / rho_a**2,
+            (1 - x) * mb / rho_b**2,
+        ]
+        # (sensitivity, density, sigma) of the densities sharing the paper's error.
+        shared = [
+            (sens, rho, sigma_rho or 0.0)
+            for sens, (rho, sigma_rho, same) in zip(
+                sensitivities, densities, strict=True
+            )
+            if same
+        ]
+        if not any(sigma_rho for _, _, sigma_rho in shared):
+            sigma_vex = None
+        else:
+            # Common scale error and common offset, each as large as the
+            # paper's largest relative or absolute sigma at this point.
+            largest_rel_sigma = max(sigma_rho / rho for _, rho, sigma_rho in shared)
+            largest_sigma = max(sigma_rho for _, _, sigma_rho in shared)
+            scale_error = (
+                abs(sum(sens * rho for sens, rho, _ in shared)) * largest_rel_sigma
+            )
+            offset_error = abs(sum(sens for sens, _, _ in shared)) * largest_sigma
+            shared_error = max(scale_error, offset_error)
+            independent_errors = [
+                sens * (sigma_rho or 0.0)
+                for sens, (_, sigma_rho, same) in zip(
+                    sensitivities, densities, strict=True
+                )
+                if not same
+            ]
+            sigma_vex = math.sqrt(
+                shared_error**2 + sum(err**2 for err in independent_errors)
+            )
+        vex.append(
+            Point("vex", x, point.temperature, value, sigma_vex, point.doi, "derived")
+        )
+    return vex
+
+
+def add_fit_scatter(vex: list[Point], curve) -> list[Point]:
+    """
+    Add the random part of the derived V^E uncertainty from the fit residuals.
+
+    The random scatter of each paper's derived points is estimated as its
+    RMS residual about the Redlich-Kister fit, corrected for the degrees of
+    freedom the fit uses, and added in quadrature to the correlated part.
+    Directly measured V^E points keep their reported uncertainty.
+
+    Parameters
+    ----------
+    vex
+        V^E points, derived and direct.
+    curve
+        Redlich-Kister fit to ``vex``.
+
+    Returns
+    -------
+    list[Point]
+        The points with updated uncertainties for derived points.
+    """
+    n = len(vex)
+    dof = n - max(1, min(4, n - 1))
+    if dof <= 0:
+        return vex
+    sq = defaultdict(list)
+    for p in vex:
+        if p.source == "derived":
+            sq[p.doi].append((p.value - curve(p.x)) ** 2)
+    scatter = {doi: math.sqrt(sum(r) / len(r) * n / dof) for doi, r in sq.items()}
+    return [
+        Point(
+            p.prop,
+            p.x,
+            p.temperature,
+            p.value,
+            math.sqrt((p.sigma or 0.0) ** 2 + scatter[p.doi] ** 2),
+            p.doi,
+            p.source,
+        )
+        if p.source == "derived"
+        else p
+        for p in vex
+    ]
+
+
 def build_system(
     spec: dict,
     points: dict[tuple[str, str], list[Point]],
@@ -985,6 +1141,9 @@ def build_system(
     if spec.get("hmix_dois"):
         hmix = [p for p in hmix if p.doi in spec["hmix_dois"]]
     all_dens = sorted((p for p in mixture if p.prop == "density"), key=lambda p: p.x)
+    # Restrict densities to one paper, so its pure densities serve throughout.
+    if spec.get("density_dois"):
+        all_dens = [p for p in all_dens if p.doi in spec["density_dois"]]
     dens = [p for p in all_dens if p.sigma is None or p.sigma <= MAX_DENSITY_SIGMA]
     noisy_density = Counter(p.doi for p in all_dens if p not in dens)
     density_dois = [doi for doi, _ in Counter(p.doi for p in dens).most_common()]
@@ -1012,27 +1171,10 @@ def build_system(
     }
     vex_direct = sorted((p for p in mixture if p.prop == "vex"), key=lambda p: p.x)
 
-    # Excess volumes from mixture densities and the chosen pure densities.
     ma, mb = info[a]["molar_mass"], info[b]["molar_mass"]
     vex = list(vex_direct)
     if pures[a]["density"] and pures[b]["density"]:
-        for p in dens:
-            mean_mass = p.x * ma + (1 - p.x) * mb
-            ideal = (
-                p.x * ma / pures[a]["density"] + (1 - p.x) * mb / pures[b]["density"]
-            )
-            sigma = mean_mass / p.value**2 * p.sigma if p.sigma else None
-            vex.append(
-                Point(
-                    "vex",
-                    p.x,
-                    p.temperature,
-                    mean_mass / p.value - ideal,
-                    sigma,
-                    p.doi,
-                    "derived",
-                )
-            )
+        vex += excess_volumes(dens, thermo_pure, pures, a, b, ma, mb)
 
     def fit(pts: list[Point], floor: float):
         """
@@ -1059,6 +1201,9 @@ def build_system(
 
     hmix_fit = fit(hmix, 1e-3)
     vex_fit = fit(vex, 1e-3)
+    if vex_fit:
+        vex = add_fit_scatter(vex, vex_fit)
+        vex_fit = fit(vex, 1e-3)
 
     # Target compositions: measured enthalpy points nearest 0.25, 0.5 and 0.75,
     # unless the system sets its own.

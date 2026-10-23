@@ -399,3 +399,45 @@ def test_parse_record_unit_factors(name, raw, expected):
     (m,) = parse_record("10.0/test", record)
     assert m.value == pytest.approx(expected)
     assert m.uncertainty == pytest.approx(expected / 100)
+
+
+def test_excess_volumes_cancel_shared_density_error():
+    """
+    Test a paper-wide density error barely affects V^E, unlike a foreign pure.
+
+    With the pure densities from the same paper, a common relative error of
+    0.1 % moves V^E by about 0.1 % of V^E, and a common offset by the small
+    net sensitivity. Independent propagation of the mixture density alone
+    would give M/rho^2 * sigma, about 50 times larger here.
+    """
+    m_a = ss.molecule_info(ETHANOL)["molar_mass"]
+    m_b = ss.molecule_info(HEPTANE)["molar_mass"]
+    x = GRID[9]
+    rho = _density(x)
+    dens = [ss.Point("density", x, 298.15, rho, 1e-3 * rho, DOI, "thermoml")]
+    pure = {
+        c: [ss.Point("density", 1.0, 298.15, r, 1e-3 * r, DOI, "thermoml")]
+        for c, r in ((ETHANOL, RHO_A), (HEPTANE, RHO_B))
+    }
+    chosen = {
+        ETHANOL: {"density": RHO_A, "sigma": 1e-4},
+        HEPTANE: {"density": RHO_B, "sigma": 1e-4},
+    }
+    (own,) = ss.excess_volumes(dens, pure, chosen, ETHANOL, HEPTANE, m_a, m_b)
+    mean_mass = x * m_a + (1 - x) * m_b
+    grad = np.array([-mean_mass / rho**2, x * m_a / RHO_A**2, (1 - x) * m_b / RHO_B**2])
+    assert own.value == pytest.approx(_vex(x), abs=1e-9)
+    assert own.sigma == pytest.approx(
+        max(1e-3 * abs(_vex(x)), abs(grad.sum()) * 1e-3 * RHO_A), rel=1e-6
+    )
+    assert own.sigma < mean_mass / rho**2 * 1e-3 * rho / 20
+
+    # Ethanol's pure density from another source: its error no longer cancels.
+    (mixed,) = ss.excess_volumes(
+        dens, {HEPTANE: pure[HEPTANE]}, chosen, ETHANOL, HEPTANE, m_a, m_b
+    )
+    correlated = max(
+        abs(grad[0] * 1e-3 * rho + grad[2] * 1e-3 * RHO_B),
+        abs(grad[0] + grad[2]) * 1e-3 * rho,
+    )
+    assert mixed.sigma == pytest.approx(np.hypot(correlated, grad[1] * 1e-4), rel=1e-6)

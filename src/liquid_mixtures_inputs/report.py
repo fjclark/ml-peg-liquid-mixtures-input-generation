@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 import csv
 from datetime import date
+import math
 from pathlib import Path
 import statistics
 
@@ -555,6 +556,16 @@ def write_report(
         "expanded ones are divided by 2. Every σ in this report is therefore a "
         "standard uncertainty. The ash-sage-rc2 sets use the same convention: "
         "their σ equals half the ThermoML expanded value.",
+        "- V^E is derived from mixture densities and the pure densities of the "
+        "same paper. ThermoML gives one combined density σ, often a flat "
+        "~0.1 % assessed by the TRC data-file compiler, which is mostly "
+        "calibration and purity error shared by every density in the paper. "
+        "It is treated as fully correlated within a paper, so it largely "
+        "cancels in V^E (the larger of a common scale error and a common "
+        "offset is kept). The random part is each paper's RMS residual about "
+        "the Redlich-Kister fit, added in quadrature. A pure density from "
+        "another source is uncorrelated and adds in quadrature. Mixture "
+        "density σ is used unchanged, since there the shared error counts.",
         "- ml-peg's liquid_densities inputs, to avoid re-scoring pure densities.",
         "",
         "## Screening funnel",
@@ -764,6 +775,16 @@ def write_report(
                 "straight-line fit reduced χ² = "
                 + (f"{chi2:.0f}" if chi2 is not None else "n/a (too few points)")
                 + " (a two-phase region would give ≈ 1)."
+            )
+        derived = [p for p in s["vex"] if p.source == "derived"]
+        if derived and s["vex_fit"]:
+            rms = math.sqrt(
+                sum((p.value - s["vex_fit"](p.x)) ** 2 for p in derived) / len(derived)
+            )
+            lines.append(
+                f"- **V^E fit:** {len(derived)} points derived from densities; RMS "
+                f"residual {rms:.4f} cm³/mol, median σ "
+                f"{statistics.median(p.sigma or 0.0 for p in derived):.4f} cm³/mol."
             )
         if s["noisy_density"]:
             lines.append(
