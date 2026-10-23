@@ -817,6 +817,57 @@ def plot_finite_size(finite: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
+def plot_replicate_spread(summary: pd.DataFrame, path: Path) -> None:
+    """
+    Plot per-point replicate SDs against the pooled σ_Sage and σ_ref per system.
+
+    Parameters
+    ----------
+    summary
+        Output of :func:`pooled_sigma`.
+    path
+        Output PNG path.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharey=True)
+    systems = summary.groupby("system_id").sigma_sage_hmix.first().sort_values()
+    rows = summary.system_id.map({s: i for i, s in enumerate(systems.index)})
+    for ax, prop, unit in (
+        (axes[0], "hmix", "ΔHmix (kJ/mol)"),
+        (axes[1], "density", "density (g/mL)"),
+    ):
+        ax.scatter(summary[f"{prop}_sd"], rows, s=12, label="replicate SD at one x")
+        ax.scatter(
+            summary[f"sigma_sage_{prop}"],
+            rows,
+            marker="|",
+            s=150,
+            c="k",
+            label="σ_Sage",
+        )
+        ax.scatter(
+            summary[f"sigma_ref_{prop}"],
+            rows,
+            s=30,
+            facecolors="none",
+            edgecolors="tab:red",
+            label="σ_ref",
+        )
+        ax.axvline(
+            summary[f"sigma_sage_{prop}"].min(),
+            color="k",
+            ls=":",
+            lw=0.8,
+            label="floor (median system)",
+        )
+        ax.set_yticks(np.arange(len(systems)), systems.index, fontsize=7)
+        ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(5))
+        ax.set_xlabel(f"SD of replicate means: {unit}")
+        ax.legend(fontsize=7)
+    fig.tight_layout()
+    fig.savefig(path, dpi=110)
+    plt.close(fig)
+
+
 def plot_sage_vs_exp(summary: pd.DataFrame, path: Path) -> None:
     """
     Parity plot of Sage replicate-mean ΔHmix against experiment.
@@ -1232,9 +1283,23 @@ def write_report(out: Path, header, runs, summary, finite, flags, start) -> None
         "",
         "## Replicate spread (MAZE denominator)",
         "",
-        "σ_Sage is the SD of the replicate means, pooled per system (RMS over its "
-        "compositions) and floored at the median over systems. σ_ref = "
-        "sqrt(σ_Sage² + σ_exp²).",
+        "MAZE (mean absolute z-score error) is the ml-peg metric for ΔHmix and "
+        "mixture density: |model − experiment| / σ_ref averaged over all "
+        f"{len(summary)} ΔHmix points ({int(summary.density_exp.notna().sum())} "
+        "density points), giving one number per model. The denominator is "
+        "σ_ref = sqrt(σ_Sage² + σ_exp²) (the σ_ref columns below, written to "
+        "`systems.csv` as `sigma_ref_hmix` and `sigma_ref_density`), fixed per "
+        "point and the same for every model. σ_Sage is one value per mixture: the "
+        "SD of the replicate means, pooled over its compositions (RMS) and floored "
+        "at the median over mixtures. σ_ref differs between a mixture's "
+        "compositions only through σ_exp. The floor is there because model errors "
+        "are mostly systematic and much larger than σ_ref, so σ_ref acts as a "
+        "per-mixture weight: without the floor, the mixtures where Sage happens to "
+        "sample most quietly would dominate MAZE, although an MLIP's noise there "
+        "need not be as small. With the floor, mixtures are weighted roughly "
+        "evenly and MAZE stays close to the MAE divided by a single σ.",
+        "",
+        "![replicate spread](figures/replicate_spread.png)",
         "",
         "| System | x | ΔHmix Sage | ΔHmix exp | SD | σ_Sage | σ_ref | ρ Sage | "
         "ρ exp | ρ SD | σ_ref ρ |",
@@ -1366,6 +1431,7 @@ def main() -> None:
     plot_within_between(wb, out / "figures" / "within_between.png")
     plot_finite_size(finite, out / "figures" / "finite_size.png")
     plot_sage_vs_exp(summary, out / "figures" / "sage_vs_exp.png")
+    plot_replicate_spread(summary, out / "figures" / "replicate_spread.png")
     start = start_dependence(runs)
     start.to_csv(out / "start_dependence.csv", index=False)
     items = inspection_items(runs, summary, finite, flags, start, wb, boxes)

@@ -157,7 +157,9 @@ Largest within/between mismatches:
 
 ## Replicate spread (MAZE denominator)
 
-σ_Sage is the SD of the replicate means, pooled per system (RMS over its compositions) and floored at the median over systems. σ_ref = sqrt(σ_Sage² + σ_exp²).
+MAZE (mean absolute z-score error) is the ml-peg metric for ΔHmix and mixture density: |model − experiment| / σ_ref averaged over all 39 ΔHmix points (36 density points), giving one number per model. The denominator is σ_ref = sqrt(σ_Sage² + σ_exp²) (the σ_ref columns below, written to `systems.csv` as `sigma_ref_hmix` and `sigma_ref_density`), fixed per point and the same for every model. σ_Sage is one value per mixture: the SD of the replicate means, pooled over its compositions (RMS) and floored at the median over mixtures. σ_ref differs between a mixture's compositions only through σ_exp. The floor is there because model errors are mostly systematic and much larger than σ_ref, so σ_ref acts as a per-mixture weight: without the floor, the mixtures where Sage happens to sample most quietly would dominate MAZE, although an MLIP's noise there need not be as small. With the floor, mixtures are weighted roughly evenly and MAZE stays close to the MAE divided by a single σ.
+
+![replicate spread](figures/replicate_spread.png)
 
 | System | x | ΔHmix Sage | ΔHmix exp | SD | σ_Sage | σ_ref | ρ Sage | ρ exp | ρ SD | σ_ref ρ |
 |---|---|---|---|---|---|---|---|---|---|---|
