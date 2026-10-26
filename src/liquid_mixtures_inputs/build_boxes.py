@@ -335,6 +335,7 @@ def make_simulation(
     barostat: bool,
     seed: int,
     platform: str = "CUDA",
+    force_field: str = FORCE_FIELD,
 ):
     """
     Parametrise a box with Sage and build an OpenMM simulation.
@@ -357,6 +358,8 @@ def make_simulation(
         Seed for the integrator and barostat.
     platform
         OpenMM platform name.
+    force_field
+        OpenFF force field file.
 
     Returns
     -------
@@ -369,7 +372,7 @@ def make_simulation(
     topology = Topology.from_molecules(mols)
     cell = np.diag([edge] * 3) if np.ndim(edge) == 0 else np.asarray(edge)
     topology.box_vectors = Quantity(cell, "angstrom")
-    force_field = ForceField(FORCE_FIELD)
+    force_field = ForceField(force_field)
     # Water has no NAGL charges and takes the force field's TIP3P library charges.
     charged = [m for m in molecules if m.partial_charges is not None]
     interchange = force_field.create_interchange(
@@ -472,7 +475,11 @@ def whole_molecule_positions(
 
 
 def build_box(
-    spec: BoxSpec, seed: int, platform: str = "CUDA", molecules=None
+    spec: BoxSpec,
+    seed: int,
+    platform: str = "CUDA",
+    molecules=None,
+    force_field: str = FORCE_FIELD,
 ) -> tuple[Atoms, list[Molecule]]:
     """
     Pack, parametrise and NVT-equilibrate one box.
@@ -487,6 +494,8 @@ def build_box(
         OpenMM platform name.
     molecules
         Pre-built molecules (one per component), to reuse charges.
+    force_field
+        OpenFF force field file.
 
     Returns
     -------
@@ -500,7 +509,15 @@ def build_box(
     edge = box_edge(spec)
     positions = pack(molecules, spec.counts, edge, seed)
     simulation, _ = make_simulation(
-        molecules, spec.counts, positions, edge, spec.temperature, False, seed, platform
+        molecules,
+        spec.counts,
+        positions,
+        edge,
+        spec.temperature,
+        False,
+        seed,
+        platform,
+        force_field,
     )
     equilibrate_nvt(simulation, spec.temperature, seed)
     state = simulation.context.getState(getPositions=True)

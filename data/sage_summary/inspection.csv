@@ -1,0 +1,57 @@
+category,target,evidence,box
+within/between mismatch,methylpentanoate_octane_x730,"h: replicate SD 2.4× the within-run sem (p_high = 0.0002, p < 0.05 unadjusted only)",methylpentanoate_octane_x730
+within/between mismatch,methylpentanoate_octane_x490,"hmix: replicate SD 2.1× the within-run sem (p_high = 0.001, p < 0.05 unadjusted only)",methylpentanoate_octane_x490
+within/between mismatch,propionitrile_taee_x500,"h: replicate SD 2.1× the within-run sem (p_high = 0.001, p < 0.05 unadjusted only)",propionitrile_taee_x500
+within/between mismatch,pure_n_methylaniline_298,"h: replicate SD 2.0× the within-run sem (p_high = 0.003, p < 0.05 unadjusted only)",pure_n_methylaniline_298
+within/between mismatch,heptane_toluene_x250,"h: replicate SD 2.0× the within-run sem (p_high = 0.004, p < 0.05 unadjusted only)",heptane_toluene_x250
+within/between mismatch,heptane_toluene_x250,"density: replicate SD 1.9× the within-run sem (p_high = 0.005, p < 0.05 unadjusted only)",heptane_toluene_x250
+within/between mismatch,heptane_toluene_x750,"hmix: replicate SD 1.9× the within-run sem (p_high = 0.005, p < 0.05 unadjusted only)",heptane_toluene_x750
+within/between mismatch,methylpentanoate_octane_x230,"hmix: replicate SD 1.9× the within-run sem (p_high = 0.007, p < 0.05 unadjusted only)",methylpentanoate_octane_x230
+within/between mismatch,butanone_dibutylamine_x220,"density: replicate SD 1.9× the within-run sem (p_high = 0.008, p < 0.05 unadjusted only)",butanone_dibutylamine_x220
+within/between mismatch,pure_octane_298,"h: replicate SD 1.8× the within-run sem (p_high = 0.009, p < 0.05 unadjusted only)",pure_octane_298
+within/between mismatch,methanol_water_x500,"h: replicate SD 1.8× the within-run sem (p_high = 0.01, p < 0.05 unadjusted only)",methanol_water_x500
+within/between mismatch,nmp_dichloroethane_x200,"vex: replicate SD 1.8× the within-run sem (p_high = 0.01, p < 0.05 unadjusted only)",nmp_dichloroethane_x200
+within/between mismatch,pure_n_methylaniline_298,"density: replicate SD 1.8× the within-run sem (p_high = 0.01, p < 0.05 unadjusted only)",pure_n_methylaniline_298
+within/between mismatch,nmp_dichloroethane_x200,"density: replicate SD 1.8× the within-run sem (p_high = 0.01, p < 0.05 unadjusted only)",nmp_dichloroethane_x200
+within/between mismatch,propionitrile_taee_x200,"h: replicate SD 1.8× the within-run sem (p_high = 0.01, p < 0.05 unadjusted only)",propionitrile_taee_x200
+within/between mismatch,pure_tetrahydropyran_298,"density: replicate SD 1.8× the within-run sem (p_high = 0.01, p < 0.05 unadjusted only)",pure_tetrahydropyran_298
+within/between mismatch,methanol_water_x500,"density: replicate SD 1.8× the within-run sem (p_high = 0.01, p < 0.05 unadjusted only)",methanol_water_x500
+within/between mismatch,propionitrile_taee_x500,"hmix: replicate SD 1.7× the within-run sem (p_high = 0.02, p < 0.05 unadjusted only)",propionitrile_taee_x500
+within/between mismatch,methanol_water_x199,"h: replicate SD 1.7× the within-run sem (p_high = 0.02, p < 0.05 unadjusted only)",methanol_water_x199
+within/between mismatch,pure_heptane_298,"h: replicate SD 1.7× the within-run sem (p_high = 0.03, p < 0.05 unadjusted only)",pure_heptane_298
+within/between mismatch,propionitrile_taee_x200,"vex: replicate SD 1.6× the within-run sem (p_high = 0.03, p < 0.05 unadjusted only)",propionitrile_taee_x200
+within/between mismatch,water_pyridine_x700,"h: replicate SD 1.6× the within-run sem (p_high = 0.04, p < 0.05 unadjusted only)",water_pyridine_x700
+within/between mismatch,pure_water_298,"density: replicate SD 1.6× the within-run sem (p_high = 0.05, p < 0.05 unadjusted only)",pure_water_298
+within/between mismatch,pure_benzene_298,"h: replicate SD 1.6× the within-run sem (p_high = 0.05, p < 0.05 unadjusted only)",pure_benzene_298
+within/between mismatch,water_pyridine_x700,"hmix: replicate SD 1.6× the within-run sem (p_high = 0.05, p < 0.05 unadjusted only)",water_pyridine_x700
+within/between mismatch,pure_toluene_298,"density: replicate SD 1.5× the within-run sem (p_high = 0.05, p < 0.05 unadjusted only)",pure_toluene_298
+low sampling,dmae_methanol_x500,"1 replicate(s) with n_eff < 100 (minimum 64, τ up to 31 ps)",dmae_methanol_x500
+low sampling,dmae_methanol_x750,"2 replicate(s) with n_eff < 100 (minimum 48, τ up to 42 ps)",dmae_methanol_x750
+low sampling,pure_2_dimethylamino_ethanol_298,"3 replicate(s) with n_eff < 100 (minimum 89, τ up to 22 ps)",pure_2_dimethylamino_ethanol_298
+low sampling,pure_dibutylamine_298,"1 replicate(s) with n_eff < 100 (minimum 70, τ up to 28 ps)",pure_dibutylamine_298
+low sampling,pure_n_methylaniline_298,"3 replicate(s) with n_eff < 100 (minimum 39, τ up to 51 ps)",pure_n_methylaniline_298
+start dependence,pure_methyl_pentanoate_298,h_mean: replicate 0 offset -0.1655 (t = -4.9),pure_methyl_pentanoate_298
+early density shift,pyrrole_pyridine_x508,rep3: 200–400 ps density differs from the rest by +0.0058 g/mL,pyrrole_pyridine_x508
+early density shift,methanol_water_x500,rep2: 200–400 ps density differs from the rest by -0.0051 g/mL,methanol_water_x500
+early density shift,dmae_methanol_x247,rep3: 200–400 ps density differs from the rest by +0.0068 g/mL,dmae_methanol_x247
+early density shift,dmae_methanol_x500,rep4: 200–400 ps density differs from the rest by +0.0062 g/mL,dmae_methanol_x500
+early density shift,pure_pyrrole_298,rep3: 200–400 ps density differs from the rest by +0.0054 g/mL,pure_pyrrole_298
+early density shift,pure_methanol_298,rep4: 200–400 ps density differs from the rest by +0.0052 g/mL,pure_methanol_298
+early density shift,pure_1_2_dichloroethane_298,rep4: 200–400 ps density differs from the rest by +0.0117 g/mL,pure_1_2_dichloroethane_298
+early density shift,pure_2_dimethylamino_ethanol_298,rep0: 200–400 ps density differs from the rest by +0.0055 g/mL,pure_2_dimethylamino_ethanol_298
+early density shift,pure_n_methylaniline_298,rep0: 200–400 ps density differs from the rest by -0.0060 g/mL,pure_n_methylaniline_298
+early density shift,pure_n_methylaniline_298,rep3: 200–400 ps density differs from the rest by +0.0052 g/mL,pure_n_methylaniline_298
+early density shift,pure_1_propanol_298,rep3: 200–400 ps density differs from the rest by +0.0056 g/mL,pure_1_propanol_298
+early density shift,pure_toluene_298,rep3: 200–400 ps density differs from the rest by +0.0054 g/mL,pure_toluene_298
+microheterogeneity,water_pyridine_x296,like-neighbour fraction 0.648 vs 0.580 for random mixing,water_pyridine_x296
+microheterogeneity,water_pyridine_x495,like-neighbour fraction 0.604 vs 0.497 for random mixing,water_pyridine_x495
+microheterogeneity,water_pyridine_x700,like-neighbour fraction 0.682 vs 0.579 for random mixing,water_pyridine_x700
+published-Sage gap,butanone_dibutylamine_x220,hmix: ours − published -0.2103 (z = -2.5),
+published-Sage gap,butanone_dibutylamine_x500,hmix: ours − published -0.1767 (z = -4.3),
+force-field miss (not a run problem),butanone_dibutylamine,"mean |ΔHmix error| 0.47 kJ/mol, wrong sign at 1 of 3 x",
+force-field miss (not a run problem),dipropylamine_dmf,mean |ΔHmix error| 0.52 kJ/mol,
+force-field miss (not a run problem),dmae_methanol,mean |ΔHmix error| 0.61 kJ/mol,
+force-field miss (not a run problem),methanol_water,"mean |ΔHmix error| 0.80 kJ/mol, wrong sign at 3 of 3 x",
+force-field miss (not a run problem),nmp_dichloroethane,mean |ΔHmix error| 0.56 kJ/mol,
+force-field miss (not a run problem),pyrrole_pyridine,"mean |ΔHmix error| 1.97 kJ/mol, wrong sign at 1 of 3 x",
+force-field miss (not a run problem),water_pyridine,"mean |ΔHmix error| 1.26 kJ/mol, wrong sign at 3 of 3 x",

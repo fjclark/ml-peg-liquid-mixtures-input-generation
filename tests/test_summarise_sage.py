@@ -10,9 +10,11 @@ import pytest
 
 from liquid_mixtures_inputs.summarise_sage import (
     SIZE_GAP,
+    compare_versions,
     finite_size_check,
     mixture_points,
     pooled_sigma,
+    version_mae,
     within_between,
 )
 from ml_peg.analysis.utils.timeseries import estimate_mean
@@ -294,3 +296,51 @@ def test_pooled_sigma_floor_exception():
         assert summary.loc["quiet", f"sigma_sage_{prop}"] == pytest.approx(
             floor, abs=1e-6
         )
+
+
+def _version_summary(shift: float, sd: float) -> pd.DataFrame:
+    """
+    Two-point summary in the format of ``pooled_sigma``.
+
+    Parameters
+    ----------
+    shift
+        Added to every Sage value.
+    sd
+        Replicate SD of every property.
+
+    Returns
+    -------
+    pd.DataFrame
+        Summary rows for systems ``a`` and ``b``.
+    """
+    rows = []
+    for system_id, exp in (("a", 1.0), ("b", -1.0)):
+        row = {"system_id": system_id, "box_id": f"{system_id}_x500", "x": 0.5}
+        row["n_rep"] = 5
+        for prop in ("hmix", "density", "vex"):
+            row[f"{prop}_sage"] = exp + 0.5 + shift
+            row[f"{prop}_sd"] = sd
+            row[f"{prop}_exp"] = exp
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def test_compare_versions():
+    """Differences, Welch t and MAE follow from the replicate means and SDs."""
+    ref = _version_summary(0.0, 0.1)
+    other = _version_summary(-0.3, 0.2)
+    table = compare_versions(ref, other)
+    assert len(table) == 6
+    np.testing.assert_allclose(table["diff"], -0.3)
+    se = np.sqrt((0.1**2 + 0.2**2) / 5)
+    np.testing.assert_allclose(table.se, se)
+    np.testing.assert_allclose(table.t, -0.3 / se)
+    assert (table.p_adj >= table.p).all()
+
+    mae = version_mae(table, {"a": "training", "b": "validation"})
+    total = mae[mae.set == "all"].set_index("prop")
+    np.testing.assert_allclose(total.mae_ref, 0.5)
+    np.testing.assert_allclose(total.mae_other, 0.2)
+    assert (total.n_better == 2).all()
+    assert set(mae.set) == {"training", "validation", "all"}

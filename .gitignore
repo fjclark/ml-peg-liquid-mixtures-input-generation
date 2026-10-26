@@ -7,4 +7,5 @@ __pycache__/
 # runs are kept locally only.
 data/binary_mixtures/
 data/sage_runs/
+data/sage_runs_2.3.0/
 data/superseded/

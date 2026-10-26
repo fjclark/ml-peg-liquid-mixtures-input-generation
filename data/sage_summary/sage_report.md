@@ -144,6 +144,211 @@ Largest within/between mismatches:
 ![propionitrile_taee_x500](figures/replicates/propionitrile_taee_x500.png)
 ![pure_n_methylaniline_298](figures/replicates/pure_n_methylaniline_298.png)
 
+## Sage openff-2.3.0 vs openff-2.2.1
+
+All boxes were rerun with openff-2.3.0 under the same protocol and replicate scheme (full report: [sage_summary_2.3.0](../sage_summary_2.3.0/sage_report.md)). Both versions use NAGL charges from openff-gnn-am1bcc-1.0.0 and TIP3P water, so only the bonded and vdW parameters differ (checked: identical partial charges in every box). The mixtures come from the ash-sage-rc2 training and validation sets that openff-2.3.0 was fitted to, so its agreement with experiment on training systems is in-sample.
+
+**Error against experiment** (replicate means; *better* counts points where |openff-2.3.0 - exp| < |openff-2.2.1 - exp|):
+
+| Property | Set | Systems | Points | MAE openff-2.2.1 | MAE openff-2.3.0 | Better |
+|---|---|---|---|---|---|---|
+| ΔHmix (kJ/mol) | all | 13 | 39 | 0.583 | 0.546 | 25/39 |
+| ΔHmix (kJ/mol) | training | 9 | 27 | 0.613 | 0.556 | 19/27 |
+| ΔHmix (kJ/mol) | validation | 3 | 9 | 0.267 | 0.300 | 3/9 |
+| ΔHmix (kJ/mol) | neither | 1 | 3 | 1.259 | 1.199 | 3/3 |
+| density (g/mL) | all | 12 | 36 | 0.0121 | 0.0085 | 26/36 |
+| density (g/mL) | training | 9 | 27 | 0.0122 | 0.0091 | 17/27 |
+| density (g/mL) | validation | 3 | 9 | 0.0119 | 0.0069 | 9/9 |
+| V^E (cm³/mol) | all | 12 | 36 | 0.240 | 0.222 | 19/36 |
+| V^E (cm³/mol) | training | 9 | 27 | 0.270 | 0.238 | 16/27 |
+| V^E (cm³/mol) | validation | 3 | 9 | 0.152 | 0.176 | 3/9 |
+
+![openff-2.3.0 vs openff-2.2.1](figures/sage_openff-2.3.0_vs_openff-2.2.1.png)
+
+Each point is one mixture composition: its error with openff-2.2.1 (x) and openff-2.3.0 (y). Points below |y| = |x| (between the solid and dotted diagonals, towards y = 0) are closer to experiment with openff-2.3.0.
+
+**Point by point.** openff-2.3.0 - openff-2.2.1, with the standard error of the difference of the replicate means and Welch's t. 44 of 117 differences are significant after Holm correction (p_adj < 0.05, marked *).
+
+| System | x | Property | openff-2.2.1 | openff-2.3.0 | exp | Diff | se | t |
+|---|---|---|---|---|---|---|---|---|
+| acetone_nmethylaniline | 0.230 | ΔHmix | -0.538 | -0.568 | -0.498 | -0.030 | 0.148 | -0.2 |
+| acetone_nmethylaniline | 0.505 | ΔHmix | -0.784 | -0.767 | -0.673 | +0.017 | 0.103 | +0.2 |
+| acetone_nmethylaniline | 0.709 | ΔHmix | -0.595 | -0.596 | -0.526 | -0.000 | 0.073 | -0.0 |
+| butanone_dibutylamine | 0.220 | ΔHmix | -0.101 | 0.230 | 0.423 | +0.331 | 0.113 | +2.9 |
+| butanone_dibutylamine | 0.500 | ΔHmix | 0.055 | 0.175 | 0.619 | +0.120 | 0.099 | +1.2 |
+| butanone_dibutylamine | 0.790 | ΔHmix | 0.094 | 0.075 | 0.428 | -0.019 | 0.050 | -0.4 |
+| dipropylamine_dmf | 0.248 | ΔHmix | 0.185 | 0.206 | 0.612 | +0.021 | 0.054 | +0.4 |
+| dipropylamine_dmf | 0.500 | ΔHmix | 0.123 | 0.218 | 0.748 | +0.095 | 0.068 | +1.4 |
+| dipropylamine_dmf | 0.750 | ΔHmix | 0.014 | 0.164 | 0.528 | +0.150 | 0.058 | +2.6 |
+| dmae_methanol | 0.247 | ΔHmix | -1.303 | -1.163 | -0.804 | +0.140 | 0.044 | +3.2 |
+| dmae_methanol | 0.500 | ΔHmix | -1.624 | -1.409 | -0.865 | +0.215 | 0.078 | +2.7 |
+| dmae_methanol | 0.750 | ΔHmix | -1.094 | -1.054 | -0.533 | +0.040 | 0.131 | +0.3 |
+| heptane_toluene | 0.250 | ΔHmix | 0.656 | 0.618 | 0.451 | -0.037 | 0.032 | -1.2 |
+| heptane_toluene | 0.500 | ΔHmix | 0.775 | 0.777 | 0.556 | +0.002 | 0.047 | +0.0 |
+| heptane_toluene | 0.750 | ΔHmix | 0.567 | 0.536 | 0.391 | -0.031 | 0.058 | -0.5 |
+| methanol_water | 0.199 | ΔHmix | 0.060 | -0.007 | -0.805 | -0.067 * | 0.011 | -6.0 |
+| methanol_water | 0.500 | ΔHmix | 0.118 | 0.007 | -0.777 | -0.112 * | 0.017 | -6.7 |
+| methanol_water | 0.701 | ΔHmix | 0.051 | -0.061 | -0.581 | -0.111 * | 0.009 | -12.1 |
+| methylpentanoate_octane | 0.230 | ΔHmix | 1.066 | 1.073 | 0.769 | +0.007 | 0.077 | +0.1 |
+| methylpentanoate_octane | 0.490 | ΔHmix | 1.418 | 1.326 | 1.053 | -0.091 | 0.083 | -1.1 |
+| methylpentanoate_octane | 0.730 | ΔHmix | 0.936 | 1.016 | 0.789 | +0.080 | 0.060 | +1.3 |
+| nmp_dichloroethane | 0.200 | ΔHmix | -0.364 | -0.349 | -0.817 | +0.014 | 0.020 | +0.7 |
+| nmp_dichloroethane | 0.500 | ΔHmix | -0.504 | -0.480 | -1.264 | +0.024 | 0.030 | +0.8 |
+| nmp_dichloroethane | 0.804 | ΔHmix | -0.283 | -0.235 | -0.735 | +0.048 | 0.054 | +0.9 |
+| propanol_benzene | 0.245 | ΔHmix | 1.283 | 1.419 | 1.039 | +0.136 | 0.062 | +2.2 |
+| propanol_benzene | 0.500 | ΔHmix | 1.373 | 1.527 | 0.968 | +0.154 | 0.066 | +2.4 |
+| propanol_benzene | 0.750 | ΔHmix | 0.893 | 0.976 | 0.551 | +0.082 | 0.064 | +1.3 |
+| propionitrile_taee | 0.200 | ΔHmix | 0.177 | 0.294 | 0.501 | +0.116 | 0.076 | +1.5 |
+| propionitrile_taee | 0.500 | ΔHmix | 0.260 | 0.247 | 0.703 | -0.013 | 0.065 | -0.2 |
+| propionitrile_taee | 0.700 | ΔHmix | 0.189 | 0.236 | 0.588 | +0.047 | 0.032 | +1.5 |
+| pyrrole_pyridine | 0.240 | ΔHmix | -0.114 | -0.143 | -1.767 | -0.029 | 0.021 | -1.4 |
+| pyrrole_pyridine | 0.508 | ΔHmix | -0.071 | -0.106 | -2.650 | -0.035 | 0.022 | -1.6 |
+| pyrrole_pyridine | 0.763 | ΔHmix | 0.061 | 0.005 | -1.625 | -0.056 | 0.038 | -1.5 |
+| tetrahydropyran_ethanol | 0.250 | ΔHmix | 0.650 | 0.673 | 0.570 | +0.023 | 0.031 | +0.7 |
+| tetrahydropyran_ethanol | 0.504 | ΔHmix | 0.968 | 0.959 | 0.851 | -0.009 | 0.059 | -0.2 |
+| tetrahydropyran_ethanol | 0.755 | ΔHmix | 0.927 | 0.923 | 0.747 | -0.004 | 0.043 | -0.1 |
+| water_pyridine | 0.296 | ΔHmix | 0.133 | 0.064 | -1.127 | -0.068 | 0.028 | -2.5 |
+| water_pyridine | 0.495 | ΔHmix | 0.064 | -0.013 | -1.281 | -0.077 | 0.027 | -2.8 |
+| water_pyridine | 0.700 | ΔHmix | 0.074 | 0.039 | -1.097 | -0.035 | 0.023 | -1.5 |
+| acetone_nmethylaniline | 0.230 | density | 0.9554 | 0.9667 | 0.9532 | +0.0113 * | 0.0005 | +21.1 |
+| acetone_nmethylaniline | 0.505 | density | 0.9045 | 0.9193 | 0.9089 | +0.0148 * | 0.0003 | +47.2 |
+| acetone_nmethylaniline | 0.709 | density | 0.8559 | 0.8747 | 0.8664 | +0.0188 * | 0.0005 | +41.4 |
+| butanone_dibutylamine | 0.220 | density | 0.7570 | 0.7689 | 0.7604 | +0.0119 * | 0.0006 | +19.9 |
+| butanone_dibutylamine | 0.500 | density | 0.7612 | 0.7758 | 0.7693 | +0.0145 * | 0.0005 | +31.5 |
+| butanone_dibutylamine | 0.790 | density | 0.7665 | 0.7850 | 0.7837 | +0.0185 * | 0.0005 | +36.6 |
+| dipropylamine_dmf | 0.248 | density | 0.8528 | 0.8640 | 0.8687 | +0.0111 * | 0.0004 | +31.6 |
+| dipropylamine_dmf | 0.500 | density | 0.8037 | 0.8146 | 0.8115 | +0.0109 * | 0.0004 | +25.4 |
+| dipropylamine_dmf | 0.750 | density | 0.7639 | 0.7749 | 0.7681 | +0.0110 * | 0.0004 | +29.4 |
+| dmae_methanol | 0.247 | density | 0.8275 | 0.8391 | 0.8437 | +0.0117 * | 0.0005 | +21.4 |
+| dmae_methanol | 0.500 | density | 0.8610 | 0.8747 | 0.8684 | +0.0137 * | 0.0005 | +29.2 |
+| dmae_methanol | 0.750 | density | 0.8804 | 0.8940 | 0.8777 | +0.0136 * | 0.0010 | +13.7 |
+| heptane_toluene | 0.250 | density | 0.7873 | 0.8132 | 0.8039 | +0.0259 * | 0.0006 | +42.6 |
+| heptane_toluene | 0.500 | density | 0.7399 | 0.7619 | 0.7554 | +0.0220 * | 0.0004 | +55.7 |
+| heptane_toluene | 0.750 | density | 0.7003 | 0.7182 | 0.7145 | +0.0179 * | 0.0004 | +45.1 |
+| methanol_water | 0.199 | density | 0.9135 | 0.9175 | 0.9473 | +0.0040 * | 0.0003 | +14.0 |
+| methanol_water | 0.500 | density | 0.8388 | 0.8448 | 0.8813 | +0.0060 * | 0.0006 | +9.9 |
+| methanol_water | 0.701 | density | 0.8031 | 0.8097 | 0.8401 | +0.0066 * | 0.0004 | +14.8 |
+| methylpentanoate_octane | 0.230 | density | 0.7228 | 0.7354 | 0.7323 | +0.0126 * | 0.0004 | +32.4 |
+| methylpentanoate_octane | 0.490 | density | 0.7685 | 0.7807 | 0.7764 | +0.0122 * | 0.0003 | +41.5 |
+| methylpentanoate_octane | 0.730 | density | 0.8179 | 0.8283 | 0.8234 | +0.0105 * | 0.0004 | +29.7 |
+| nmp_dichloroethane | 0.200 | density | 1.1715 | 1.1923 | 1.1960 | +0.0209 * | 0.0011 | +18.7 |
+| nmp_dichloroethane | 0.500 | density | 1.1057 | 1.1250 | 1.1278 | +0.0193 * | 0.0004 | +46.0 |
+| nmp_dichloroethane | 0.804 | density | 1.0393 | 1.0565 | 1.0652 | +0.0171 * | 0.0005 | +31.4 |
+| propanol_benzene | 0.245 | density | 0.8422 | 0.8701 | 0.8563 | +0.0278 * | 0.0006 | +47.1 |
+| propanol_benzene | 0.500 | density | 0.8263 | 0.8489 | 0.8389 | +0.0226 * | 0.0004 | +60.9 |
+| propanol_benzene | 0.750 | density | 0.8098 | 0.8274 | 0.8205 | +0.0176 * | 0.0006 | +31.1 |
+| propionitrile_taee | 0.200 | density | 0.7634 | 0.7636 | 0.7638 | +0.0002 | 0.0004 | +0.4 |
+| propionitrile_taee | 0.500 | density | 0.7676 | 0.7661 | 0.7683 | -0.0016 | 0.0005 | -3.4 |
+| propionitrile_taee | 0.700 | density | 0.7712 | 0.7662 | 0.7715 | -0.0050 * | 0.0005 | -10.0 |
+| pyrrole_pyridine | 0.240 | density | 0.9748 | 0.9821 | 0.9754 | +0.0072 * | 0.0004 | +19.0 |
+| pyrrole_pyridine | 0.508 | density | 0.9760 | 0.9811 | 0.9712 | +0.0051 * | 0.0004 | +13.8 |
+| pyrrole_pyridine | 0.763 | density | 0.9769 | 0.9808 | 0.9675 | +0.0039 * | 0.0004 | +9.7 |
+| tetrahydropyran_ethanol | 0.250 | density | 0.8125 | 0.8210 | 0.8189 | +0.0085 * | 0.0006 | +15.1 |
+| tetrahydropyran_ethanol | 0.504 | density | 0.8351 | 0.8436 | 0.8441 | +0.0085 * | 0.0005 | +16.2 |
+| tetrahydropyran_ethanol | 0.755 | density | 0.8519 | 0.8610 | 0.8633 | +0.0091 * | 0.0005 | +18.4 |
+| water_pyridine | 0.296 | density | 0.9680 | 0.9761 | – | +0.0081 * | 0.0004 | +20.9 |
+| water_pyridine | 0.495 | density | 0.9672 | 0.9746 | – | +0.0074 * | 0.0003 | +28.8 |
+| water_pyridine | 0.700 | density | 0.9674 | 0.9732 | – | +0.0058 * | 0.0004 | +16.5 |
+| acetone_nmethylaniline | 0.230 | V^E | -0.478 | -0.531 | -0.450 | -0.053 | 0.096 | -0.5 |
+| acetone_nmethylaniline | 0.505 | V^E | -0.827 | -0.752 | -0.730 | +0.075 | 0.070 | +1.1 |
+| acetone_nmethylaniline | 0.709 | V^E | -0.730 | -0.692 | -0.672 | +0.038 | 0.054 | +0.7 |
+| butanone_dibutylamine | 0.220 | V^E | -0.097 | 0.055 | 0.172 | +0.152 | 0.165 | +0.9 |
+| butanone_dibutylamine | 0.500 | V^E | -0.125 | -0.041 | 0.260 | +0.085 | 0.101 | +0.8 |
+| butanone_dibutylamine | 0.790 | V^E | -0.022 | -0.026 | 0.197 | -0.004 | 0.053 | -0.1 |
+| dipropylamine_dmf | 0.248 | V^E | -0.463 | -0.554 | -0.253 | -0.091 | 0.048 | -1.9 |
+| dipropylamine_dmf | 0.500 | V^E | -0.726 | -0.717 | -0.289 | +0.009 | 0.055 | +0.2 |
+| dipropylamine_dmf | 0.750 | V^E | -0.558 | -0.525 | -0.208 | +0.033 | 0.053 | +0.6 |
+| dmae_methanol | 0.247 | V^E | -0.597 | -0.828 | -0.897 | -0.231 | 0.047 | -4.9 |
+| dmae_methanol | 0.500 | V^E | -0.660 | -0.892 | -1.048 | -0.232 | 0.055 | -4.2 |
+| dmae_methanol | 0.750 | V^E | -0.498 | -0.598 | -0.566 | -0.100 | 0.115 | -0.9 |
+| heptane_toluene | 0.250 | V^E | 0.247 | -0.209 | 0.114 | -0.456 * | 0.048 | -9.5 |
+| heptane_toluene | 0.500 | V^E | 0.334 | -0.202 | 0.146 | -0.536 * | 0.066 | -8.1 |
+| heptane_toluene | 0.750 | V^E | 0.270 | -0.142 | 0.109 | -0.412 | 0.086 | -4.8 |
+| methanol_water | 0.199 | V^E | -0.232 | -0.286 | -0.615 | -0.053 * | 0.007 | -8.1 |
+| methanol_water | 0.500 | V^E | -0.320 | -0.419 | -1.003 | -0.099 | 0.016 | -6.2 |
+| methanol_water | 0.701 | V^E | -0.259 | -0.384 | -0.811 | -0.125 * | 0.021 | -6.0 |
+| methylpentanoate_octane | 0.230 | V^E | 0.421 | 0.466 | 0.499 | +0.045 | 0.049 | +0.9 |
+| methylpentanoate_octane | 0.490 | V^E | 0.492 | 0.486 | 0.616 | -0.006 | 0.025 | -0.2 |
+| methylpentanoate_octane | 0.730 | V^E | 0.185 | 0.343 | 0.465 | +0.158 | 0.051 | +3.1 |
+| nmp_dichloroethane | 0.200 | V^E | -0.847 | -0.892 | -0.076 | -0.045 | 0.073 | -0.6 |
+| nmp_dichloroethane | 0.500 | V^E | -1.004 | -1.062 | -0.120 | -0.057 | 0.059 | -1.0 |
+| nmp_dichloroethane | 0.804 | V^E | -0.537 | -0.549 | -0.072 | -0.012 | 0.052 | -0.2 |
+| propanol_benzene | 0.245 | V^E | 0.297 | 0.266 | 0.138 | -0.031 | 0.049 | -0.6 |
+| propanol_benzene | 0.500 | V^E | 0.236 | 0.238 | 0.091 | +0.003 | 0.054 | +0.0 |
+| propanol_benzene | 0.750 | V^E | 0.115 | 0.116 | 0.016 | +0.001 | 0.057 | +0.0 |
+| propionitrile_taee | 0.200 | V^E | -0.257 | -0.140 | -0.217 | +0.118 | 0.121 | +1.0 |
+| propionitrile_taee | 0.500 | V^E | -0.384 | -0.415 | -0.371 | -0.031 | 0.084 | -0.4 |
+| propionitrile_taee | 0.700 | V^E | -0.417 | -0.325 | -0.330 | +0.092 | 0.042 | +2.2 |
+| pyrrole_pyridine | 0.240 | V^E | 0.005 | 0.052 | -0.001 | +0.046 | 0.032 | +1.5 |
+| pyrrole_pyridine | 0.508 | V^E | 0.039 | 0.093 | 0.073 | +0.054 | 0.028 | +1.9 |
+| pyrrole_pyridine | 0.763 | V^E | 0.089 | 0.078 | 0.098 | -0.011 | 0.035 | -0.3 |
+| tetrahydropyran_ethanol | 0.250 | V^E | 0.154 | 0.147 | -0.015 | -0.007 | 0.030 | -0.2 |
+| tetrahydropyran_ethanol | 0.504 | V^E | 0.184 | 0.212 | 0.014 | +0.028 | 0.053 | +0.5 |
+| tetrahydropyran_ethanol | 0.755 | V^E | 0.253 | 0.245 | 0.044 | -0.008 | 0.063 | -0.1 |
+| water_pyridine | 0.296 | V^E | 0.167 | 0.137 | – | -0.030 | 0.029 | -1.0 |
+| water_pyridine | 0.495 | V^E | 0.230 | 0.198 | – | -0.032 | 0.019 | -1.7 |
+| water_pyridine | 0.700 | V^E | 0.240 | 0.225 | – | -0.015 | 0.014 | -1.1 |
+
+**Pure-liquid densities.** Mixture densities follow the pure liquids, so V^E changes much less than density. openff-2.3.0 - openff-2.2.1 (g/mL; t from the replicate SDs). Water has the same TIP3P parameters in both versions and is the control: its difference should be noise.
+
+| Box | openff-2.2.1 | openff-2.3.0 | Diff | t |
+|---|---|---|---|---|
+| pure_1_2_dichloroethane_298 | 1.2089 | 1.2300 | +0.0210 | +14.2 |
+| pure_1_propanol_298 | 0.7915 | 0.8039 | +0.0124 | +24.9 |
+| pure_2_butanone_298 | 0.7723 | 0.7945 | +0.0222 | +51.3 |
+| pure_2_dimethylamino_ethanol_298 | 0.8911 | 0.9048 | +0.0138 | +15.3 |
+| pure_acetone_298 | 0.7659 | 0.7899 | +0.0240 | +62.1 |
+| pure_benzene_298 | 0.8596 | 0.8919 | +0.0323 | +50.0 |
+| pure_dibutylamine_298 | 0.7541 | 0.7653 | +0.0112 | +23.1 |
+| pure_dipropylamine_298 | 0.7306 | 0.7419 | +0.0114 | +19.6 |
+| pure_ethanol_298 | 0.7843 | 0.7923 | +0.0080 | +20.9 |
+| pure_heptane_298 | 0.6669 | 0.6803 | +0.0134 | +47.8 |
+| pure_methanol_298 | 0.7623 | 0.7664 | +0.0041 | +8.7 |
+| pure_methyl_pentanoate_298 | 0.8799 | 0.8900 | +0.0101 | +37.6 |
+| pure_n_methyl_2_pyrrolidone_298 | 0.9983 | 1.0143 | +0.0160 | +42.8 |
+| pure_n_methylaniline_298 | 0.9895 | 0.9966 | +0.0071 | +5.5 |
+| pure_n_n_dimethylformamide_298 | 0.9161 | 0.9252 | +0.0091 | +24.8 |
+| pure_octane_298 | 0.6879 | 0.7011 | +0.0133 | +37.0 |
+| pure_propionitrile_298 | 0.7745 | 0.7645 | -0.0101 | -50.7 |
+| pure_pyridine_298 | 0.9736 | 0.9831 | +0.0095 | +38.2 |
+| pure_pyridine_303 | 0.9695 | 0.9779 | +0.0084 | +23.4 |
+| pure_pyrrole_298 | 0.9797 | 0.9814 | +0.0016 | +3.9 |
+| pure_tert_amyl_ethyl_ether_298 | 0.7605 | 0.7626 | +0.0021 | +4.3 |
+| pure_tetrahydropyran_298 | 0.8677 | 0.8770 | +0.0093 | +14.0 |
+| pure_toluene_298 | 0.8449 | 0.8729 | +0.0279 | +57.5 |
+| pure_water_298 | 0.9855 | 0.9856 | +0.0001 | +0.2 |
+| pure_water_303 | 0.9814 | 0.9812 | -0.0002 | -0.5 |
+
+**Replicate spread (the σ_Sage behind the MAZE denominator).** RMS of the replicate SDs over each system's compositions, before the floor. Median ratio openff-2.3.0 / openff-2.2.1: 1.24 (ΔHmix), 1.04 (density). With 5 replicates an SD ratio scatters by a factor of about 2 by chance, so only large per-system changes stand out.
+
+| System | ΔHmix SD openff-2.2.1 | ΔHmix SD openff-2.3.0 | ρ SD openff-2.2.1 | ρ SD openff-2.3.0 |
+|---|---|---|---|---|
+| acetone_nmethylaniline | 0.154 | 0.199 | 0.0008 | 0.0006 |
+| butanone_dibutylamine | 0.119 | 0.166 | 0.0008 | 0.0008 |
+| dipropylamine_dmf | 0.071 | 0.115 | 0.0007 | 0.0005 |
+| dmae_methanol | 0.142 | 0.148 | 0.0008 | 0.0014 |
+| heptane_toluene | 0.097 | 0.041 | 0.0008 | 0.0007 |
+| methanol_water | 0.020 | 0.020 | 0.0008 | 0.0007 |
+| methylpentanoate_octane | 0.147 | 0.077 | 0.0003 | 0.0007 |
+| nmp_dichloroethane | 0.050 | 0.067 | 0.0011 | 0.0013 |
+| propanol_benzene | 0.070 | 0.124 | 0.0006 | 0.0010 |
+| propionitrile_taee | 0.085 | 0.106 | 0.0007 | 0.0008 |
+| pyrrole_pyridine | 0.026 | 0.057 | 0.0005 | 0.0007 |
+| tetrahydropyran_ethanol | 0.068 | 0.076 | 0.0007 | 0.0009 |
+| water_pyridine | 0.042 | 0.040 | 0.0005 | 0.0005 |
+
+**Systems to inspect** (categories of the summary above), per version:
+
+| Category | openff-2.2.1 | openff-2.3.0 | Only in openff-2.2.1 | Only in openff-2.3.0 |
+|---|---|---|---|---|
+| within/between mismatch | 19 | 26 | heptane_toluene_x750, methanol_water_x199, methanol_water_x500, pure_benzene_298, pure_heptane_298, pure_octane_298, pure_tetrahydropyran_298, pure_toluene_298, pure_water_298, water_pyridine_x700 | acetone_nmethylaniline_x505, acetone_nmethylaniline_x709, butanone_dibutylamine_x500, butanone_dibutylamine_x790, dipropylamine_dmf_x500, dmae_methanol_x247, dmae_methanol_x750, nmp_dichloroethane_x500, nmp_dichloroethane_x804, propanol_benzene_x750, propionitrile_taee_x700, pure_1_2_dichloroethane_298, pure_2_dimethylamino_ethanol_298, pure_dibutylamine_298, pure_dipropylamine_298, pure_tert_amyl_ethyl_ether_298, tetrahydropyran_ethanol_x504 |
+| low sampling | 5 | 9 | dmae_methanol_x750, pure_dibutylamine_298 | acetone_nmethylaniline_x230, butanone_dibutylamine_x500, propanol_benzene_x246, propanol_benzene_x500, propanol_benzene_x750, pure_1_propanol_298 |
+| start dependence | 1 | 5 | pure_methyl_pentanoate_298 | acetone_nmethylaniline_x230, acetone_nmethylaniline_x709, pure_n_methylaniline_298, pyrrole_pyridine_x240, pyrrole_pyridine_x763 |
+| early density shift | 11 | 9 | dmae_methanol_x247, dmae_methanol_x500, methanol_water_x500, pure_1_propanol_298, pure_2_dimethylamino_ethanol_298, pure_methanol_298, pure_pyrrole_298, pure_toluene_298, pyrrole_pyridine_x508 | acetone_nmethylaniline_x230, dmae_methanol_x750, methanol_water_x701, propanol_benzene_x750, pure_tert_amyl_ethyl_ether_298, pure_water_298, tetrahydropyran_ethanol_x504 |
+| microheterogeneity | 3 | 5 | – | propanol_benzene_x500, tetrahydropyran_ethanol_x504 |
+| published-Sage gap | 2 | 20 | butanone_dibutylamine_x220 | acetone_nmethylaniline_x505, acetone_nmethylaniline_x709, dipropylamine_dmf_x248, dipropylamine_dmf_x500, dipropylamine_dmf_x750, dmae_methanol_x247, dmae_methanol_x500, dmae_methanol_x750, methylpentanoate_octane_x230, methylpentanoate_octane_x490, methylpentanoate_octane_x730, nmp_dichloroethane_x200, nmp_dichloroethane_x500, propanol_benzene_x246, propanol_benzene_x500, propanol_benzene_x750, propionitrile_taee_x200, propionitrile_taee_x700, tetrahydropyran_ethanol_x504 |
+| force-field miss (not a run problem) | 7 | 7 | butanone_dibutylamine | propanol_benzene |
+
 ## Details
 
 - Runs finished: 320 (64 boxes, up to 5 replicates).
