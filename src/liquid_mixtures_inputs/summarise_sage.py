@@ -936,35 +936,46 @@ def plot_replicate_spread(summary: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
-def plot_sage_vs_exp(summary: pd.DataFrame, path: Path) -> None:
+def plot_sage_vs_exp(
+    summary: pd.DataFrame, prop: str, label: str, path: Path
+) -> None:
     """
-    Parity plot of Sage replicate-mean ΔHmix against experiment.
+    Parity plot of a Sage replicate-mean property against experiment.
+
+    Each system gets a unique colour and marker pair, cycling through the
+    tab10 colours with circles first, then squares, then triangles.
 
     Parameters
     ----------
     summary
         Per-point summary.
+    prop
+        Column prefix, e.g. ``"hmix"`` or ``"vex"``.
+    label
+        Axis label including units, e.g. ``"ΔHmix (kJ/mol)"``.
     path
         Output PNG path.
     """
+    colours = plt.get_cmap("tab10").colors
+    markers = "os^D"
+    data = summary.dropna(subset=[f"{prop}_sage", f"{prop}_exp"])
     fig, ax = plt.subplots(figsize=(5.5, 5))
-    for system_id, group in summary.groupby("system_id"):
+    for i, (system_id, group) in enumerate(data.groupby("system_id")):
         ax.errorbar(
-            group.hmix_exp,
-            group.hmix_sage,
-            xerr=group.hmix_exp_sigma,
-            yerr=group.hmix_sd,
-            fmt="o",
+            group[f"{prop}_exp"],
+            group[f"{prop}_sage"],
+            xerr=group[f"{prop}_exp_sigma"],
+            yerr=group[f"{prop}_sd"],
+            fmt=markers[i // len(colours)],
+            color=colours[i % len(colours)],
             ms=4,
             label=system_id,
         )
-    lims = [
-        min(summary.hmix_exp.min(), summary.hmix_sage.min()) - 0.2,
-        max(summary.hmix_exp.max(), summary.hmix_sage.max()) + 0.2,
-    ]
+    values = pd.concat([data[f"{prop}_exp"], data[f"{prop}_sage"]])
+    lims = [values.min() - 0.2, values.max() + 0.2]
     ax.plot(lims, lims, "k-", lw=0.8)
-    ax.set_xlabel("experimental ΔHmix (kJ/mol)")
-    ax.set_ylabel("Sage ΔHmix (kJ/mol), mean ± replicate SD")
+    ax.set_xlabel(f"experimental {label}")
+    ax.set_ylabel(f"Sage {label}, mean ± replicate SD")
     ax.legend(fontsize=6)
     fig.tight_layout()
     fig.savefig(path, dpi=110)
@@ -1179,7 +1190,12 @@ def main() -> None:
         )
     plot_within_between(within, out / "figures" / "within_between.png")
     plot_finite_size(finite, out / "figures" / "finite_size.png")
-    plot_sage_vs_exp(summary, out / "figures" / "sage_vs_exp.png")
+    plot_sage_vs_exp(
+        summary, "hmix", "ΔHmix (kJ/mol)", out / "figures" / "sage_vs_exp.png"
+    )
+    plot_sage_vs_exp(
+        summary, "vex", "V^E (cm³/mol)", out / "figures" / "sage_vs_exp_vex.png"
+    )
     plot_replicate_spread(summary, out / "figures" / "replicate_spread.png")
     start = start_dependence(runs)
     start.to_csv(out / "start_dependence.csv", index=False)

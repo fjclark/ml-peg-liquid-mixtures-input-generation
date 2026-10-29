@@ -338,6 +338,8 @@ def write_summary(out: Path, tables: dict) -> None:
         "",
         "![Sage vs experiment](figures/sage_vs_exp.png)",
         "",
+        "![Sage V^E vs experiment](figures/sage_vs_exp_vex.png)",
+        "",
         "## Run-to-run noise",
         "",
         "Pooled over all boxes, the SD of the replicate means is "

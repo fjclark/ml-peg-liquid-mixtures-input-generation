@@ -17,6 +17,8 @@ The largest ΔHmix errors are for pyrrole_pyridine (1.90 kJ/mol) and water_pyrid
 
 ![Sage vs experiment](figures/sage_vs_exp.png)
 
+![Sage V^E vs experiment](figures/sage_vs_exp_vex.png)
+
 ## Run-to-run noise
 
 Pooled over all boxes, the SD of the replicate means is 1.19× the within-run standard error for h and 1.11× for density (p = 2e-05 and 1e-02). A single 1 ns run's standard error is therefore about 19% too small for h and 11% for density, because independently built boxes sample slow modes (conformers, local structure) that one run does not. This is why σ_Sage comes from the replicate spread rather than within-run errors. Per-box tests that survive Holm correction: none.
