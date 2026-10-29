@@ -9,20 +9,11 @@ Run in the ``analysis`` pixi environment after ``run_sage_benchmark.py``::
 It computes ΔHmix, mixture density and V^E for every replicate, the replicate
 spread used as the MAZE denominator (σ_Sage, pooled per system), convergence
 diagnostics, a comparison of within-run and between-run uncertainties, and a
-finite-size check against the published 1000-molecule openff-2.2.1-ashgc results.
+finite-size check against the published 1000-molecule openff-2.3.0 results.
 Per-run statistics use the same estimators as the benchmark analysis
 (``ml_peg/analysis/molecular_dynamics/binary_mixtures/mixing.py``).
 ``systems.csv`` and ``boxes.csv`` in ``--data-dir`` are updated in place with
-the Sage reference columns (unless ``--no-update``).
-
-Another Sage version is summarised into its own directory and compared in the
-reference report with ``--compare-dir``::
-
-    pixi run -e analysis summarise-sage --runs-dir data/sage_runs_2.3.0 \
-        --output-dir data/sage_summary_2.3.0 --force-field openff-2.3.0 \
-        --published-ff openff-2.3.0rc1 --no-update ...
-    pixi run -e analysis summarise-sage --runs-dir data/sage_runs \
-        --output-dir data/sage_summary --compare-dir data/sage_summary_2.3.0 ...
+the Sage reference columns.
 """
 
 from __future__ import annotations
@@ -56,30 +47,15 @@ EQUILIBRATION_PS = 200.0
 PRODUCTION_PS = 2000.0
 FLAG_P = 0.05
 START_T = 4.0  # |t| above which replicate 0 is reported as start-dependent
-# openff-2.2.1 parameters with NAGL (AshGC) charges, like our runs; the published
-# "openff-2.2.1" rows use AM1-BCC. 04_benchmark/forcefields/openff-2.2.1-ashgc.offxml
-# uses openff-gnn-am1bcc-0.1.0-rc.3 where we use 1.0.0.
-PUBLISHED_FF = "openff-2.2.1-ashgc"
-ASH_FORCEFIELDS = (
+# Sage 2.3.0rc2, benchmarked under its fit name. Its bonded, vdW and library-charge
+# parameters are identical to the released openff-2.3.0.offxml; its NAGL charges
+# use openff-gnn-am1bcc-0.1.0-rc.3 where we use 1.0.0.
+PUBLISHED_FF = "fb-fit-v3-single-mean-k100"
+PUBLISHED_FF_URL = (
     "https://github.com/openforcefield/ash-sage-rc2/blob/"
     "00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/forcefields/"
+    "fb-fit-v3-single-mean-k100.offxml?plain=1"
 )
-# What differs between our runs and each published set, for the report.
-PUBLISHED_DIFFERENCES = {
-    "openff-2.2.1-ashgc": (
-        "Both use openff-2.2.1 parameters with NAGL charges (published: model "
-        "0.1.0-rc.3, ours: 1.0.0), so the gap comes from box size, protocol (run "
-        "length, equilibration, starting conformers) or the NAGL model version."
-    ),
-    "openff-2.3.0rc1": (
-        "The published runs use the 2.3.0rc1 parameters "
-        f"([offxml]({ASH_FORCEFIELDS}openff-2.3.0rc1.offxml?plain=1), which has no "
-        "charge handler beyond library charges, so its charge model is not "
-        "stated), and the 2.3.0 release changes many bonded and some vdW "
-        "parameters from rc1. The gap therefore mixes box size and protocol "
-        "with force-field differences and is not a clean finite-size test."
-    ),
-}
 PUBLISHED_X_TOLERANCE = 0.02
 # Systems whose σ_Sage is set to the floor: their replicate spread comes from a
 # Sage artefact that a model need not share (see the report's last section).
@@ -290,16 +266,14 @@ def pooled_sigma(points: pd.DataFrame, n_replicates: int) -> pd.DataFrame:
     return summary
 
 
-def published_sage(cache_dir: Path, forcefield: str = PUBLISHED_FF) -> pd.DataFrame:
+def published_sage(cache_dir: Path) -> pd.DataFrame:
     """
-    Load published ash-sage-rc2 results (3 replicates, 1000 molecules).
+    Load the published openff-2.3.0 results (3 replicates, 1000 molecules).
 
     Parameters
     ----------
     cache_dir
         Cache of ``select_systems.py`` holding the ash-sage-rc2 summary CSVs.
-    forcefield
-        Force field label in the published files.
 
     Returns
     -------
@@ -317,7 +291,7 @@ def published_sage(cache_dir: Path, forcefield: str = PUBLISHED_FF) -> pd.DataFr
         if path.exists():
             frames.append(pd.read_csv(path))
     data = pd.concat(frames)
-    data = data[data.forcefield == forcefield].copy()
+    data = data[data.forcefield == PUBLISHED_FF].copy()
 
     def x_first(row) -> float:
         """
@@ -1110,10 +1084,17 @@ CATEGORY_NOTES = {
         "demixing flags for this box compare against this Sage value."
     ),
     "published-Sage gap": (
-        "Our replicate mean minus the published {published_ff} mean (3 "
+        "Our replicate mean minus the published openff-2.3.0 mean (3 "
         "replicates, 1000 molecules) at our composition, beyond "
-        f"{SIZE_GAP['hmix']} kJ/mol or {SIZE_GAP['density']} g/mL. "
-        "{published_differences} z is the gap over the combined "
+        f"{SIZE_GAP['hmix']} kJ/mol or {SIZE_GAP['density']} g/mL. The "
+        "published runs are labelled "
+        f"[`{PUBLISHED_FF}`]({PUBLISHED_FF_URL}) (2.3.0rc2), whose bonded, vdW "
+        "and library-charge parameters are identical to the released "
+        "openff-2.3.0. Both use NAGL charges (published: model 0.1.0-rc.3 "
+        f"([line 487]({PUBLISHED_FF_URL}#L487)), ours: 1.0.0), so the gap comes "
+        "from box size, protocol (run length, equilibration, starting "
+        "conformers) or the NAGL model version. z is "
+        "the gap over the combined "
         "standard error of the two means: it tests whether the gap exceeds "
         "replicate noise, not what causes it. The plot shows every matched point "
         "(± 2 se), with the thresholds dotted."
@@ -1126,15 +1107,7 @@ CATEGORY_NOTES = {
 
 
 def interpretation(
-    out: Path,
-    runs,
-    summary,
-    wb,
-    pooled,
-    items,
-    runs_dir: Path,
-    force_field: str = "openff-2.2.1",
-    published_ff: str = PUBLISHED_FF,
+    out: Path, runs, summary, wb, pooled, items, runs_dir: Path
 ) -> list[str]:
     """
     Write the summary section and its figures for the top of the report.
@@ -1155,10 +1128,6 @@ def interpretation(
         Output of :func:`inspection_items`.
     runs_dir
         Output directory of ``run_sage_benchmark.py``.
-    force_field
-        Label of the Sage version that was run.
-    published_ff
-        Published force field the finite-size check compares against.
 
     Returns
     -------
@@ -1181,7 +1150,7 @@ def interpretation(
         ", ".join(f"{r.level} {r.observable}" for r in passed.itertuples()) or "none"
     )
     lines = [
-        f"# Sage ({force_field}) reference run",
+        "# Sage (openff-2.3.0) reference run",
         "",
         "## Summary and systems to inspect",
         "",
@@ -1244,10 +1213,6 @@ def interpretation(
         group = [i for i in items if i["category"] == category]
         if not group:
             continue
-        note = note.format(
-            published_ff=published_ff,
-            published_differences=PUBLISHED_DIFFERENCES.get(published_ff, ""),
-        )
         lines += [f"### {category} ({len(group)})", "", note, ""]
         lines += ["| Box / system | Evidence | Plots |", "|---|---|---|"]
         for item in group:
@@ -1447,17 +1412,19 @@ def write_report(out: Path, header, runs, summary, finite, flags, start) -> None
         "## Why NMP + 1,2-dichloroethane was kept",
         "",
         "In Sage the Cl-C-C-Cl torsion of 1,2-dichloroethane (DCE) relaxes "
-        "slowly. In the earlier x = 0.254 and 0.740 boxes, only about 5 % of DCE "
-        "molecules switched between trans and gauche from one 100 ps frame to the "
-        "next (about 50 % if uncorrelated), a relaxation time of about 0.9 ns. With "
-        "20 to 30 DCE molecules in the DCE-poor box, a 2 ns run samples this "
-        "poorly, so the replicates scatter more than their within-run errors. The "
-        "cause is Sage's barrier. In relaxed gas-phase scans (below; energies "
-        "relative to ±165°), the gauche/trans energy gap agrees with the "
-        "MACE-OFF (M) reference, but the trans→gauche barrier is about 6 kJ/mol "
-        "higher (24.4 vs 18.2 kJ/mol above trans; Sage 2.3.0 is 1 kJ/mol higher "
-        "still). That makes Sage's isomerisation roughly 12× too slow. A model "
-        "with a reference-like barrier should relax in about 70 ps, inside the "
+        "slowly. In every DCE box (the three mixtures and pure DCE), only about "
+        "4 % of DCE molecules switch between trans and gauche from one 100 ps "
+        "frame to the next (49 % if uncorrelated), a relaxation time of about "
+        "1.1 ns (`dce_flips.csv`). With 20 DCE molecules in the DCE-poor box "
+        "(x = 0.804), a 2 ns run samples this poorly, so the replicates scatter "
+        "more than their within-run errors. The cause is Sage's barrier. In "
+        "relaxed gas-phase scans (below; energies relative to trans, "
+        "`dce_torsion_scan.csv`), the gauche/trans energy gap agrees with "
+        "MACE-OFF23(M) (5.4 vs 5.2 kJ/mol), but the trans→gauche barrier is "
+        "about 8 kJ/mol higher (25.4 vs 17.3 kJ/mol). At 298 K that makes "
+        "Sage's isomerisation roughly 25× too slow (Arrhenius estimate with "
+        "equal prefactors). A model with a reference-like barrier should relax "
+        "in about 40 ps, inside the "
         f"{EQUILIBRATION_PS:.0f} ps equilibration, and sample many flips per run, "
         "so the system is a fair test for MLIPs and was kept. Its σ_Sage is set to "
         "the floor (see the MAZE denominator section) so that Sage's slow sampling "
@@ -1466,450 +1433,6 @@ def write_report(out: Path, header, runs, summary, finite, flags, start) -> None
         "![DCE torsion scan](figures/dce_torsion_scan.png)",
     ]
     (out / "sage_report.md").write_text("\n".join(lines) + "\n")
-
-
-PROPS = {
-    "hmix": ("ΔHmix", "kJ/mol", 3),
-    "density": ("density", "g/mL", 4),
-    "vex": ("V^E", "cm³/mol", 3),
-}
-
-
-def fit_split(systems: pd.DataFrame, cache_dir: Path) -> dict[str, str]:
-    """
-    Which ash-sage-rc2 set (the Sage 2.3 fit) each system belongs to.
-
-    Parameters
-    ----------
-    systems
-        ``systems.csv``.
-    cache_dir
-        Cache of ``select_systems.py`` holding the ash-sage-rc2 summary CSVs.
-
-    Returns
-    -------
-    dict[str, str]
-        ``"training"``, ``"validation"`` or ``"neither"`` per system id.
-    """
-    from rdkit import Chem
-
-    def key(a: str, b: str) -> frozenset:
-        """
-        Order-free key of a SMILES pair.
-
-        Parameters
-        ----------
-        a, b
-            Component SMILES.
-
-        Returns
-        -------
-        frozenset
-            Canonical SMILES of both components.
-        """
-        return frozenset(Chem.CanonSmiles(s) for s in (a, b))
-
-    found = {}
-    # Training last, so a system in both sets counts as fitted.
-    for split in ("validation", "training"):
-        for prop in ("hmix", "density"):
-            path = cache_dir / f"{split}-{prop}.csv"
-            if not path.exists():
-                continue
-            pairs = pd.read_csv(path, usecols=["smiles_1", "smiles_2"]).dropna()
-            for a, b in pairs.drop_duplicates().itertuples(index=False):
-                found[key(a, b)] = split
-    return {
-        r.system_id: found.get(key(r.a, r.b), "neither")
-        for r in systems.drop_duplicates("system_id").itertuples()
-    }
-
-
-def compare_versions(ref: pd.DataFrame, other: pd.DataFrame) -> pd.DataFrame:
-    """
-    Per-point difference between two Sage versions' replicate means.
-
-    Parameters
-    ----------
-    ref, other
-        Outputs of :func:`pooled_sigma` for the two versions.
-
-    Returns
-    -------
-    pd.DataFrame
-        One row per mixture point and property, with the difference
-        ``other - ref``, its standard error, Welch's t and Holm-adjusted p.
-    """
-    merged = ref.merge(other, on=["system_id", "box_id"], suffixes=("_ref", "_other"))
-    tables = []
-    for prop in PROPS:
-        var_ref = merged[f"{prop}_sd_ref"] ** 2 / merged.n_rep_ref
-        var_other = merged[f"{prop}_sd_other"] ** 2 / merged.n_rep_other
-        se = np.sqrt(var_ref + var_other)
-        dof = se**4 / (
-            var_ref**2 / (merged.n_rep_ref - 1)
-            + var_other**2 / (merged.n_rep_other - 1)
-        )
-        table = pd.DataFrame(
-            {
-                "system_id": merged.system_id,
-                "box_id": merged.box_id,
-                "x": merged.x_ref,
-                "prop": prop,
-                "ref": merged[f"{prop}_sage_ref"],
-                "other": merged[f"{prop}_sage_other"],
-                "exp": merged[f"{prop}_exp_ref"],
-            }
-        )
-        table["diff"] = table.other - table.ref
-        table["se"] = se
-        table["t"] = table["diff"] / se
-        table["p"] = 2 * stats.t.sf(table.t.abs(), dof)
-        tables.append(table)
-    table = pd.concat(tables, ignore_index=True)
-    table["p_adj"] = holm(table.p.to_numpy())
-    return table
-
-
-def version_mae(table: pd.DataFrame, split: dict[str, str]) -> pd.DataFrame:
-    """
-    MAE against experiment of both versions, by property and fit set.
-
-    Parameters
-    ----------
-    table
-        Output of :func:`compare_versions`.
-    split
-        Output of :func:`fit_split`.
-
-    Returns
-    -------
-    pd.DataFrame
-        One row per property and set (plus ``all``).
-    """
-    data = table.dropna(subset=["exp"]).assign(set=table.system_id.map(split))
-    rows = []
-    for (prop, subset), group in pd.concat([data, data.assign(set="all")]).groupby(
-        ["prop", "set"], sort=False
-    ):
-        err_ref = (group.ref - group.exp).abs()
-        err_other = (group.other - group.exp).abs()
-        rows.append(
-            {
-                "prop": prop,
-                "set": subset,
-                "n_points": len(group),
-                "n_systems": group.system_id.nunique(),
-                "mae_ref": err_ref.mean(),
-                "mae_other": err_other.mean(),
-                # isclose: values read back from CSV differ in the last digit
-                "n_better": int(
-                    ((err_other < err_ref) & ~np.isclose(err_other, err_ref)).sum()
-                ),
-            }
-        )
-    order = {s: i for i, s in enumerate(("all", "training", "validation"))}
-    return (
-        pd.DataFrame(rows)
-        .sort_values(
-            ["prop", "set"],
-            key=lambda c: (
-                c.map(list(PROPS).index)
-                if c.name == "prop"
-                else c.map(lambda s: order.get(s, len(order)))
-            ),
-        )
-        .reset_index(drop=True)
-    )
-
-
-def system_spread(ref: pd.DataFrame, other: pd.DataFrame) -> pd.DataFrame:
-    """
-    Replicate spread (RMS SD over a system's points) of both versions.
-
-    Parameters
-    ----------
-    ref, other
-        Outputs of :func:`pooled_sigma` for the two versions.
-
-    Returns
-    -------
-    pd.DataFrame
-        One row per system with ``<prop>_ref`` and ``<prop>_other`` RMS SDs.
-    """
-
-    def rms(summary: pd.DataFrame) -> pd.DataFrame:
-        """
-        RMS of the replicate SDs per system.
-
-        Parameters
-        ----------
-        summary
-            Output of :func:`pooled_sigma`.
-
-        Returns
-        -------
-        pd.DataFrame
-            One row per system.
-        """
-        return summary.groupby("system_id")[["hmix_sd", "density_sd"]].agg(
-            lambda s: float(np.sqrt(np.nanmean(s**2)))
-        )
-
-    return rms(ref).join(rms(other), lsuffix="_ref", rsuffix="_other").reset_index()
-
-
-def pure_densities(ref_runs: pd.DataFrame, other_runs: pd.DataFrame) -> pd.DataFrame:
-    """
-    Pure-liquid densities of two Sage versions, with Welch's t of the difference.
-
-    Parameters
-    ----------
-    ref_runs, other_runs
-        Outputs of :func:`load_runs` for the two versions.
-
-    Returns
-    -------
-    pd.DataFrame
-        One row per pure box.
-    """
-
-    def stats_of(runs: pd.DataFrame) -> pd.DataFrame:
-        """
-        Mean, SD and count of the replicate densities per pure box.
-
-        Parameters
-        ----------
-        runs
-            Output of :func:`load_runs`.
-
-        Returns
-        -------
-        pd.DataFrame
-            One row per pure box.
-        """
-        pure = runs[runs.kind == "pure"]
-        return pure.groupby("box_id").density_mean.agg(["mean", "std", "count"])
-
-    table = stats_of(ref_runs).join(
-        stats_of(other_runs), lsuffix="_ref", rsuffix="_other", how="inner"
-    )
-    table["diff"] = table.mean_other - table.mean_ref
-    table["t"] = table["diff"] / np.sqrt(
-        table.std_ref**2 / table.count_ref + table.std_other**2 / table.count_other
-    )
-    return table.reset_index()
-
-
-def plot_versions(table: pd.DataFrame, labels: tuple[str, str], path: Path) -> None:
-    """
-    Plot each version's error against experiment, point by point.
-
-    Parameters
-    ----------
-    table
-        Output of :func:`compare_versions`.
-    labels
-        Reference and other version labels.
-    path
-        Output PNG path.
-    """
-    fig, axes = plt.subplots(1, len(PROPS), figsize=(14, 4.6))
-    systems = sorted(table.system_id.unique())
-    colours = dict(zip(systems, plt.cm.tab20.colors, strict=False))
-    for ax, (prop, (name, unit, _)) in zip(axes, PROPS.items(), strict=True):
-        data = table[(table.prop == prop) & table.exp.notna()]
-        for system_id, group in data.groupby("system_id"):
-            ax.plot(
-                group.ref - group.exp,
-                group.other - group.exp,
-                "o",
-                ms=4,
-                color=colours[system_id],
-            )
-        errors = np.r_[data.ref - data.exp, data.other - data.exp]
-        lim = 1.1 * np.abs(errors).max()
-        ax.plot([-lim, lim], [-lim, lim], "k-", lw=0.8)
-        ax.plot([-lim, lim], [lim, -lim], "k:", lw=0.6)
-        ax.axhline(0, color="0.6", lw=0.6)
-        ax.axvline(0, color="0.6", lw=0.6)
-        ax.set_xlim(-lim, lim)
-        ax.set_ylim(-lim, lim)
-        ax.set_aspect("equal")
-        ax.set_xlabel(f"{labels[0]} - exp: {name} ({unit})")
-        ax.set_ylabel(f"{labels[1]} - exp: {name} ({unit})")
-    handles = [
-        mpl.lines.Line2D([], [], ls="", marker="o", ms=4, color=c, label=s)
-        for s, c in colours.items()
-    ]
-    axes[-1].legend(
-        handles=handles, fontsize=6, loc="center left", bbox_to_anchor=(1.02, 0.5)
-    )
-    fig.tight_layout()
-    fig.savefig(path, dpi=110)
-    plt.close(fig)
-
-
-def comparison_section(
-    out: Path,
-    labels: tuple[str, str],
-    table: pd.DataFrame,
-    mae: pd.DataFrame,
-    spread: pd.DataFrame,
-    items: tuple[pd.DataFrame, pd.DataFrame],
-    other_dir: Path,
-    pure: pd.DataFrame,
-) -> list[str]:
-    """
-    Report section comparing the reference Sage version with another one.
-
-    Parameters
-    ----------
-    out
-        Output directory of the reference report.
-    labels
-        Reference and other version labels.
-    table
-        Output of :func:`compare_versions`.
-    mae
-        Output of :func:`version_mae`.
-    spread
-        Output of :func:`system_spread`.
-    items
-        ``inspection.csv`` of both versions.
-    other_dir
-        Output directory of the other version's summary.
-    pure
-        Output of :func:`pure_densities`.
-
-    Returns
-    -------
-    list[str]
-        Markdown lines.
-    """
-    ref, other = labels
-    figure = f"figures/sage_{other}_vs_{ref}.png"
-    plot_versions(table, labels, out / figure)
-    link = Path("..") / other_dir.name / "sage_report.md"
-    significant = table[table.p_adj < FLAG_P]
-    lines = [
-        f"## Sage {other} vs {ref}",
-        "",
-        f"All boxes were rerun with {other} under the same protocol and replicate "
-        f"scheme (full report: [{other_dir.name}]({link})). Both versions use NAGL "
-        "charges from openff-gnn-am1bcc-1.0.0 and TIP3P water, so only the bonded "
-        "and vdW parameters differ (checked: identical partial charges in every "
-        "box). The mixtures come from the ash-sage-rc2 training and validation "
-        f"sets that {other} was fitted to, so its agreement with experiment on "
-        "training systems is in-sample.",
-        "",
-        "**Error against experiment** (replicate means; *better* counts points "
-        f"where |{other} - exp| < |{ref} - exp|):",
-        "",
-        f"| Property | Set | Systems | Points | MAE {ref} | MAE {other} | Better |",
-        "|---|---|---|---|---|---|---|",
-        *[
-            f"| {PROPS[r.prop][0]} ({PROPS[r.prop][1]}) | {r.set} | {r.n_systems} | "
-            f"{r.n_points} | {r.mae_ref:.{PROPS[r.prop][2]}f} | "
-            f"{r.mae_other:.{PROPS[r.prop][2]}f} | {r.n_better}/{r.n_points} |"
-            for r in mae.itertuples()
-        ],
-        "",
-        f"![{other} vs {ref}]({figure})",
-        "",
-        "Each point is one mixture composition: its error with "
-        f"{ref} (x) and {other} (y). Points below |y| = |x| (between the solid "
-        f"and dotted diagonals, towards y = 0) are closer to experiment with {other}.",
-        "",
-        f"**Point by point.** {other} - {ref}, with the standard error of the "
-        "difference of the replicate means and Welch's t. "
-        f"{len(significant)} of {len(table)} differences are significant after "
-        f"Holm correction (p_adj < {FLAG_P}, marked *).",
-        "",
-        f"| System | x | Property | {ref} | {other} | exp | Diff | se | t |",
-        "|---|---|---|---|---|---|---|---|---|",
-    ]
-    for r in table.sort_values(
-        ["prop", "system_id", "x"], key=_prop_order
-    ).itertuples():
-        digits = PROPS[r.prop][2]
-        exp = f"{r.exp:.{digits}f}" if pd.notna(r.exp) else "–"
-        mark = " *" if r.p_adj < FLAG_P else ""
-        lines.append(
-            f"| {r.system_id} | {r.x:.3f} | {PROPS[r.prop][0]} | "
-            f"{r.ref:.{digits}f} | {r.other:.{digits}f} | {exp} | "
-            f"{r.diff:+.{digits}f}{mark} | {r.se:.{digits}f} | {r.t:+.1f} |"
-        )
-    lines += [
-        "",
-        f"**Pure-liquid densities.** Mixture densities follow the pure "
-        f"liquids, so V^E changes much less than density. {other} - {ref} "
-        "(g/mL; t from the replicate SDs). Water has the same TIP3P parameters "
-        "in both versions and is the control: its difference should be noise.",
-        "",
-        f"| Box | {ref} | {other} | Diff | t |",
-        "|---|---|---|---|---|",
-        *[
-            f"| {r.box_id} | {r.mean_ref:.4f} | {r.mean_other:.4f} | "
-            f"{r.diff:+.4f} | {r.t:+.1f} |"
-            for r in pure.itertuples()
-        ],
-    ]
-    ratio = {
-        prop: spread[f"{prop}_sd_other"] / spread[f"{prop}_sd_ref"]
-        for prop in ("hmix", "density")
-    }
-    lines += [
-        "",
-        "**Replicate spread (the σ_Sage behind the MAZE denominator).** RMS of the "
-        "replicate SDs over each system's compositions, before the floor. Median "
-        f"ratio {other} / {ref}: {ratio['hmix'].median():.2f} (ΔHmix), "
-        f"{ratio['density'].median():.2f} (density). With 5 replicates an SD "
-        "ratio scatters by a factor of about 2 by chance, so only large "
-        "per-system changes stand out.",
-        "",
-        f"| System | ΔHmix SD {ref} | ΔHmix SD {other} | ρ SD {ref} | ρ SD {other} |",
-        "|---|---|---|---|---|",
-        *[
-            f"| {r.system_id} | {r.hmix_sd_ref:.3f} | {r.hmix_sd_other:.3f} | "
-            f"{r.density_sd_ref:.4f} | {r.density_sd_other:.4f} |"
-            for r in spread.itertuples()
-        ],
-        "",
-        "**Systems to inspect** (categories of the summary above), per version:",
-        "",
-        f"| Category | {ref} | {other} | Only in {ref} | Only in {other} |",
-        "|---|---|---|---|---|",
-    ]
-    ref_items, other_items = items
-    for category in CATEGORY_NOTES:
-        a = set(ref_items.target[ref_items.category == category])
-        b = set(other_items.target[other_items.category == category])
-        if a or b:
-            lines.append(
-                f"| {category} | {len(a)} | {len(b)} | "
-                f"{', '.join(sorted(a - b)) or '–'} | "
-                f"{', '.join(sorted(b - a)) or '–'} |"
-            )
-    lines.append("")
-    return lines
-
-
-def _prop_order(column: pd.Series) -> pd.Series:
-    """
-    Sort key putting properties in ``PROPS`` order.
-
-    Parameters
-    ----------
-    column
-        Column being sorted.
-
-    Returns
-    -------
-    pd.Series
-        The column, with properties mapped to their position.
-    """
-    return column.map(list(PROPS).index) if column.name == "prop" else column
 
 
 def main() -> None:
@@ -1925,18 +1448,6 @@ def main() -> None:
     )
     parser.add_argument("--replicates", type=int, default=5)
     parser.add_argument("--workers", type=int, default=8)
-    parser.add_argument("--force-field", default="openff-2.2.1", help="Label")
-    parser.add_argument("--published-ff", default=PUBLISHED_FF)
-    parser.add_argument(
-        "--no-update",
-        action="store_true",
-        help="Leave systems.csv and boxes.csv unchanged",
-    )
-    parser.add_argument(
-        "--compare-dir",
-        type=Path,
-        help="Summary of another Sage version to compare against in the report",
-    )
     args = parser.parse_args()
     out = args.output_dir
     (out / "figures" / "convergence").mkdir(parents=True, exist_ok=True)
@@ -1950,9 +1461,7 @@ def main() -> None:
     points.to_csv(out / "replicate_points.csv", index=False)
     summary = pooled_sigma(points, args.replicates)
     summary.to_csv(out / "points.csv", index=False)
-    finite = finite_size_check(
-        summary, systems, published_sage(args.cache_dir, args.published_ff)
-    )
+    finite = finite_size_check(summary, systems, published_sage(args.cache_dir))
     finite.to_csv(out / "finite_size.csv", index=False)
     wb = within_between(runs, points)
     wb.to_csv(out / "within_between.csv", index=False)
@@ -1991,44 +1500,10 @@ def main() -> None:
     start = start_dependence(runs)
     start.to_csv(out / "start_dependence.csv", index=False)
     items = inspection_items(runs, summary, finite, flags, start, wb, boxes)
-    pd.DataFrame(items, columns=["category", "target", "evidence", "box"]).to_csv(
-        out / "inspection.csv", index=False
-    )
-    (out / "force_field.txt").write_text(args.force_field + "\n")
-    header = interpretation(
-        out,
-        runs,
-        summary,
-        wb,
-        pooled,
-        items,
-        args.runs_dir,
-        args.force_field,
-        args.published_ff,
-    )
-    if args.compare_dir:
-        other = pd.read_csv(args.compare_dir / "points.csv")
-        table = compare_versions(summary, other)
-        table.to_csv(out / "version_comparison.csv", index=False)
-        header += comparison_section(
-            out,
-            (
-                args.force_field,
-                (args.compare_dir / "force_field.txt").read_text().strip(),
-            ),
-            table,
-            version_mae(table, fit_split(systems, args.cache_dir)),
-            system_spread(summary, other),
-            (
-                pd.read_csv(out / "inspection.csv"),
-                pd.read_csv(args.compare_dir / "inspection.csv"),
-            ),
-            args.compare_dir,
-            pure_densities(runs, pd.read_csv(args.compare_dir / "runs.csv")),
-        )
+    header = interpretation(out, runs, summary, wb, pooled, items, args.runs_dir)
     write_report(out, header, runs, summary, finite, flags, start)
 
-    if args.no_update or not (summary.complete.all() and len(summary) == len(systems)):
+    if not (summary.complete.all() and len(summary) == len(systems)):
         return
     cols = [
         "box_id",

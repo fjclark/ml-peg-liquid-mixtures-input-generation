@@ -1,13 +1,10 @@
 """
-Run the binary mixtures benchmark with Sage (openff-2.2.1) as a reference model.
+Run the binary mixtures benchmark with Sage (openff-2.3.0) as a reference model.
 
 Run in the ``openff`` pixi environment::
 
     pixi run -e openff run-sage --data-dir data/binary_mixtures \
         --output-dir data/sage_runs
-
-``--force-field openff-2.3.0.offxml`` runs another Sage version (same NAGL
-charges). The force field is recorded in ``<output-dir>/force_field.txt``.
 
 Every box is run as several independent replicates with the benchmark protocol
 (0.2 ns NPT equilibration followed by 2 ns NPT production, 298.15 K or the box's
@@ -35,7 +32,6 @@ import numpy as np
 from openmm import unit
 
 from liquid_mixtures_inputs.build_boxes import (
-    FORCE_FIELD,
     TIMESTEP_FS,
     BoxSpec,
     build_box,
@@ -171,7 +167,6 @@ def run_replicate(
     out_dir: Path,
     platform: str,
     run_ps: float = EQUILIBRATION_PS + PRODUCTION_PS,
-    force_field: str = FORCE_FIELD,
 ):
     """
     Run one replicate of one box with the benchmark protocol.
@@ -188,8 +183,6 @@ def run_replicate(
         OpenMM platform name.
     run_ps
         Total NPT length (equilibration plus production) in ps.
-    force_field
-        OpenFF force field file.
 
     Returns
     -------
@@ -206,19 +199,11 @@ def run_replicate(
     else:
         # Independent start: new packing and NVT pre-equilibration.
         spec = spec_from_info(info)
-        built, _ = build_box(spec, seed, platform, molecules, force_field)
+        built, _ = build_box(spec, seed, platform, molecules)
         positions, cell = built.get_positions(), np.asarray(built.get_cell())
     temperature = float(info["exp_temperature"])
     simulation, dof = make_simulation(
-        molecules,
-        counts,
-        positions,
-        cell,
-        temperature,
-        True,
-        seed,
-        platform,
-        force_field,
+        molecules, counts, positions, cell, temperature, True, seed, platform
     )
     simulation.context.setVelocitiesToTemperature(temperature * unit.kelvin, seed)
 
@@ -249,14 +234,7 @@ def run_replicate(
     return time.time() - start
 
 
-def _job(
-    box_path: Path,
-    replicate: int,
-    out_dir: Path,
-    platform: str,
-    run_ps: float,
-    force_field: str,
-):
+def _job(box_path: Path, replicate: int, out_dir: Path, platform: str, run_ps: float):
     """
     Worker entry point that also reports which job finished.
 
@@ -272,15 +250,13 @@ def _job(
         OpenMM platform name.
     run_ps
         Total NPT length in ps.
-    force_field
-        OpenFF force field file.
 
     Returns
     -------
     tuple[str, int, float]
         Box id, replicate and wall time.
     """
-    wall = run_replicate(box_path, replicate, out_dir, platform, run_ps, force_field)
+    wall = run_replicate(box_path, replicate, out_dir, platform, run_ps)
     return box_path.stem, replicate, wall
 
 
@@ -293,7 +269,6 @@ def main() -> None:
     parser.add_argument("--box-id", nargs="*", help="Only run these boxes")
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--platform", default="CUDA")
-    parser.add_argument("--force-field", default=FORCE_FIELD)
     parser.add_argument(
         "--run-ps",
         type=float,
@@ -302,12 +277,6 @@ def main() -> None:
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-    # One force field per output directory, so runs are never mixed.
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    record = args.output_dir / "force_field.txt"
-    if record.exists() and record.read_text().strip() != args.force_field:
-        parser.error(f"{args.output_dir} holds {record.read_text().strip()} runs")
-    record.write_text(args.force_field + "\n")
 
     boxes = sorted((args.data_dir / "boxes").glob("*.xyz"))
     if args.box_id:
@@ -326,13 +295,7 @@ def main() -> None:
     with ProcessPoolExecutor(args.workers, mp_context=context) as pool:
         futures = [
             pool.submit(
-                _job,
-                box,
-                r,
-                args.output_dir / box.stem,
-                args.platform,
-                args.run_ps,
-                args.force_field,
+                _job, box, r, args.output_dir / box.stem, args.platform, args.run_ps
             )
             for box, r in jobs
         ]

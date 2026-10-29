@@ -204,8 +204,8 @@ poor fitting targets.
 Evaluator builds its boxes the same way the first version of this benchmark did:
 `openff/evaluator/utils/packmol.py` (`_create_trajectory`) calls
 `generate_conformers(n_conformers=1)`, and packmol copies that one conformer into
-every molecule. Our Sage runs (3.3) found conformational equilibria that take
-nanoseconds in openff-2.2.1: tetrahydropyran twist-boat to chair,
+every molecule. Our first Sage runs (3.3, with openff-2.2.1) found
+conformational equilibria that take nanoseconds: tetrahydropyran twist-boat to chair,
 1,2-dichloroethane Cl-C-C-Cl, DMAE O-C-C-N and piperidine nitrogen inversion
 (frozen even at 500 K). Properties of mixtures containing these molecules could
 therefore depend on the starting conformer, especially with the Sage 2.0
