@@ -67,7 +67,7 @@ GOOD = {
     ("hmix", "MAZE"): 1.0,
     ("density", "MAE"): 0.005,
     ("density", "MAZE"): 3.0,
-    ("vex", "RMSE"): 0.05,
+    ("vex", "RMSE"): 0.15,
     ("pure_density", "MAE"): 0.005,
 }
 LABELS = {
@@ -1120,13 +1120,14 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         f"{pt('density', ref).mde.median():.4f} "
         "g/mL. Experimental errors are 5 to 12× smaller than simulation noise (median "
         "σ_exp vs σ_sim) and barely change these limits.",
-        "- **Two metric thresholds sit below the noise floor.** A perfect model "
+        "- **Noise floors of the metrics.** A perfect model "
         "scores "
         f"{m('vex', 'RMSE', ref, 0.0, 'observed_mean'):.3f} cm³/mol on V^E RMSE "
         "(ml-peg "
         f"'good' is {GOOD[('vex', 'RMSE')]}) and "
         f"{m('hmix', 'MAZE', ref, 0.0, 'observed_mean'):.2f} "
-        f"on ΔHmix MAZE ('good' is {GOOD[('hmix', 'MAZE')]}). See section 5.",
+        f"on ΔHmix MAZE ('good' is {GOOD[('hmix', 'MAZE')]}). V^E RMSE 'good' was "
+        "raised from 0.05, which no model could reach. See section 5.",
         f"- **Run length.** Production of 1 ns costs {cost[1000.0] / cost[ref]:.0%} of "
         "the "
         f"current protocol and widens the resolvable ΔHmix MAE difference from "
@@ -1152,9 +1153,10 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "for Sage "
         "(section 4), and an MLP must also relax from Sage's structure to its own "
         "density.",
-        "- Raise the ΔHmix MAZE and V^E RMSE 'good' thresholds above their noise "
-        "floors, "
-        "or bias-correct V^E RMSE (section 5).",
+        "- Keep the 'good' thresholds just above the noise floors (section 5). If "
+        "the protocol changes, recompute the floors: at 1 ns the V^E RMSE floor "
+        f"({m('vex', 'RMSE', 1000.0, 0.0, 'observed_mean'):.3f}) reaches its 'good' "
+        "threshold.",
         "",
         "## Method",
         "",
@@ -1456,24 +1458,25 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "which section 1 shows is optimistic for short runs, so the real saving is "
         "smaller. Not worth the extra complexity.",
         "",
-        "## 5. Thresholds below the noise floor",
+        "## 5. Thresholds and the noise floor",
         "",
         "- **V^E RMSE.** A perfect model scores "
         f"{m('vex', 'RMSE', ref, 0.0, 'observed_mean'):.3f} "
         "cm³/mol at 2 ns (median per-point σ "
         f"{pt('vex', ref).sigma_sim.median():.3f}): "
         "V^E is a small difference of molar volumes, and RMSE adds the noise in "
-        f"quadrature. The 'good' threshold of {GOOD[('vex', 'RMSE')]} cannot be "
-        "reached. "
-        "Options: raise 'good' to 0.15; or report a bias-corrected "
-        "sqrt(max(0, MSE − mean σ_i²)), with σ_i each point's own propagated standard "
-        "error inflated by k ≈ 1.2.",
+        "quadrature. The original 'good' threshold of 0.05 could not be reached, "
+        f"so it was raised to {GOOD[('vex', 'RMSE')]}, about 1.7 SD of the "
+        "perfect-model score above it (2026-10-29). The alternative, a "
+        "bias-corrected sqrt(max(0, MSE − mean σ_i²)), was not used: it relies on "
+        "each run's own standard errors, which are about 1.2× too small "
+        "(within- vs between-run test), and is itself noisy for good models.",
         "- **ΔHmix MAZE.** A perfect model scores "
         f"{m('hmix', 'MAZE', ref, 0.0, 'observed_mean'):.2f} "
         f"at 2 ns and {m('hmix', 'MAZE', 1000.0, 0.0, 'observed_mean'):.2f} at 1 ns, "
         "because σ_ref "
         "is close to the single-run noise. The 'good' threshold of "
-        f"{GOOD[('hmix', 'MAZE')]} is barely reachable. Proposal: 'good' = 1.5.",
+        f"{GOOD[('hmix', 'MAZE')]} sits just above both, so it is kept.",
         f"- ΔHmix MAE ('good' {GOOD[('hmix', 'MAE')]} kJ/mol, floor "
         f"{m('hmix', 'MAE', ref, 0.0, 'observed_mean'):.3f}), density MAE and MAZE, "
         "and pure "

@@ -9,7 +9,7 @@ The 320 Sage runs (64 boxes × 5 replicates, `data/sage_summary/`) stand in for 
 - **Simulation noise is small next to the choice of systems.** At 2 ns, the ΔHmix MAE of one model moves by 0.019 kJ/mol (SD) between repeat benchmark runs. Which 13 systems were chosen moves Sage's MAE by 0.13 kJ/mol (cluster bootstrap), 7× more. For mixture density the factor is 17× (0.00013 vs 0.0023 g/mL). How much the choice of systems matters for a *ranking* depends on how alike two models' errors are (section 3).
 - **Two models can be told apart** (95 % test, 80 % power) when their ΔHmix MAE differs by 0.04 to 0.075 kJ/mol, or their mixture density MAE by 0.0005 g/mL. Published MLPs differ in pure-liquid density MAE by about 0.05 to 0.25 g/mL (section 6), 100 to 500× more.
 - **Against experiment, per point,** one run per box detects a ΔHmix error above 0.22 kJ/mol (median over points; 67% of Sage's errors are larger) and a density error above 0.0023 g/mL. Experimental errors are 5 to 12× smaller than simulation noise (median σ_exp vs σ_sim) and barely change these limits.
-- **Two metric thresholds sit below the noise floor.** A perfect model scores 0.119 cm³/mol on V^E RMSE (ml-peg 'good' is 0.05) and 0.65 on ΔHmix MAZE ('good' is 1.0). See section 5.
+- **Noise floors of the metrics.** A perfect model scores 0.119 cm³/mol on V^E RMSE (ml-peg 'good' is 0.15) and 0.65 on ΔHmix MAZE ('good' is 1.0). V^E RMSE 'good' was raised from 0.05, which no model could reach. See section 5.
 - **Run length.** Production of 1 ns costs 55% of the current protocol and widens the resolvable ΔHmix MAE difference from 0.075 to 0.096 kJ/mol. Noise falls a little more slowly than 1/sqrt(t), because longer runs sample slow modes that short runs miss. Per-box run lengths optimised for cost save only 17%. Equilibration should stay at 0.2 ns.
 
 ## Recommendation
@@ -17,7 +17,7 @@ The 320 Sage runs (64 boxes × 5 replicates, `data/sage_summary/`) stand in for 
 - Keep 0.2 + 2 ns as the default. At that length a rerun reproduces any ranking whose gap exceeds the resolvable difference, and simulation noise is a small part of each metric's uncertainty except for V^E RMSE.
 - 0.2 + 1 ns is a reasonable cheaper option (about 158 MACE-OFF23(M) A100 GPU-days saved per model, of 347; see section 4). Decide once MLP pilot runs show whether MLP correlation times match Sage's.
 - Do not shorten equilibration: the 100 to 200 ps window is still shifted for Sage (section 4), and an MLP must also relax from Sage's structure to its own density.
-- Raise the ΔHmix MAZE and V^E RMSE 'good' thresholds above their noise floors, or bias-correct V^E RMSE (section 5).
+- Keep the 'good' thresholds just above the noise floors (section 5). If the protocol changes, recompute the floors: at 1 ns the V^E RMSE floor (0.145) reaches its 'good' threshold.
 
 ## Method
 
@@ -80,7 +80,7 @@ Blue: resolvable difference for a Sage-like error profile (band: all profiles, 1
 | ΔHmix MAZE | 5.374 | 0.17 | 0.18 | 0.37 to 0.67 | 0.47 to 0.85 | 1.5 | 0.65 | 1.0 |
 | Mixture density MAE | 0.008612 | 0.00013 | 0.00013 | 0.00032 to 0.00053 | 0.0004 to 0.00066 | 0.0023 | 0.000634 | 0.005 |
 | Mixture density MAZE | 10.74 | 0.16 | 0.16 | 0.38 to 0.62 | 0.47 to 0.76 | 3.2 | 0.748 | 3.0 |
-| V^E RMSE | 0.3137 | 0.022 | nan | 0.071 to 0.086 | 0.086 to 0.1 | 0.081 | 0.119 | 0.05 |
+| V^E RMSE | 0.3137 | 0.022 | nan | 0.071 to 0.086 | 0.086 to 0.1 | 0.081 | 0.119 | 0.15 |
 | Pure density MAE | 0.008469 | 0.00025 | 0.00026 | 0.00061 to 0.001 | 0.00072 to 0.0012 | 0.0019 | 0.000655 | 0.005 |
 
 Noise also biases each score upwards, most for good models: a model whose true ΔHmix MAE is 0.14 kJ/mol scores 0.16 on average at 2 ns, against 0.55 for a true 0.55. Differences between good models are therefore slightly compressed, but their order is kept.
@@ -112,10 +112,10 @@ Units: kJ/mol per molecule (h), g/mL (density). Even for Sage, starting from Sag
 
 **Per-box run lengths.** For a fixed variance of ΔHmix MAE, mixture density MAE and pure density MAE (equally weighted, each relative to uniform 2 ns), the cheapest allocation runs each box for t ∝ sqrt(A_b / n_b), where A_b is the box's variance contribution and n_b its atom count, with at least 0.5 ns. It ranges from 0.5 to 4.7 ns (`allocation.csv`): pure water and the small-weight pure boxes get less, slow pure liquids (N-methylaniline, DMAE, pyrrole, THP) more. It saves 17% of the cost. That assumes σ ∝ 1/sqrt(t), which section 1 shows is optimistic for short runs, so the real saving is smaller. Not worth the extra complexity.
 
-## 5. Thresholds below the noise floor
+## 5. Thresholds and the noise floor
 
-- **V^E RMSE.** A perfect model scores 0.119 cm³/mol at 2 ns (median per-point σ 0.113): V^E is a small difference of molar volumes, and RMSE adds the noise in quadrature. The 'good' threshold of 0.05 cannot be reached. Options: raise 'good' to 0.15; or report a bias-corrected sqrt(max(0, MSE − mean σ_i²)), with σ_i each point's own propagated standard error inflated by k ≈ 1.2.
-- **ΔHmix MAZE.** A perfect model scores 0.65 at 2 ns and 0.87 at 1 ns, because σ_ref is close to the single-run noise. The 'good' threshold of 1.0 is barely reachable. Proposal: 'good' = 1.5.
+- **V^E RMSE.** A perfect model scores 0.119 cm³/mol at 2 ns (median per-point σ 0.113): V^E is a small difference of molar volumes, and RMSE adds the noise in quadrature. The original 'good' threshold of 0.05 could not be reached, so it was raised to 0.15, about 1.7 SD of the perfect-model score above it (2026-10-29). The alternative, a bias-corrected sqrt(max(0, MSE − mean σ_i²)), was not used: it relies on each run's own standard errors, which are about 1.2× too small (within- vs between-run test), and is itself noisy for good models.
+- **ΔHmix MAZE.** A perfect model scores 0.65 at 2 ns and 0.87 at 1 ns, because σ_ref is close to the single-run noise. The 'good' threshold of 1.0 sits just above both, so it is kept.
 - ΔHmix MAE ('good' 0.2 kJ/mol, floor 0.071), density MAE and MAZE, and pure density MAE are well above their floors.
 
 ## 6. Literature: how far apart are current MLPs?
