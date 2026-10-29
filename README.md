@@ -22,7 +22,7 @@ Every decision, with its reason and history, is in [DECISIONS.md](DECISIONS.md).
 - **Cost.** 104,076 atoms over 64 boxes, about 190 MACE-OFF23(M) A100 GPU-days per model (order of magnitude). 0.2 + 2 ns would cost 1.8× as much and resolve 0.041 to 0.075 kJ/mol. ([details](data/power_analysis/details.md#4-run-length-and-cost))
 - **Sage 2.3.0 against experiment.** ΔHmix MAE 0.55 kJ/mol (MAZE 4.1), mixture density MAE 0.0086 g/mL (MAZE 8.7), V^E MAE 0.22 cm³/mol (MAZE 1.6). Single 1 ns Sage runs understate their own standard errors by 19 % (h) and 11 % (density). ([Sage report](data/sage_summary/report.md))
 - **Thresholds.** For example ΔHmix MAZE good 0.82, bad 20; all eight metrics are in [thresholds.csv](data/power_analysis/thresholds.csv), with a ready-to-paste [metrics_snippet.yml](data/power_analysis/metrics_snippet.yml).
-- **Main caveat.** Sage stands in for MLP noise. One pilot MLP run per box would check that MLP correlation times are similar.
+- **Main caveat.** Sage stands in for MLP noise, which may be very different.
 
 ## Reports
 
