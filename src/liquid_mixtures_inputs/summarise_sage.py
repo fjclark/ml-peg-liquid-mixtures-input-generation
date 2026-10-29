@@ -942,8 +942,8 @@ def plot_sage_vs_exp(
     """
     Parity plot of a Sage replicate-mean property against experiment.
 
-    Each system gets a unique colour and marker pair, cycling through the
-    tab10 colours with circles first, then squares, then triangles.
+    Each system gets a unique colour and marker pair: filled circles in the
+    tab10 colours, then open squares, then open triangles once they repeat.
 
     Parameters
     ----------
@@ -961,14 +961,18 @@ def plot_sage_vs_exp(
     data = summary.dropna(subset=[f"{prop}_sage", f"{prop}_exp"])
     fig, ax = plt.subplots(figsize=(5.5, 5))
     for i, (system_id, group) in enumerate(data.groupby("system_id")):
+        cycle = i // len(colours)
         ax.errorbar(
             group[f"{prop}_exp"],
             group[f"{prop}_sage"],
             xerr=group[f"{prop}_exp_sigma"],
             yerr=group[f"{prop}_sd"],
-            fmt=markers[i // len(colours)],
+            fmt=markers[cycle],
             color=colours[i % len(colours)],
-            ms=4,
+            mfc="white" if cycle else None,
+            mew=1.5,
+            ms=6,
+            elinewidth=1,
             label=system_id,
         )
     values = pd.concat([data[f"{prop}_exp"], data[f"{prop}_sage"]])
@@ -978,7 +982,7 @@ def plot_sage_vs_exp(
     ax.set_ylabel(f"Sage {label}, mean ± replicate SD")
     ax.legend(fontsize=6)
     fig.tight_layout()
-    fig.savefig(path, dpi=110)
+    fig.savefig(path, dpi=150)
     plt.close(fig)
 
 
