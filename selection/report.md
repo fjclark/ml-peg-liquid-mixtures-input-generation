@@ -1,6 +1,6 @@
 # Binary mixtures benchmark: system selection report
 
-Generated 2026-10-23 by `select_systems.py`.
+Generated 2026-10-29 by `select_systems.py`.
 
 ## Hard filters
 

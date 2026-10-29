@@ -9,15 +9,15 @@ The 320 Sage runs (64 boxes × 5 replicates, `data/sage_summary/`) stand in for 
 - **Simulation noise is small next to the choice of systems.** At 2 ns, the ΔHmix MAE of one model moves by 0.019 kJ/mol (SD) between repeat benchmark runs. Which 13 systems were chosen moves Sage's MAE by 0.13 kJ/mol (cluster bootstrap), 7× more. For mixture density the factor is 17× (0.00013 vs 0.0023 g/mL). How much the choice of systems matters for a *ranking* depends on how alike two models' errors are (section 3).
 - **Two models can be told apart** (95 % test, 80 % power) when their ΔHmix MAE differs by 0.04 to 0.075 kJ/mol, or their mixture density MAE by 0.0005 g/mL. Published MLPs differ in pure-liquid density MAE by about 0.05 to 0.25 g/mL (section 6), 100 to 500× more.
 - **Against experiment, per point,** one run per box detects a ΔHmix error above 0.22 kJ/mol (median over points; 67% of Sage's errors are larger) and a density error above 0.0023 g/mL. Experimental errors are 5 to 12× smaller than simulation noise (median σ_exp vs σ_sim) and barely change these limits.
-- **Noise floors of the metrics.** A perfect model scores 0.119 cm³/mol on V^E RMSE (ml-peg 'good' is 0.15) and 0.65 on ΔHmix MAZE ('good' is 1.0). V^E RMSE 'good' was raised from 0.05, which no model could reach. See section 5.
+- **Noise floors of the metrics.** A perfect model scores 0.091 cm³/mol on V^E MAE (ml-peg 'good' is 0.12) and 0.65 on ΔHmix MAZE ('good' is 0.84). V^E MAE 'good' was raised from 0.05, which no model could reach. See section 5.
 - **Run length.** Production of 1 ns costs 55% of the current protocol and widens the resolvable ΔHmix MAE difference from 0.075 to 0.096 kJ/mol. Noise falls a little more slowly than 1/sqrt(t), because longer runs sample slow modes that short runs miss. Per-box run lengths optimised for cost save only 17%. Equilibration should stay at 0.2 ns.
 
 ## Recommendation
 
-- Keep 0.2 + 2 ns as the default. At that length a rerun reproduces any ranking whose gap exceeds the resolvable difference, and simulation noise is a small part of each metric's uncertainty except for V^E RMSE.
+- Keep 0.2 + 2 ns as the default. At that length a rerun reproduces any ranking whose gap exceeds the resolvable difference, and simulation noise is a small part of each metric's uncertainty except for V^E MAE.
 - 0.2 + 1 ns is a reasonable cheaper option (about 158 MACE-OFF23(M) A100 GPU-days saved per model, of 347; see section 4). Decide once MLP pilot runs show whether MLP correlation times match Sage's.
 - Do not shorten equilibration: the 100 to 200 ps window is still shifted for Sage (section 4), and an MLP must also relax from Sage's structure to its own density.
-- Keep the 'good' thresholds just above the noise floors (section 5). If the protocol changes, recompute the floors: at 1 ns the V^E RMSE floor (0.145) reaches its 'good' threshold.
+- Keep the 'good' thresholds just above the noise floors (section 5). If the protocol changes, recompute the floors: at 1 ns the V^E MAE floor (0.111) reaches its 'good' threshold.
 
 ## Method
 
@@ -55,9 +55,9 @@ Minimum detectable error MDE = 2.80·sqrt(σ_sim² + σ_exp²): an error that si
 | Mixture density | 0.5 | 0.003631 | 0.005776 | 69% | 0.00015 |
 | Mixture density | 1 | 0.002754 | 0.004321 | 75% | 0.00015 |
 | Mixture density | 2 | 0.002319 | 0.003584 | 83% | 0.00015 |
-| V^E | 0.5 | 0.514 | 0.866 | 17% | 0 |
-| V^E | 1 | 0.3871 | 0.6392 | 17% | 0 |
-| V^E | 2 | 0.3179 | 0.5372 | 22% | 0 |
+| V^E | 0.5 | 0.5155 | 0.866 | 17% | 0.0044 |
+| V^E | 1 | 0.3877 | 0.6394 | 17% | 0.0044 |
+| V^E | 2 | 0.318 | 0.5374 | 22% | 0.0044 |
 | Pure density | 0.5 | 0.003446 | 0.004244 | 64% | 0.00015 |
 | Pure density | 1 | 0.002772 | 0.00409 | 64% | 0.00015 |
 | Pure density | 2 | 0.002333 | 0.003977 | 73% | 0.00015 |
@@ -76,12 +76,12 @@ Blue: resolvable difference for a Sage-like error profile (band: all profiles, 1
 
 | Metric | Sage | SD (sim, 2 ns) | SD closed form | Resolvable (2 ns) | Resolvable (1 ns) | SD over systems | Perfect-model score (2 ns) | ml-peg 'good' |
 |---|---|---|---|---|---|---|---|---|
-| ΔHmix MAE | 0.5463 | 0.019 | 0.02 | 0.041 to 0.075 | 0.054 to 0.096 | 0.13 | 0.0714 | 0.2 |
-| ΔHmix MAZE | 5.374 | 0.17 | 0.18 | 0.37 to 0.67 | 0.47 to 0.85 | 1.5 | 0.65 | 1.0 |
-| Mixture density MAE | 0.008612 | 0.00013 | 0.00013 | 0.00032 to 0.00053 | 0.0004 to 0.00066 | 0.0023 | 0.000634 | 0.005 |
-| Mixture density MAZE | 10.74 | 0.16 | 0.16 | 0.38 to 0.62 | 0.47 to 0.76 | 3.2 | 0.748 | 3.0 |
-| V^E RMSE | 0.3137 | 0.022 | nan | 0.071 to 0.086 | 0.086 to 0.1 | 0.081 | 0.119 | 0.15 |
-| Pure density MAE | 0.008469 | 0.00025 | 0.00026 | 0.00061 to 0.001 | 0.00072 to 0.0012 | 0.0019 | 0.000655 | 0.005 |
+| ΔHmix MAE | 0.5463 | 0.019 | 0.02 | 0.041 to 0.075 | 0.054 to 0.096 | 0.13 | 0.0714 | 0.092 |
+| ΔHmix MAZE | 5.374 | 0.17 | 0.18 | 0.37 to 0.67 | 0.47 to 0.85 | 1.5 | 0.65 | 0.84 |
+| Mixture density MAE | 0.008612 | 0.00013 | 0.00013 | 0.00032 to 0.00053 | 0.0004 to 0.00066 | 0.0023 | 0.000634 | 0.0008 |
+| Mixture density MAZE | 10.74 | 0.16 | 0.16 | 0.38 to 0.62 | 0.47 to 0.76 | 3.2 | 0.748 | 0.94 |
+| V^E MAE | 0.2237 | 0.02 | 0.024 | 0.053 to 0.08 | 0.064 to 0.095 | 0.06 | 0.0911 | 0.12 |
+| Pure density MAE | 0.008469 | 0.00025 | 0.00026 | 0.00061 to 0.001 | 0.00071 to 0.0012 | 0.0019 | 0.000655 | 0.00096 |
 
 Noise also biases each score upwards, most for good models: a model whose true ΔHmix MAE is 0.14 kJ/mol scores 0.16 on average at 2 ns, against 0.55 for a true 0.55. Differences between good models are therefore slightly compressed, but their order is kept.
 
@@ -91,13 +91,13 @@ For a ranking, what matters is the system spread of the *difference* between two
 
 ## 4. Shorter runs
 
-| Protocol (ns) | Cost | MACE-OFF23(M) GPU-days | Resolvable ΔHmix MAE | Resolvable density MAE | Perfect ΔHmix MAZE | Perfect V^E RMSE |
+| Protocol (ns) | Cost | MACE-OFF23(M) GPU-days | Resolvable ΔHmix MAE | Resolvable density MAE | Perfect ΔHmix MAZE | Perfect V^E MAE |
 |---|---|---|---|---|---|---|
-| 0.2 + 0.25 | 20% | 71 | 0.139 | 0.0013 | 1.49 | 0.291 |
-| 0.2 + 0.5 | 32% | 110 | 0.116 | 0.0009 | 1.17 | 0.195 |
-| 0.2 + 1 | 55% | 189 | 0.096 | 0.0007 | 0.87 | 0.145 |
-| 0.2 + 1.5 | 77% | 268 | 0.079 | 0.0006 | 0.70 | 0.125 |
-| 0.2 + 2 | 100% | 347 | 0.075 | 0.0005 | 0.65 | 0.119 |
+| 0.2 + 0.25 | 20% | 71 | 0.139 | 0.0013 | 1.49 | 0.223 |
+| 0.2 + 0.5 | 32% | 110 | 0.116 | 0.0009 | 1.17 | 0.149 |
+| 0.2 + 1 | 55% | 189 | 0.096 | 0.0007 | 0.87 | 0.111 |
+| 0.2 + 1.5 | 77% | 268 | 0.079 | 0.0006 | 0.70 | 0.096 |
+| 0.2 + 2 | 100% | 347 | 0.075 | 0.0005 | 0.65 | 0.091 |
 
 Cost is Σ atoms × simulated time over the 64 boxes (104076 atoms). GPU-days are an order of magnitude only: MACE-OFF23(M) runs 1.1×10⁶ steps/day for ~600-atom liquid boxes on one A100 ([arXiv:2312.15211](https://arxiv.org/abs/2312.15211), sec. III.3.2), scaled linearly to our 950 to 2,800-atom boxes. Faster and slower models scale the column, not the ratios.
 
@@ -114,9 +114,9 @@ Units: kJ/mol per molecule (h), g/mL (density). Even for Sage, starting from Sag
 
 ## 5. Thresholds and the noise floor
 
-- **V^E RMSE.** A perfect model scores 0.119 cm³/mol at 2 ns (median per-point σ 0.113): V^E is a small difference of molar volumes, and RMSE adds the noise in quadrature. The original 'good' threshold of 0.05 could not be reached, so it was raised to 0.15, about 1.7 SD of the perfect-model score above it (2026-10-29). The alternative, a bias-corrected sqrt(max(0, MSE − mean σ_i²)), was not used: it relies on each run's own standard errors, which are about 1.2× too small (within- vs between-run test), and is itself noisy for good models.
-- **ΔHmix MAZE.** A perfect model scores 0.65 at 2 ns and 0.87 at 1 ns, because σ_ref is close to the single-run noise. The 'good' threshold of 1.0 sits just above both, so it is kept.
-- ΔHmix MAE ('good' 0.2 kJ/mol, floor 0.071), density MAE and MAZE, and pure density MAE are well above their floors.
+- **V^E MAE.** A perfect model scores 0.091 cm³/mol at 2 ns (median per-point σ 0.113): V^E is a small difference of molar volumes, and RMSE adds the noise in quadrature. The original 'good' threshold of 0.05 could not be reached, so it was raised to 0.12, about 1.7 SD of the perfect-model score above it (2026-10-29). The alternative, a bias-corrected sqrt(max(0, MSE − mean σ_i²)), was not used: it relies on each run's own standard errors, which are about 1.2× too small (within- vs between-run test), and is itself noisy for good models.
+- **ΔHmix MAZE.** A perfect model scores 0.65 at 2 ns and 0.87 at 1 ns, because σ_ref is close to the single-run noise. The 'good' threshold of 0.84 sits just above both, so it is kept.
+- ΔHmix MAE ('good' 0.092 kJ/mol, floor 0.071), density MAE and MAZE, and pure density MAE are well above their floors.
 
 ## 6. Literature: how far apart are current MLPs?
 

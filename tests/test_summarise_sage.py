@@ -13,6 +13,7 @@ from liquid_mixtures_inputs.summarise_sage import (
     finite_size_check,
     mixture_points,
     pooled_sigma,
+    pure_sigma,
     within_between,
 )
 from ml_peg.analysis.utils.timeseries import estimate_mean
@@ -256,7 +257,7 @@ def test_finite_size_check_corrects_composition_offset():
 
 
 def test_pooled_sigma_floor_exception():
-    """Listed systems get the floor even when their own spread is larger."""
+    """NMP + DCE gets the floor on ΔHmix, density and V^E despite a larger spread."""
     rng = np.random.default_rng(0)
     rows = []
     for system_id, scale in (
@@ -275,16 +276,17 @@ def test_pooled_sigma_floor_exception():
                     "hmix": value,
                     "hmix_sigma_run": 0.01,
                     "density": 1.0 + value / 100,
-                    "vex": 0.0,
+                    "vex": value / 10,
                     "hmix_exp": 0.0,
                     "hmix_exp_sigma": 0.0,
                     "density_exp": 1.0,
                     "density_exp_sigma": 0.0,
                     "vex_exp": 0.0,
+                    "vex_exp_sigma": 0.0,
                 }
             )
     summary = pooled_sigma(pd.DataFrame(rows), 5).set_index("system_id")
-    for prop in ("hmix", "density"):
+    for prop in ("hmix", "density", "vex"):
         sd = summary[f"{prop}_sd"]
         floor = float(np.median(sd))
         assert summary.loc["nmp_dichloroethane", f"sigma_sage_{prop}"] == (
@@ -294,3 +296,36 @@ def test_pooled_sigma_floor_exception():
         assert summary.loc["quiet", f"sigma_sage_{prop}"] == pytest.approx(
             floor, abs=1e-6
         )
+
+
+def test_pure_sigma_floor_exception():
+    """Pure 1,2-dichloroethane gets the median floor; σ_ref adds σ_exp."""
+    rng = np.random.default_rng(1)
+    rows = []
+    for smiles, scale in (("CO", 0.001), ("CCO", 0.002), ("ClCCCl", 0.02)):
+        for replicate in range(5):
+            rows.append(
+                {
+                    "kind": "pure",
+                    "smiles": smiles,
+                    "temperature": 298.15,
+                    "replicate": replicate,
+                    "density_mean": 1.0 + scale * rng.standard_normal(),
+                }
+            )
+    pure = pd.DataFrame(
+        {
+            "smiles": ["CO", "CCO", "ClCCCl"],
+            "temperature": 298.15,
+            "density": 1.0,
+            "sigma": [0.0, 0.003, 0.0],
+            "scored": True,
+        }
+    )
+    table = pure_sigma(pd.DataFrame(rows), pure).set_index("smiles")
+    floor = float(np.median(table.density_sd))
+    assert table.density_sd["ClCCCl"] > floor
+    assert table.loc["ClCCCl", "sigma_sage_density"] == pytest.approx(floor, abs=1e-6)
+    assert table.loc["CCO", "sigma_ref_density"] == pytest.approx(
+        np.hypot(table.loc["CCO", "sigma_sage_density"], 0.003), abs=1e-6
+    )

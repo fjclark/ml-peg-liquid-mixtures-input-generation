@@ -67,6 +67,7 @@ PUBLISHED_X_TOLERANCE = 0.02
 # Sage artefact that a model need not share (the slow Cl-C-C-Cl torsion of
 # 1,2-dichloroethane; see DECISIONS.md).
 SIGMA_SAGE_AT_FLOOR = {"nmp_dichloroethane"}
+PURE_SIGMA_SAGE_AT_FLOOR = {"ClCCCl"}  # pure 1,2-dichloroethane, same reason
 # Thresholds for the "systems to inspect" summary
 SIZE_GAP = {"hmix": 0.15, "density": 0.002}  # kJ/mol, g/mL
 EARLY_SHIFT = 0.005  # g/mL
@@ -210,6 +211,7 @@ def mixture_points(runs: pd.DataFrame, systems: pd.DataFrame) -> pd.DataFrame:
                 "density_exp": experiment.density_exp,
                 "density_exp_sigma": experiment.density_sigma,
                 "vex_exp": experiment.vex_exp,
+                "vex_exp_sigma": getattr(experiment, "vex_sigma", np.nan),
             }
             # Excess property = mixture - x·pure a - (1 - x)·pure b, per molecule.
             for name, observable in (("hmix", "h"), ("vex", "v_molar")):
@@ -229,9 +231,12 @@ def mixture_points(runs: pd.DataFrame, systems: pd.DataFrame) -> pd.DataFrame:
 
 def pooled_sigma(points: pd.DataFrame, n_replicates: int) -> pd.DataFrame:
     """
-    Replicate SD per point, pooled per system and floored at the median.
+    Compute σ_Sage and σ_ref (the MAZE denominator) of every mixture point.
 
-    Systems in ``SIGMA_SAGE_AT_FLOOR`` get the floor itself.
+    σ_Sage is the replicate SD, pooled (RMS) over a system's compositions and
+    floored at the median over systems, so that no system dominates MAZE
+    because Sage happens to sample it quietly. Systems in
+    ``SIGMA_SAGE_AT_FLOOR`` get the floor itself. σ_ref = sqrt(σ_Sage² + σ_exp²).
 
     Parameters
     ----------
@@ -261,9 +266,10 @@ def pooled_sigma(points: pd.DataFrame, n_replicates: int) -> pd.DataFrame:
         density_exp=("density_exp", "first"),
         density_exp_sigma=("density_exp_sigma", "first"),
         vex_exp=("vex_exp", "first"),
+        vex_exp_sigma=("vex_exp_sigma", "first"),
     ).reset_index()
     summary["complete"] = summary.n_rep >= n_replicates
-    for property_name in ("hmix", "density"):
+    for property_name in ("hmix", "density", "vex"):
         # RMS of the replicate SDs over a system's compositions.
         pooled = summary.groupby("system_id")[f"{property_name}_sd"].apply(
             lambda sds: float(np.sqrt(np.nanmean(sds**2)))
@@ -277,6 +283,48 @@ def pooled_sigma(points: pd.DataFrame, n_replicates: int) -> pd.DataFrame:
             + summary[f"{property_name}_exp_sigma"].fillna(0.0) ** 2
         ).round(6)
     return summary
+
+
+def pure_sigma(runs: pd.DataFrame, pure: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute σ_Sage and σ_ref (the MAZE denominator) of every pure density.
+
+    The same rule as :func:`pooled_sigma`, with one box per liquid and
+    temperature: the replicate SD, floored at the median over pure boxes.
+    Liquids in ``PURE_SIGMA_SAGE_AT_FLOOR`` get the floor itself.
+
+    Parameters
+    ----------
+    runs
+        Per-run statistics.
+    pure
+        ``pure.csv`` (experimental density and ``sigma``).
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per pure box with the Sage mean, SD, σ_Sage and σ_ref.
+    """
+    table = (
+        runs[runs.kind == "pure"]
+        .groupby(["smiles", "temperature"])
+        .density_mean.agg(n_rep="count", density_sage="mean", density_sd="std")
+        .reset_index()
+        .merge(
+            pure[["smiles", "temperature", "density", "sigma", "scored"]],
+            on=["smiles", "temperature"],
+            how="left",
+        )
+        .rename(columns={"density": "density_exp", "sigma": "density_exp_sigma"})
+    )
+    floor = float(np.nanmedian(table.density_sd))
+    sigma = table.density_sd.clip(lower=floor)
+    sigma[table.smiles.isin(PURE_SIGMA_SAGE_AT_FLOOR)] = floor
+    table["sigma_sage_density"] = sigma.round(6)
+    table["sigma_ref_density"] = np.sqrt(
+        table.sigma_sage_density**2 + table.density_exp_sigma.fillna(0.0) ** 2
+    ).round(6)
+    return table
 
 
 def published_x_first(row: pd.Series) -> float:
@@ -1464,6 +1512,9 @@ def main() -> None:
     points.to_csv(out / "replicate_points.csv", index=False)
     summary = pooled_sigma(points, args.replicates)
     summary.to_csv(out / "points.csv", index=False)
+    pure = pd.read_csv(args.data_dir / "pure.csv")
+    pure_summary = pure_sigma(runs, pure)
+    pure_summary.to_csv(out / "pure_points.csv", index=False)
     finite = finite_size_check(summary, systems, published_sage(args.cache_dir))
     finite.to_csv(out / "finite_size.csv", index=False)
     wb = within_between(runs, points)
@@ -1515,8 +1566,10 @@ def main() -> None:
         "vex_sage",
         "sigma_sage_hmix",
         "sigma_sage_density",
+        "sigma_sage_vex",
         "sigma_ref_hmix",
         "sigma_ref_density",
+        "sigma_ref_vex",
     ]
     updated = systems.assign(
         box_id=[
@@ -1528,6 +1581,14 @@ def main() -> None:
         summary[cols], on="box_id", how="left"
     )
     updated.to_csv(args.data_dir / "systems.csv", index=False)
+
+    pure_columns = ["density_sage", "sigma_sage_density", "sigma_ref_density"]
+    pure = pure.drop(columns=[c for c in pure_columns if c in pure]).merge(
+        pure_summary[["smiles", "temperature", *pure_columns]],
+        on=["smiles", "temperature"],
+        how="left",
+    )
+    pure.to_csv(args.data_dir / "pure.csv", index=False)
 
     like = (
         runs[runs.kind == "mixture"]

@@ -119,6 +119,7 @@ MIN_MINORITY = 20
 MAX_X_SHIFT = 0.01
 DEFAULT_TARGET_X = (0.25, 0.5, 0.75)
 MAX_TARGET_DISTANCE = 0.1  # a measured point must lie this close to each target
+LOCAL_SIGMA_WINDOW = 0.05  # σ_exp at a box is the median σ of points this close
 
 PURE_DENSITY_TOLERANCE = 0.002  # g/mL, cross-check flag
 MAX_DENSITY_SIGMA = 0.002  # g/mL; noisier mixture densities are not used for V^E
@@ -1288,6 +1289,31 @@ def target_points(hmix: list[Point], target_x) -> list[Point]:
     return targets
 
 
+def local_sigma(points: list[Point], x: float) -> float | None:
+    """
+    Return the median σ of the points near ``x``, or of the nearest point.
+
+    Parameters
+    ----------
+    points
+        Points with uncertainties (e.g. V^E after :func:`add_fit_scatter`).
+    x
+        Box composition.
+
+    Returns
+    -------
+    float | None
+        The uncertainty, or ``None`` if no point has one.
+    """
+    near = [p.sigma for p in points if abs(p.x - x) <= LOCAL_SIGMA_WINDOW and p.sigma]
+    if near:
+        return round(statistics.median(near), 6)
+    with_sigma = [p for p in points if p.sigma]
+    if not with_sigma:
+        return None
+    return round(min(with_sigma, key=lambda p: abs(p.x - x)).sigma, 6)
+
+
 def box_row(
     spec: dict,
     target: Point,
@@ -1346,6 +1372,7 @@ def box_row(
     if not (vex_fit and have_pure_densities):
         row.update(
             vex_exp=None,
+            vex_sigma=None,
             density_exp=None,
             density_sigma=None,
             density_doi="",
@@ -1361,6 +1388,7 @@ def box_row(
     )
     vex_box = vex_fit(x_box)
     row["vex_exp"] = round(vex_box, 5)
+    row["vex_sigma"] = local_sigma(context["vex"], x_box)
     row["density_exp"] = round(mean_mass / (ideal_volume + vex_box), 5)
     nearest = min(densities, key=lambda p: abs(p.x - x_box)) if densities else None
     # Uncertainty from the main density paper near x_box (other papers
@@ -1368,8 +1396,12 @@ def box_row(
     local_sigmas = [
         p.sigma
         for p in densities
-        if abs(p.x - x_box) <= 0.05 and p.sigma and p.doi == density_dois[0]
-    ] or [p.sigma for p in densities if abs(p.x - x_box) <= 0.05 and p.sigma]
+        if abs(p.x - x_box) <= LOCAL_SIGMA_WINDOW
+        and p.sigma
+        and p.doi == density_dois[0]
+    ] or [
+        p.sigma for p in densities if abs(p.x - x_box) <= LOCAL_SIGMA_WINDOW and p.sigma
+    ]
     if local_sigmas:
         row["density_sigma"] = statistics.median(local_sigmas)
     else:
@@ -1501,6 +1533,7 @@ def build_system(
         "pures": pures,
         "hmix_fit": hmix_fit,
         "vex_fit": vex_fit,
+        "vex": vex,
         "densities": densities,
         "density_dois": density_dois,
     }

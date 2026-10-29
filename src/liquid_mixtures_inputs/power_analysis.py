@@ -14,7 +14,7 @@ pure boxes are shared between a system's three compositions, so their noise is
 correlated across points) to give, per run length:
 
 - the smallest error against experiment a single point can detect;
-- the noise in each benchmark metric (MAE, MAZE, RMSE) and the smallest
+- the noise in each benchmark metric (MAE, MAZE) and the smallest
   difference between two models it can resolve;
 - the spread of the metric over the choice of systems (cluster bootstrap), for
   comparison;
@@ -36,6 +36,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from scipy import stats  # noqa: E402
+import yaml  # noqa: E402
 
 from liquid_mixtures_inputs.constants import (  # noqa: E402
     EQUILIBRATION_PS,
@@ -66,15 +67,12 @@ COLORS = ("#2a78d6", "#eb6834", "#1baf7a")
 # MACE-OFF23(M) on one A100 via OpenMM: 1.1e6 steps/day for ~600-atom liquid boxes
 # (arXiv:2312.15211, section III.3.2). Used only for an order-of-magnitude cost.
 MACE_OFF_M_ATOM_STEPS_PER_DAY = 1.1e6 * 600
-# Benchmark metric thresholds in ml-peg (binary_mixtures/metrics.yml)
-GOOD = {
-    ("hmix", "MAE"): 0.2,
-    ("hmix", "MAZE"): 1.0,
-    ("density", "MAE"): 0.005,
-    ("density", "MAZE"): 3.0,
-    ("vex", "RMSE"): 0.15,
-    ("pure_density", "MAE"): 0.005,
-}
+# ml-peg thresholds (DECISIONS.md, metrics): 'good' is what a model that matches
+# experiment exactly scores with one run per box, plus GOOD_NOISE_SDS standard
+# deviations of that score; 'bad' is BAD_SAGE_MULTIPLE times Sage's score, as
+# Sage was trained on these properties.
+GOOD_NOISE_SDS = 2.0
+BAD_SAGE_MULTIPLE = 5.0
 LABELS = {
     "hmix": "ΔHmix",
     "density": "Mixture density",
@@ -272,8 +270,8 @@ def metric_sets(data_dir: Path, runs: pd.DataFrame) -> dict[str, dict]:
     dict[str, dict]
         Per property: ``matrix`` (points × boxes), ``observable`` (box
         observable it maps), ``error`` (Sage replicate mean minus experiment),
-        ``sigma_exp``, ``sigma_ref`` (MAZE denominator, or None), ``system``
-        (cluster label per point), ``metric`` ("mae" or "rmse") and ``unit``.
+        ``sigma_exp``, ``sigma_ref`` (MAZE denominator), ``system`` (cluster
+        label per point) and ``unit``.
     """
     systems = pd.read_csv(data_dir / "systems.csv")
     boxes = pd.read_csv(data_dir / "boxes.csv").sort_values("box_id")
@@ -311,7 +309,6 @@ def metric_sets(data_dir: Path, runs: pd.DataFrame) -> dict[str, dict]:
             "sigma_exp": systems.hmix_sigma.to_numpy(),
             "sigma_ref": systems.sigma_ref_hmix.to_numpy(),
             "system": systems.system_id.to_numpy(),
-            "metric": "mae",
             "unit": "kJ/mol",
         },
         "density": {
@@ -321,17 +318,15 @@ def metric_sets(data_dir: Path, runs: pd.DataFrame) -> dict[str, dict]:
             "sigma_exp": with_density.density_sigma.to_numpy(),
             "sigma_ref": with_density.sigma_ref_density.to_numpy(),
             "system": with_density.system_id.to_numpy(),
-            "metric": "mae",
             "unit": "g/mL",
         },
         "vex": {
             "matrix": mixing[systems.density_exp.notna().to_numpy()],
             "observable": "v_molar",
             "error": (with_density.vex_sage - with_density.vex_exp).to_numpy(),
-            "sigma_exp": np.zeros(len(with_density)),
-            "sigma_ref": None,
+            "sigma_exp": with_density.vex_sigma.fillna(0.0).to_numpy(),
+            "sigma_ref": with_density.sigma_ref_vex.to_numpy(),
             "system": with_density.system_id.to_numpy(),
-            "metric": "rmse",
             "unit": "cm³/mol",
         },
         "pure_density": {
@@ -339,28 +334,23 @@ def metric_sets(data_dir: Path, runs: pd.DataFrame) -> dict[str, dict]:
             "observable": "density",
             "error": pure_error,
             "sigma_exp": scored.sigma.to_numpy(),
-            "sigma_ref": None,
+            "sigma_ref": scored.sigma_ref_density.to_numpy(),
             "system": scored.smiles.to_numpy(),
-            "metric": "mae",
             "unit": "g/mL",
         },
     }
 
 
-def metric(
-    errors: np.ndarray, kind: str, scale: np.ndarray | None = None
-) -> np.ndarray:
+def metric(errors: np.ndarray, scale: np.ndarray | None = None) -> np.ndarray:
     """
-    Benchmark metric over the last axis of an error array.
+    Benchmark metric (MAE, or MAZE with ``scale``) over the last axis.
 
     Parameters
     ----------
     errors
         Model minus experiment, shape (..., n_points).
-    kind
-        "mae" or "rmse".
     scale
-        Per-point denominator (MAZE), or None.
+        Per-point denominator σ_ref (MAZE), or None (MAE).
 
     Returns
     -------
@@ -369,8 +359,6 @@ def metric(
     """
     if scale is not None:
         errors = errors / scale
-    if kind == "rmse":
-        return np.sqrt(np.mean(errors**2, axis=-1))
     return np.mean(np.abs(errors), axis=-1)
 
 
@@ -423,17 +411,17 @@ def metric_noise(
     -------
     dict
         True metric, mean and SD of the observed metric, bias, the closed-form
-        SD (MAE only: sqrt(sᵀCs)/N with s = sign(error), valid when errors
+        SD (sqrt(sᵀCs)/N with s = sign(error) / scale, valid when errors
         are well above the noise) and the resolvable difference between two
         independent models, Z_DETECT·√2·SD.
     """
     matrix, error = property_set["matrix"], profile * property_set["error"]
     noise = (rng.standard_normal((N_DRAWS, len(sigma_box))) * sigma_box) @ matrix.T
-    observed = metric(error + noise, property_set["metric"], scale)
-    true = float(metric(error, property_set["metric"], scale))
+    observed = metric(error + noise, scale)
+    true = float(metric(error, scale))
     sd = float(observed.std(ddof=1))
     closed = np.nan
-    if property_set["metric"] == "mae" and profile > 0:
+    if profile > 0:
         weights = np.sign(error) / (scale if scale is not None else 1.0)
         covariance = matrix @ np.diag(sigma_box**2) @ matrix.T
         closed = float(np.sqrt(weights @ covariance @ weights) / len(error))
@@ -475,10 +463,7 @@ def system_bootstrap(
     values = np.empty(N_BOOTSTRAP)
     for i in range(N_BOOTSTRAP):
         picked = rng.integers(len(clusters), size=len(clusters))
-        values[i] = metric(
-            np.concatenate([error[clusters[j]] for j in picked]),
-            property_set["metric"],
-        )
+        values[i] = metric(np.concatenate([error[clusters[j]] for j in picked]))
     return float(values.std(ddof=1))
 
 
@@ -583,18 +568,14 @@ def analyse(
     property_sets = {name: value for name, value in sets.items() if name != "box_ids"}
     point_rows, metric_rows, bootstrap_rows = [], [], []
     for name, property_set in property_sets.items():
-        # Every property is scored as a plain metric and, if it has σ_ref, a MAZE.
-        variants = [(property_set["metric"].upper(), None)]
-        if property_set["sigma_ref"] is not None:
-            variants.append(("MAZE", property_set["sigma_ref"]))
+        # Every property is scored as MAE (physical units) and MAZE (σ_ref).
+        variants = [("MAE", None), ("MAZE", property_set["sigma_ref"])]
         for label, scale in variants:
             bootstrap_rows.append(
                 {
                     "property": name,
                     "metric": label,
-                    "sage": float(
-                        metric(property_set["error"], property_set["metric"], scale)
-                    ),
+                    "sage": float(metric(property_set["error"], scale)),
                     "bootstrap_sd": system_bootstrap(property_set, rng, scale),
                 }
             )
@@ -687,6 +668,130 @@ def allocation_table(
             "weight": total,
             "production_ps": lengths,
         }
+    )
+
+
+def round_significant(value: float, digits: int = 2) -> float:
+    """
+    Round a number to a few significant figures.
+
+    Parameters
+    ----------
+    value
+        Number to round.
+    digits
+        Significant figures.
+
+    Returns
+    -------
+    float
+        The rounded number.
+    """
+    return float(f"{value:.{digits}g}")
+
+
+def thresholds(metrics: pd.DataFrame, bootstrap: pd.DataFrame) -> pd.DataFrame:
+    """
+    Set ml-peg's 'good' and 'bad' thresholds of every metric from the noise.
+
+    good = perfect-model mean + ``GOOD_NOISE_SDS`` × its SD with one run per
+    box of the benchmark protocol, so a model that matches experiment scores
+    'good' about 98 % of the time. bad = ``BAD_SAGE_MULTIPLE`` × Sage's score.
+
+    Parameters
+    ----------
+    metrics
+        ``metrics`` table from :func:`analyse`.
+    bootstrap
+        ``bootstrap`` table from :func:`analyse` (holds Sage's score).
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per metric with the perfect-model mean and SD, Sage's score
+        and the two thresholds (2 significant figures).
+    """
+    perfect = metrics[
+        (metrics.production_ps == REFERENCE[1]) & (metrics.profile == 0.0)
+    ].set_index(["property", "metric"])
+    rows = []
+    for row in bootstrap.itertuples():
+        noise = perfect.loc[(row.property, row.metric)]
+        rows.append(
+            {
+                "property": row.property,
+                "metric": row.metric,
+                "perfect_mean": noise.observed_mean,
+                "perfect_sd": noise.sd,
+                "sage": row.sage,
+                "good": round_significant(
+                    noise.observed_mean + GOOD_NOISE_SDS * noise.sd
+                ),
+                "bad": round_significant(BAD_SAGE_MULTIPLE * row.sage),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+# ml-peg metric names, units and what each point set holds.
+MLPEG_NAMES = {
+    "hmix": ("ΔHmix", "kJ mol^-1", "enthalpy of mixing"),
+    "density": ("Density", "g cm^-3", "mixture densities"),
+    "vex": ("V^E", "cm^3 mol^-1", "excess molar volume"),
+    "pure_density": (
+        "Pure density",
+        "g cm^-3",
+        "pure-liquid densities not already scored by the liquid densities benchmark",
+    ),
+}
+
+
+def metrics_snippet(table: pd.DataFrame, sets: dict) -> str:
+    """
+    Write the thresholds in the format of ml-peg's ``metrics.yml``.
+
+    MAZE is scored; MAE is shown with weight 0, so each score keeps its
+    physical units without counting twice.
+
+    Parameters
+    ----------
+    table
+        Output of :func:`thresholds`.
+    sets
+        Output of :func:`metric_sets` (for the number of points).
+
+    Returns
+    -------
+    str
+        YAML text for the ``metrics`` block.
+    """
+    entries = {}
+    for row in table.itertuples():
+        name, unit, description = MLPEG_NAMES[row.property]
+        n_points = len(sets[row.property]["error"])
+        if row.metric == "MAZE":
+            tooltip = (
+                f"Mean absolute z-score of the {description} ({n_points} points), "
+                "dividing each error by a fixed sqrt(σ_exp² + σ_Sage²), where σ_Sage "
+                "is the spread of 5 independent Sage runs"
+            )
+        else:
+            tooltip = f"Mean absolute error of the {description} ({n_points} points)"
+        entry = {"good": row.good, "bad": row.bad}
+        entry["unit"] = None if row.metric == "MAZE" else unit
+        entry["tooltip"] = tooltip
+        entry["level_of_theory"] = "Experimental"
+        if row.metric == "MAE":
+            entry["weight"] = 0
+        entries[f"{name} {row.metric}"] = entry
+    header = (
+        "# Generated by `pixi run -e analysis power-analysis` (thresholds.csv).\n"
+        f"# good: perfect-model score + {GOOD_NOISE_SDS:g} SD with one "
+        f"{REFERENCE[0] / 1000:g} + {REFERENCE[1] / 1000:g} ns run per box; "
+        f"bad: {BAD_SAGE_MULTIPLE:g} x Sage (openff-2.3.0).\n"
+    )
+    return header + yaml.safe_dump(
+        {"metrics": entries}, allow_unicode=True, sort_keys=False
     )
 
 
@@ -856,7 +961,12 @@ def plot_noise_scaling(noise: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
-def plot_resolvable(metrics: pd.DataFrame, bootstrap: pd.DataFrame, path: Path) -> None:
+def plot_resolvable(
+    metrics: pd.DataFrame,
+    bootstrap: pd.DataFrame,
+    threshold_table: pd.DataFrame,
+    path: Path,
+) -> None:
     """
     Plot the resolvable metric difference against production length.
 
@@ -870,14 +980,17 @@ def plot_resolvable(metrics: pd.DataFrame, bootstrap: pd.DataFrame, path: Path) 
         ``metrics`` table from :func:`analyse`.
     bootstrap
         ``bootstrap`` table from :func:`analyse`.
+    threshold_table
+        Output of :func:`thresholds`.
     path
         Output PNG.
     """
+    good_values = threshold_table.set_index(["property", "metric"]).good
     panels = [
         ("hmix", "MAE", "kJ/mol"),
         ("density", "MAE", "g/mL"),
         ("hmix", "MAZE", ""),
-        ("vex", "RMSE", "cm³/mol"),
+        ("vex", "MAE", "cm³/mol"),
     ]
     fig, axes = plt.subplots(2, 2, figsize=(9, 6.4))
     for ax, (prop, label, unit) in zip(axes.flat, panels, strict=True):
@@ -913,18 +1026,17 @@ def plot_resolvable(metrics: pd.DataFrame, bootstrap: pd.DataFrame, path: Path) 
             ms=6,
             label="perfect-model score",
         )
-        good = GOOD.get((prop, label))
-        if good is not None:
-            ax.axhline(good, color="0.4", lw=0.8)
-            ax.annotate(
-                "ml-peg 'good'",
-                (t[-1], good),
-                textcoords="offset points",
-                xytext=(0, 3),
-                ha="right",
-                fontsize=8,
-                color="0.3",
-            )
+        good = good_values[(prop, label)]
+        ax.axhline(good, color="0.4", lw=0.8)
+        ax.annotate(
+            "ml-peg 'good'",
+            (t[-1], good),
+            textcoords="offset points",
+            xytext=(0, 3),
+            ha="right",
+            fontsize=8,
+            color="0.3",
+        )
         ax.set_title(f"{LABELS[prop]} {label}", fontsize=10)
         ax.set_xlabel("Production length (ns)")
         ax.set_ylabel(unit or "dimensionless")
@@ -1014,7 +1126,9 @@ def gpu_days(atom_ps: float) -> float:
     return atom_ps * 1000 / MACE_OFF_M_ATOM_STEPS_PER_DAY
 
 
-def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
+def write_report(
+    out: Path, noise, equilibration, results, n_atoms, threshold_table
+) -> None:
     """
     Write ``report.md`` from the computed tables.
 
@@ -1030,7 +1144,10 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         Output of :func:`analyse`.
     n_atoms
         Atoms per box.
+    threshold_table
+        Output of :func:`thresholds`.
     """
+    good = threshold_table.set_index(["property", "metric"]).good
     metrics, points = results["metrics"], results["points"]
     boot = results["bootstrap"].set_index(["property", "metric"])
     allocation = results["allocation"]
@@ -1165,11 +1282,11 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "σ_exp vs σ_sim) and barely change these limits.",
         "- **Noise floors of the metrics.** A perfect model "
         "scores "
-        f"{m('vex', 'RMSE', ref, 0.0, 'observed_mean'):.3f} cm³/mol on V^E RMSE "
+        f"{m('vex', 'MAE', ref, 0.0, 'observed_mean'):.3f} cm³/mol on V^E MAE "
         "(ml-peg "
-        f"'good' is {GOOD[('vex', 'RMSE')]}) and "
+        f"'good' is {good[('vex', 'MAE')]}) and "
         f"{m('hmix', 'MAZE', ref, 0.0, 'observed_mean'):.2f} "
-        f"on ΔHmix MAZE ('good' is {GOOD[('hmix', 'MAZE')]}). V^E RMSE 'good' was "
+        f"on ΔHmix MAZE ('good' is {good[('hmix', 'MAZE')]}). V^E MAE 'good' was "
         "raised from 0.05, which no model could reach. See section 5.",
         f"- **Run length.** Production of 1 ns costs {cost[1000.0] / cost[ref]:.0%} of "
         "the "
@@ -1185,7 +1302,7 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "",
         "- Keep 0.2 + 2 ns as the default. At that length a rerun reproduces any "
         "ranking whose gap exceeds the resolvable difference, and simulation noise is "
-        "a small part of each metric's uncertainty except for V^E RMSE.",
+        "a small part of each metric's uncertainty except for V^E MAE.",
         f"- 0.2 + 1 ns is a reasonable cheaper option (about "
         f"{gpu_days(cost[ref]) - gpu_days(cost[1000.0]):.0f} MACE-OFF23(M) A100 "
         "GPU-days "
@@ -1197,8 +1314,8 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "(section 4), and an MLP must also relax from Sage's structure to its own "
         "density.",
         "- Keep the 'good' thresholds just above the noise floors (section 5). If "
-        "the protocol changes, recompute the floors: at 1 ns the V^E RMSE floor "
-        f"({m('vex', 'RMSE', 1000.0, 0.0, 'observed_mean'):.3f}) reaches its 'good' "
+        "the protocol changes, recompute the floors: at 1 ns the V^E MAE floor "
+        f"({m('vex', 'MAE', 1000.0, 0.0, 'observed_mean'):.3f}) reaches its 'good' "
         "threshold.",
         "",
         "## Method",
@@ -1356,7 +1473,7 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         ("hmix", "MAZE"),
         ("density", "MAE"),
         ("density", "MAZE"),
-        ("vex", "RMSE"),
+        ("vex", "MAE"),
         ("pure_density", "MAE"),
     ):
         lo2, hi2 = res_range(prop, label, ref)
@@ -1371,7 +1488,7 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
                 f"{lo1:.2g} to {hi1:.2g}",
                 f"{float(boot.loc[(prop, label), 'bootstrap_sd']):.2g}",
                 f"{m(prop, label, ref, 0.0, 'observed_mean'):.3g}",
-                f"{GOOD[(prop, label)]}",
+                f"{good[(prop, label)]}",
             ]
         )
     lines += [
@@ -1433,7 +1550,7 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
                 f"{m('hmix', 'MAE', p, 1.0, 'resolvable'):.3f}",
                 f"{m('density', 'MAE', p, 1.0, 'resolvable'):.4f}",
                 f"{m('hmix', 'MAZE', p, 0.0, 'observed_mean'):.2f}",
-                f"{m('vex', 'RMSE', p, 0.0, 'observed_mean'):.3f}",
+                f"{m('vex', 'MAE', p, 0.0, 'observed_mean'):.3f}",
             ]
         )
     lines += [
@@ -1447,7 +1564,7 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
                     "Resolvable ΔHmix MAE",
                     "Resolvable density MAE",
                     "Perfect ΔHmix MAZE",
-                    "Perfect V^E RMSE",
+                    "Perfect V^E MAE",
                 ],
             )
         ),
@@ -1504,13 +1621,13 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "",
         "## 5. Thresholds and the noise floor",
         "",
-        "- **V^E RMSE.** A perfect model scores "
-        f"{m('vex', 'RMSE', ref, 0.0, 'observed_mean'):.3f} "
+        "- **V^E MAE.** A perfect model scores "
+        f"{m('vex', 'MAE', ref, 0.0, 'observed_mean'):.3f} "
         "cm³/mol at 2 ns (median per-point σ "
         f"{pt('vex', ref).sigma_sim.median():.3f}): "
         "V^E is a small difference of molar volumes, and RMSE adds the noise in "
         "quadrature. The original 'good' threshold of 0.05 could not be reached, "
-        f"so it was raised to {GOOD[('vex', 'RMSE')]}, about 1.7 SD of the "
+        f"so it was raised to {good[('vex', 'MAE')]}, about 1.7 SD of the "
         "perfect-model score above it (2026-10-29). The alternative, a "
         "bias-corrected sqrt(max(0, MSE − mean σ_i²)), was not used: it relies on "
         "each run's own standard errors, which are about 1.2× too small "
@@ -1520,8 +1637,8 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         f"at 2 ns and {m('hmix', 'MAZE', 1000.0, 0.0, 'observed_mean'):.2f} at 1 ns, "
         "because σ_ref "
         "is close to the single-run noise. The 'good' threshold of "
-        f"{GOOD[('hmix', 'MAZE')]} sits just above both, so it is kept.",
-        f"- ΔHmix MAE ('good' {GOOD[('hmix', 'MAE')]} kJ/mol, floor "
+        f"{good[('hmix', 'MAZE')]} sits just above both, so it is kept.",
+        f"- ΔHmix MAE ('good' {good[('hmix', 'MAE')]} kJ/mol, floor "
         f"{m('hmix', 'MAE', ref, 0.0, 'observed_mean'):.3f}), density MAE and MAZE, "
         "and pure "
         "density MAE are well above their floors.",
@@ -1626,15 +1743,21 @@ def main() -> None:
     for name, table in results.items():
         table.to_csv(out / f"{name}.csv", index=False)
     pd.DataFrame(LITERATURE).to_csv(out / "literature.csv", index=False)
+    threshold_table = thresholds(results["metrics"], results["bootstrap"])
+    threshold_table.to_csv(out / "thresholds.csv", index=False)
+    (out / "metrics_snippet.yml").write_text(metrics_snippet(threshold_table, sets))
 
     figures = out / "figures"
     figures.mkdir(exist_ok=True)
     plot_noise_scaling(noise, figures / "noise_scaling.png")
     plot_resolvable(
-        results["metrics"], results["bootstrap"], figures / "resolvable.png"
+        results["metrics"],
+        results["bootstrap"],
+        threshold_table,
+        figures / "resolvable.png",
     )
     plot_point_mde(results["points"], figures / "point_mde.png")
-    write_report(out, noise, equilibration, results, n_atoms)
+    write_report(out, noise, equilibration, results, n_atoms, threshold_table)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ from liquid_mixtures_inputs.power_analysis import (
     allocate,
     metric_noise,
     point_sigma,
+    thresholds,
     truncated_estimates,
 )
 from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (
@@ -137,7 +138,6 @@ def test_metric_noise_matches_closed_form():
     prop = {
         "matrix": matrix,
         "error": rng.choice([-1.0, 1.0], n_points) * rng.uniform(5, 10, n_points),
-        "metric": "mae",
     }
     sigma_box = rng.uniform(0.05, 0.2, n_boxes)
     row = metric_noise(prop, sigma_box, 1.0, rng)
@@ -149,7 +149,7 @@ def test_metric_noise_floor_for_perfect_model():
     """A perfect model's MAE is the mean of σ·sqrt(2/π) over points."""
     rng = np.random.default_rng(4)
     sigma_box = np.array([0.1, 0.2, 0.3])
-    prop = {"matrix": np.eye(3), "error": np.ones(3), "metric": "mae"}
+    prop = {"matrix": np.eye(3), "error": np.ones(3)}
     row = metric_noise(prop, sigma_box, 0.0, rng)
     assert row["observed_mean"] == pytest.approx(
         np.mean(sigma_box) * np.sqrt(2 / np.pi), rel=0.02
@@ -169,3 +169,23 @@ def test_allocation_reaches_target_at_lowest_cost():
     free = t > 500.0 + 1e-9
     ratio = t[free] / np.sqrt(coefficient[free] / n_atoms[free])
     np.testing.assert_allclose(ratio, ratio[0], rtol=1e-9)
+
+
+def test_thresholds_follow_noise_and_sage():
+    """Good = perfect-model mean + 2 SD at 2 ns; bad = 5 × Sage; 2 sig. figs."""
+    metrics = pd.DataFrame(
+        {
+            "property": ["hmix", "hmix", "hmix"],
+            "metric": ["MAE", "MAE", "MAE"],
+            "production_ps": [REFERENCE[1], REFERENCE[1], 1000.0],
+            "profile": [0.0, 1.0, 0.0],
+            "observed_mean": [0.0812, 0.55, 0.2],
+            "sd": [0.0101, 0.02, 0.05],
+        }
+    )
+    bootstrap = pd.DataFrame(
+        {"property": ["hmix"], "metric": ["MAE"], "sage": [0.546], "bootstrap_sd": 0.1}
+    )
+    row = thresholds(metrics, bootstrap).iloc[0]
+    assert row.good == 0.10  # 0.0812 + 2 × 0.0101 = 0.1014
+    assert row.bad == 2.7  # 5 × 0.546 = 2.73
