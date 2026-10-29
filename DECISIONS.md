@@ -1,124 +1,81 @@
-# Decisions: selecting the binary mixtures
+# Decisions
 
-A record of the decisions behind the 13 systems (64 boxes) in the ml-peg
-`binary_mixtures` benchmark, with dates, who made each one, and why. It was
-compiled on 2026-10-22 from the planning conversations (Claude Code sessions,
-11 to 22 October 2026), `src/liquid_mixtures_inputs/selection.yml`,
-`selection/report.md` and `data/sage_summary/report.md`.
+The decisions behind the ml-peg `binary_mixtures` benchmark: 13 binary mixtures at 3 compositions (64 boxes with the pure liquids), built and run with Sage 2.3.0, scored by MAZE. The top section is the current state, one bullet per decision with its reason and evidence. The [history](#history) at the bottom lists every dated change, including those since superseded. Decisions were made by the benchmark author, many on Claude's recommendation, in planning sessions from 11 to 29 October 2026.
 
-"User" means a decision stated or chosen by the benchmark author.
-"Recommended" means a recommendation from Claude that the user accepted.
-Quotes are the user's own words.
+The rules are implemented in `src/liquid_mixtures_inputs/` and listed in [selection/report.md](selection/report.md). Data problems found along the way are in [docs/data_issues.md](docs/data_issues.md).
 
-The rules themselves are implemented in `select_systems.py` and listed in
-`selection/report.md`. Data problems found along the way are in
-`docs/data_issues.md`.
+## Current decisions
 
-## 1. Scope and data sources
+### Scope and data
 
-| Date | Decision | By | Reason |
-|---|---|---|---|
-| 2026-10-11 | Benchmark condensed-phase binary mixture properties: ΔHmix and mixture density (and V^E), taken from the OpenFF Sage training/validation sets. The starting point was the recommended `dataset-fast-converging.csv` (< 10 ns systems). | User | The gap in ml-peg: there is no ΔHmix benchmark, and no excess properties beyond the ethanol-water density curve. |
-| 2026-10-11 | Core set of about 12 systems. | User (recommended option) | Cost against coverage. |
-| 2026-10-11 | Elements H, C, N, O and Cl only. | User (recommended option) | Cl is covered by MACE-OFF, AIMNet2 and AceFF; narrower models would otherwise miss systems. |
-| 2026-10-11 | Keep 3 compositions per system, even at about 1.7× the liquid_densities cost. | User ("Keep 3 compositions") | Composition dependence is the point of ΔHmix. |
-| 2026-10-14 | Choose "maximally informative" systems: both ΔHmix and mixture density at matching compositions, ideally with pure densities, and experimental errors throughout. | User | Each box should score several properties. |
-| 2026-10-14 | Avoid overlap with ml-peg: the ethanol-water density curve, water density, and the 63 liquid_densities pure liquids. Pure densities already in ml-peg are simulated (ΔHmix needs them) but not re-scored. | User | "We don't want to duplicate effort". |
-| 2026-10-14 | Use the ash-sage-rc2 (Sage 2.3 refit) training and validation sets as the main pool, because they carry experimental uncertainties (the Sage 2.0 set has none). Pin all sources to commit SHAs. | Recommended | Uncertainties are needed for MAZE and for the relative-error filter. |
-| 2026-10-14 | Take pure densities and full isotherms from each mixture's own source paper through the NIST ThermoML archive, and cross-check every pure density (ml-peg, Sage 2.0, DIPPR/NIST), flagging differences > 0.002 g/mL. | Recommended | The rc2 pure densities include wrong values (DMF, 1-propanol, piperidine) that flip the sign of V^E. The rc2 sets also keep only 3 points per isotherm. |
-| 2026-10-23 | Derive each V^E point from the pure densities of its own paper, and propagate the density σ as an error shared by every density in that paper (the larger of a common scale error and a common offset), plus the paper's RMS residual about the Redlich-Kister fit for the random part. Mixture density σ for scoring is unchanged. | User ("Can we combine the errors into Ve in a way which removes the systematic component"; recommended method) | V^E error bars were up to ~40× the scatter (dipropylamine + DMF: σ 0.13 against 0.003 cm³/mol RMS residual), because a flat ~0.12 % TRC-compiler σ, mostly calibration and purity, was propagated as independent although it cancels in V^E. |
-| 2026-10-23 | Methanol + water densities from 10.1016/j.jct.2007.05.004 only (`density_dois`), so its pure methanol (0.78720 g/mL, ~0.0006 above other sources) is used for V^E and for ρ_exp. 10.1021/je700300y (12 points, no pure water) is dropped. Water stays IAPWS-95 (0.997047 g/mL; the paper gives 0.99705). ρ_exp moves from 0.94726 / 0.88130 / 0.84007 to 0.94723 / 0.88181 / 0.84068 g/mL at x = 0.2 / 0.5 / 0.7. | User ("Let's be consistent and use the same pure value throughout, from the paper"; chose the single paper over keeping both) | Pure and mixture densities from one paper share calibration, so one pure value applies throughout. |
-| 2026-10-14 | Fix the 2-pyrrolidone tautomer (`OC1=NCCC1` → `O=C1CCCN1`) and guard every InChI round trip against imidic acid tautomers. | Recommended | The Sage data encode the wrong tautomer. |
-| 2026-10-23 | Check every curated component before selection runs: zero formal charge, no enol or imidic acid motif, and a match to RDKit's canonical tautomer (unless listed in `TAUTOMER_REVIEWED`). | User (recommended option) | Guards `selection.yml` edits against the 2-pyrrolidone kind of error. A wrong starting species cannot be recovered in MD: acetone's enol is ~10⁻⁸ of the equilibrium mixture ([Chiang et al. 1984](https://doi.org/10.1021/ja00314a055)), so no correct model converts it back in 2 ns. |
+- **Properties.** ΔHmix, mixture density and V^E of binary liquid mixtures, plus pure densities not already scored by ml-peg. ml-peg had no ΔHmix benchmark and no excess properties beyond the ethanol-water density curve.
+- **Three compositions per system** (near x = 0.25, 0.5 and 0.75), even at about 1.7× the liquid_densities cost, because composition dependence is the point of ΔHmix.
+- **Maximally informative systems.** Every system needs ΔHmix and density at matching compositions, pure densities, and experimental uncertainties throughout, so each box scores several properties.
+- **No overlap with ml-peg.** The ethanol-water density curve, water density and the 63 liquid_densities liquids are not re-scored; their pure boxes are still simulated, as ΔHmix needs them.
+- **Sources.** The ash-sage-rc2 (Sage 2.3 refit) training and validation sets are the main pool, because they carry experimental uncertainties; the Sage 2.0 set has none. Every source is pinned to a commit.
+- **Full isotherms from the source paper.** Isotherms and pure densities come from each mixture's own paper through the NIST ThermoML archive, and every pure density is cross-checked against ml-peg, Sage 2.0 and DIPPR/NIST (differences above 0.002 g/mL are flagged). The rc2 sets keep only 3 points per isotherm and include wrong pure densities (DMF, 1-propanol, piperidine) that flip the sign of V^E ([data_issues.md, 2.3](docs/data_issues.md#23-pure-densities-that-disagree-with-other-sources-verified-against-two-or-more-independent-papers)).
+- **V^E uncertainties.** V^E is derived from the pure densities of the same paper. The density σ is treated as an error shared by every density in that paper (it cancels in V^E), and the paper's RMS residual about its Redlich-Kister fit gives the random part. Propagating the flat TRC σ as independent had made V^E error bars up to 40× the scatter (dipropylamine + DMF: 0.13 against 0.003 cm³/mol).
+- **Methanol + water** densities from 10.1016/j.jct.2007.05.004 only, so its pure methanol is used for both V^E and the mixture densities; water is IAPWS-95.
+- **Structure checks.** Every component must have zero formal charge, no enol or imidic acid motif, and match RDKit's canonical tautomer. The Sage data store 2-pyrrolidone as the wrong tautomer, and a wrong starting species cannot convert back in a 2 ns run (acetone's enol is ~10⁻⁸ of the equilibrium mixture, [Chiang et al. 1984](https://doi.org/10.1021/ja00314a055)).
 
-## 2. Hard filters
+### Filters
 
-| Date | Decision | By | Reason |
-|---|---|---|---|
-| 2026-10-11 | Exclude likely two-phase systems ("Flag, verify, likely drop"). | User | In a small MD box a model can stay mixed where the real system separates, or the reverse, so the comparison is not like for like. |
-| 2026-10-14 | Two-phase screen: ΔHmix linear in x (H^E = a + b·x, the lever-rule signature), with a tolerance from σ_exp, instead of H^E/x constant. Equimolar ΔHmix must also be ≤ RT/2 (a conservative UCST screen), and each endothermic system gets a literature miscibility check. | User feedback | The line need not pass through the origin. False positives are unlikely, and full isotherms resolve them. Exclusions cite LLE or mutual-solubility data. |
-| 2026-10-14 | Avoid systems with a large Sage 3-replicate SD: ≤ 0.10 kJ/mol for ΔHmix and ≤ 0.001 g/mL for density (max over 4 Sage versions). | User | A large repeat spread suggests long equilibration. |
-| 2026-10-14 | Minimum signal: \|ΔHmix(x ≈ 0.5)\| ≥ 0.4 kJ/mol. | Recommended | The signal should sit well above the expected simulation noise (0.15 to 0.25 kJ/mol). |
-| 2026-10-14 | No viscous liquids (polyols, ethanolamines, polyamines); ≤ 10 heavy atoms per molecule. | Recommended | Slow dynamics and cost. |
-| 2026-10-19 | Only run the linearity (lever-rule) test when the largest \|H^E\| ≥ 0.4 kJ/mol. | User ("Yes, make that change") | Prompted by "Would the lever rule selection rule be satisfied by ideal liquids which mix?": ideal and near-ideal mixtures were being flagged as two-phase. This removed none of the proposed systems. |
-| 2026-10-19 | Add a relative ΔHmix uncertainty ≤ 15 % filter, and make pure-density uncertainties a hard requirement. | User ("Add the 15 % relative uncertainty rule") | Removes placeholder or very loose experimental errors. |
+36 of the 248 systems with enough data pass every filter ([funnel](selection/report.md#screening-funnel)).
 
-Result: 248 systems with full data, of which 36 pass all hard filters.
+- **Elements** H, C, N, O and Cl only. Cl is covered by MACE-OFF, AIMNet2 and AceFF.
+- **Size and dynamics.** ≤ 10 heavy atoms per molecule, and no viscous liquids (polyols, ethanolamines, polyamines), for cost and convergence in 2 ns.
+- **No likely two-phase systems.** In a small box a model can stay mixed where the real system separates, or the reverse. Screens: H^E linear in x (the lever-rule signature, tested only when the largest |H^E| ≥ 0.4 kJ/mol, as ideal mixtures are also linear), H^E(x = 0.5) ≤ RT/2, and a literature miscibility check for every endothermic system.
+- **Signal.** |ΔHmix(x ≈ 0.5)| ≥ 0.4 kJ/mol, well above the single-point detection limit.
+- **Sage convergence.** Published Sage 3-replicate SD ≤ 0.10 kJ/mol (ΔHmix) and ≤ 0.001 g/mL (density), as a large spread suggests slow equilibration.
+- **Uncertainties.** Relative ΔHmix uncertainty ≤ 15 % and pure-density uncertainties required, which removes placeholder errors (flat 25 %).
 
-## 3. Aqueous systems
+### Systems
 
-| Date | Decision | By | Reason |
-|---|---|---|---|
-| 2026-10-14 | Include a few aqueous mixtures, relaxing rules 1 and 5 for them where needed. | User | "Relevant to biomolecular interactions". |
-| 2026-10-14 | Drop 2-(dimethylamino)ethanol + water. | User | "Let's avoid 2-(dimethylamino)ethanol due to the large SD" (0.126 kJ/mol). |
-| 2026-10-14 | Drop 2-pyrrolidone + water. | User | "Concerned about 2-pyrrolidone due to viscosity". It also has no valid Sage SD (wrong tautomer) and flat 25 % placeholder errors. |
-| 2026-10-14 | Exclude ethanol + water, even as ΔHmix only. The user first chose to add it, then reversed. | User | "Let's leave out ethanol + water for now due to the already-present benchmark". |
-| 2026-10-14 | Add water + pyridine at 303.15 K, ΔHmix only, with its own pure water and pyridine boxes at 303.15 K. | User (suggested it; accepted after review) | It is the only aromatic N-water system (the histidine/nucleobase hydration motif) and is non-ideal. ThermoML stores 298.15 K, but the paper (10.1021/je2002495) measured at 303.15 K. With no published Sage errors, MAZE uses our own Sage replicates. |
-| 2026-10-14 | Keep methanol + water despite a composition mismatch of 0.06 in the rc2 subsets. | Recommended | Full ThermoML isotherms remove the mismatch, and it has the smallest Sage spread in the pool (0.03 kJ/mol), so it calibrates the noise. |
-| 2026-10-14 | Exclude acetophenone, acetylacetone and ethyl acetoacetate + water (from the fast-converging list). | User (flag, verify, drop) | Linear H^E (the lever-rule signature), with LLE or solubility data cited in the report. |
+- **The 13 systems** are listed with their data in [selection/report.md](selection/report.md#selected-systems). On review (2026-10-14) the set was reshaped to have fewer alcohols, a non-polar π control (heptane + toluene), a wider ΔHmix range (NMP + 1,2-dichloroethane, -1.26 kJ/mol), a ketone + amine pair that is endothermic in one case and exothermic in the other (2-butanone + dibutylamine against acetone + N-methylaniline), and O-H···π (1-propanol + benzene).
+- **Aqueous systems.** Methanol + water (the smallest Sage spread in the pool, so it calibrates the noise) and water + pyridine at 303.15 K, ΔHmix only (the aromatic N-water motif of histidine and nucleobases; ThermoML mislabels the temperature, [data_issues.md, 2.2](docs/data_issues.md#22-pyridine--water-δhmix-temperature-mislabelled-verified)). Excluded: ethanol + water (already in ml-peg), 2-(dimethylamino)ethanol + water (large Sage SD), 2-pyrrolidone + water (viscous, wrong tautomer, placeholder errors), and acetophenone, acetylacetone and ethyl acetoacetate + water (likely two-phase).
+- **Piperidine + water dropped.** Nitrogen inversion is frozen in Sage even at 500 K, so ΔHmix depended on the starting N-H orientation by ~0.3 kJ/mol.
+- **NMP + 1,2-dichloroethane kept.** Its slow DCE torsion sampling is a Sage artefact: Sage's trans to gauche barrier is 25.4 kJ/mol against 17.3 kJ/mol for MACE-OFF23(M), which makes Sage's flips about 27× too slow ([Sage report](data/sage_summary/report.md#nmp--12-dichloroethane)). A model with a reference-like barrier relaxes in about 40 ps, inside the equilibration. ΔHmix comes from 10.1016/j.jct.2008.01.024 only, at its points nearest x = 0.2, 0.5 and 0.8, as the two papers disagree away from equimolar.
+- **DMAE + methanol kept** for now: the anneal reaches the same conformer populations from different starts (see [open questions](#open-questions)).
+- **Known gaps**, stated in the report: no N-H amide system and no amide-water system, and the set reflects ThermoML and Sage coverage. Reserves are kept in `selection.yml`.
 
-## 4. Shaping the set (diversity)
+### Boxes and protocol
 
-After review on 2026-10-14 the user revised the set to fix: too many alcohols, no non-polar or π control, a narrow magnitude range, little biomolecular coverage, and no V^E diversity check.
+- **Box size.** Edge ≥ 25 Å, ≥ 100 molecules and ≥ 20 of the minority component (952 to 2,800 atoms). Half of a 21.5 Å box is below the ~12 Å receptive field of a 2-layer, 6 Å MLP, precision per GPU-hour does not depend on box size, and 1000-molecule boxes would cost 10 to 15× more. Sage results in our boxes match the published 1000-molecule runs ([Sage report](data/sage_summary/report.md#box-size)).
+- **Box build.** Packed at the experimental density with Sage 2.3.0, each molecule starting from the lowest-MMFF of 10 ETKDG conformers, annealed (450 K cooled to T over 1.6 ns) and equilibrated for 500 ps NVT. The first Sage runs showed slow conformer equilibria (tetrahydropyran, DCE, DMAE) and dependence on the starting conformer.
+- **Protocol.** One run per model and box: 0.2 ns NPT equilibration and 2 ns production. 0.2 + 1 ns costs 55 % and is a cheaper option, to be decided once MLP pilot runs exist. Equilibration stays at 0.2 ns, as the 100 to 200 ps window is still shifted for Sage ([power analysis](data/power_analysis/report.md)).
+- **One estimator** for Sage and the MLPs: ml-peg's `timeseries.py` (autocorrelation) on every logged sample, without binning.
 
-| Change | By | Reason |
-|---|---|---|
-| isooctane + 1-propanol → 1-propanol + benzene | User (from review) | The same alcohol-association physics, plus O-H···π, from a single paper, and avoids the alcohol + alkane miscibility question. |
-| methyl pentanoate + methanol → 2-butanone + dibutylamine | User (from review) | Fewer alcohol systems. It also pairs with acetone + N-methylaniline: a ketone with an N-H amine, endothermic in one and exothermic in the other. |
-| NMP + 1,4-dichlorobutane → NMP + 1,2-dichloroethane | User (from review) | Widens the exothermic range (-1.26 vs -0.68 kJ/mol), at the cost of one new pure density. |
-| Add heptane + toluene | User (from review) | A non-polar dispersion/π control that separates dispersion and D3 errors from hydrogen-bond errors. |
-| Tabulate V^E sign and size per system in the report | User (from review) | V^E diversity was not a selection criterion, so the report states its coverage. |
-| Reserves: pyrrole + benzene, cyclohexane + benzene, methyl pentanoate + methanol, NMP + 1,4-dichlorobutane, isooctane + 1-propanol, propyl acetate + 1,2-dichloroethane | Recommended | Replacements in case a literature check fails. |
+### Sage reference
 
-Known gaps, accepted and stated in the report: there is no N-H (secondary) amide system and no amide-water system, and the set reflects ThermoML/Sage coverage (selection bias).
+- **Sage 2.3.0 throughout**, 5 replicates per box: replicate 0 is the distributed box, replicates 1 to 4 are independently re-packed. The replicate spread gives σ_Sage. Mixing versions would mix parameters: 2.3.0 liquids are 0.01 to 0.03 g/mL denser than 2.2.1.
+- **Finite-size check** against the published `fb-fit-v3-single-mean-k100` runs (2.3.0rc2, parameters identical to the released 2.3.0; only the NAGL model differs).
+- **Significance.** Family-wise 0.05 (`FLAG_P`), Holm-adjusted for per-box tests and Bonferroni over the pooled tests.
 
-## 5. Candidates considered and not added
+### Metrics and thresholds
 
-| Date | Candidate | Outcome | By |
-|---|---|---|---|
-| 2026-10-23 | N-methylformamide + o-toluidine, N-methylformamide + tetrahydropyran and N-methylformamide + 2-chlorotoluene at 308.15 K (the former "Candidate additions" report section) | Reviewed; not added yet. Moved to the report's Reserves section with their notes unchanged. | User |
-| 2026-10-19 | N-methylformamide + o-toluidine at 308.15 K (would close the N-H amide gap; 5 extra boxes) | Not added: "Do not add NMA / o-toluidine for now". It stays in `selection.yml` under `reserves`. | User |
-| 2026-10-14 | Fluorinated systems (2,2,2-trifluoroethanol with THF, water, THP, ethanol or methanol), suggested in a review session because fluorination flips the sign of ΔHmix against the non-fluorinated analogues | Not adopted. The element set stayed H/C/N/O/Cl. No explicit decision or reason is recorded in the logs. | Unrecorded |
+- **MAZE for every property** (ΔHmix, mixture density, V^E and pure density), with the MAE shown at weight 0. V^E uses MAE, not RMSE.
+- **Denominator.** σ_ref = sqrt(σ_Sage² + σ_exp²). σ_Sage is the replicate SD pooled (RMS) over a system's compositions and floored at the median over systems, so that no system dominates MAZE because Sage happens to sample it quietly. NMP + DCE and pure DCE are set to the floor on all four properties, as their spread comes from Sage's slow torsion.
+- **Thresholds from the error analysis.** 'Good' is the score of a model that matches experiment exactly, with one 0.2 + 2 ns run per box, plus 2 SD of its noise. 'Bad' is 5× Sage's score, as Sage was trained on these properties. Values in [thresholds.csv](data/power_analysis/thresholds.csv), ready to paste as [metrics_snippet.yml](data/power_analysis/metrics_snippet.yml). They must be recomputed if the protocol changes.
 
-## 6. Box sizes
+### Open questions
 
-| Date | Decision | By | Reason |
-|---|---|---|---|
-| 2026-10-14 | Box edge ≥ 25 Å (about 1.5 to 2k atoms) rather than 1000 molecules. Initially ≥ 150 molecules and ≥ 30 of the minority component. | User (recommended option) | Half of a 21.5 Å box is below the ~12 Å receptive field of a 2-layer, 6 Å MLIP. Precision per GPU-hour doesn't depend on box size, and 1000-molecule boxes would cost 10 to 15× more. |
-| 2026-10-14 | Issue #936 (which says ~1000 molecules) is left to the user. | User ("No, I'll handle it") | |
-| 2026-10-19 | Minority floor lowered to ≥ 20, after checking what Evaluator does (round(x·1000), with ≥ 1 of each). | User | Cost (the 150 total floor had pushed some boxes to 3.7k atoms). |
-| 2026-10-19 | Total floor lowered to ≥ 100 molecules. | User ("drop the total floor to 100") | Cost; mixture boxes are now 1.1 to 2.5k atoms. |
-| 2026-10-19 | "I'm happy with the selection and system sizes." Selection frozen at 14 systems. | User | |
+- **DMAE + methanol.** Starting MLP runs from Sage-equilibrated conformer populations could hide a model that favours the wrong conformer, if that model also interconverts slowly. Options: keep it and add a conformer-population diagnostic, or drop it. (Tetrahydropyran + ethanol is unaffected; its equilibrium is essentially all chair.)
+- **0.2 + 1 ns protocol**, pending MLP pilot runs.
+- **Within-run standard errors** are 19 to 27 % too small on average; changing the estimator is not decided.
+- **Fluorinated systems** (2,2,2-trifluoroethanol mixtures, which flip the sign of ΔHmix against their analogues) were suggested but not adopted; no decision is recorded.
+- **Issue #936** (which asks for ~1000 molecules per box) is left to the benchmark author.
 
-## 7. Box build and the Sage reference
+## History
 
-| Date | Decision | By | Reason |
-|---|---|---|---|
-| 2026-10-14 | Build pre-equilibrated boxes with Sage (openff-2.2.1) at the experimental density, with scripts in the repo. | User | Starts MLIP runs near equilibrium, which justifies the short 0.2 ns discard. |
-| 2026-10-14 | Run Sage itself through the benchmark: 5 replicates on the benchmark boxes, giving σ_Sage for the MAZE denominator. This replaced scaling the published Sage SDs for box size. | User ("Actually, let's just run 5 x replicates with Sage with the proposed boxes") | The noise estimate then matches our box size and run length. |
-| 2026-10-20 | Drop piperidine + water (14 → 13 systems, 68 → 64 boxes). | User ("Drop it", recommended option) | Nitrogen inversion is frozen in Sage, even in a 500 K anneal, so ΔHmix depended on the starting N-H orientation by ~0.3 kJ/mol. It also had the largest box-size gap against published Sage and is microheterogeneous for x between 0.08 and 0.5. |
-| 2026-10-20 | Build from the lowest-MMFF of 10 ETKDG conformers, then anneal (450 K cooled to T over 1.6 ns) before 500 ps NVT. Rebuild all boxes and rerun all Sage replicates (v2). | User ("Rebuild all, rerun Sage", recommended option) | v1 showed slow conformer equilibria in Sage (THP twist-boat trap, DCE Cl-C-C-Cl, DMAE O-C-C-N) and start dependence. One clean protocol for every box. |
-| 2026-10-20 | Keep DMAE + methanol and NMP + 1,2-dichloroethane. | User asked "Should we still keep DMAE and DCE?"; kept on the evidence | The anneal reaches the same conformer populations from different starts (DCE gauche fraction 0.48 vs 0.48; DMAE 0.69 vs 0.73). |
-| 2026-10-22 | One estimator for Sage and the MLIPs (ml-peg's `timeseries.py`, applied after 1 ps binning), replacing pymbar. Sage is shown as a plot trace, not a table row. | User (recommended options) | Sage and MLIP uncertainties become directly comparable. |
-| 2026-10-22 | Changing the estimator to close the within- vs between-run gap (within-run sem about 20 to 25 % low on average) is left to the user. | User | Not yet decided. |
-| 2026-10-23 | Drop the 1 ps binning: Chodera is applied to every logged sample. | User ("Skip the binning for the sake of simplicity") | Over the 320 Sage runs, the raw sem / binned sem has a median of 1.00 (h and density). Only 5 % (h) and 2 % (density) of runs are more than 10 % lower, worst 0.67. The pooled replicate SD / within-run sem changes from 1.24 to 1.26 (h) and 1.21 to 1.22 (density). Not checked at the 10 fs MLIP logging interval. |
-| 2026-10-23 | Keep NMP + 1,2-dichloroethane. | User ("keep it") | Its slow conformer sampling is a Sage artefact. In relaxed gas-phase scans the Sage 2.2.1 Cl-C-C-Cl trans→gauche barrier is ~6 kJ/mol above the MACE-OFF (M) reference (24.4 vs 18.2 kJ/mol), while the gauche/trans gap agrees. Sage flips are therefore ~12× too slow (relaxation ~0.9 ns, measured from 100 ps frames), and a reference-like model should relax in ~70 ps, inside the 0.2 ns equilibration. The scan is shown in `sage_report.md`. |
-| 2026-10-23 | NMP + DCE ΔHmix from 10.1016/j.jct.2008.01.024 only (`hmix_dois`), at its points nearest x = 0.2, 0.5, 0.8 (`target_x`; boxes x = 0.200, 0.500, 0.804, replacing 0.254 and 0.740). New boxes built and Sage rerun; the old ones are in `data/superseded/nmp_dce_x254_x740/`. | User | The two papers disagree away from equimolar (10.1021/je020065c is 0.15 kJ/mol less exothermic at x ≈ 0.2); j.jct.2008.01.024 matches the fit better and looks more reliable. |
-| 2026-10-23 | σ_Sage of NMP + DCE set to the median floor for ΔHmix and density (`SIGMA_SAGE_AT_FLOOR`). | User | Its replicate spread comes from Sage's slow torsion and would loosen the MAZE denominator for a model that does not share it. |
-| 2026-10-23 | Significance threshold `FLAG_P` raised from 0.01 to 0.05 (Holm-adjusted for per-box tests, Bonferroni over the 4 pooled tests). The hard-coded 0.01 in the within/between counts, plot and inspection list now follow `FLAG_P`. | User ("make that change", recommended option) | 0.05 family-wise is the conventional level and still conservative after Holm. NMP + DCE x=0.74 (h) becomes Holm-significant; the pooled conclusions are unchanged. |
-| 2026-10-23 | Keep the MLP protocol at 0.2 + 2 ns; report 0.2 + 1 ns as a cheaper option to decide on once MLP pilot runs exist. Equilibration stays at 0.2 ns. | User ("Keep 2 ns, note 1 ns option", recommended option) | Power analysis (`data/power_analysis/report.md`), with Sage as a proxy for MLP noise: at 2 ns two models are resolved when their ΔHmix MAE differs by 0.04 to 0.075 kJ/mol (density MAE 0.0005 g/mL); 1 ns costs 55 % and resolves 0.054 to 0.096 kJ/mol. Per-box run lengths would save only 17 %. The 100 to 200 ps window is still shifted for Sage (density p = 2e-6). Numbers from the Sage 2.3.0 runs (re-run 2026-10-29). |
-| 2026-10-23 | Flag the V^E RMSE and ΔHmix MAZE 'good' thresholds as below their noise floors and propose new values (V^E 0.15 cm³/mol or a bias-corrected RMSE; MAZE 1.5), without editing ml-peg's `metrics.yml` yet. | User ("Flag + propose new values", recommended option) | A perfect model scores 0.119 cm³/mol on V^E RMSE (threshold 0.05) and 0.65 on ΔHmix MAZE (threshold 1.0) at 2 ns (Sage 2.3.0 runs). |
-| 2026-10-28 | Use Sage openff-2.3.0 throughout: the boxes are rebuilt with it, the reference runs (σ_Sage, `systems.csv`) use it, and the finite-size check compares against the published `fb-fit-v3-single-mean-k100` (2.3.0rc2). All 2.2.1 runs and the 2.2.1 vs 2.3.0 comparison are removed. Supersedes the 2.2.1 parts of the 2026-10-14 box decision and the DCE barrier numbers of the 2026-10-23 NMP + DCE row (now in `sage_report.md`). System selection is unchanged and still uses published results from several Sage versions. Replicates 1 to 4 come from an earlier 2.3.0 run (re-packed and equilibrated with 2.3.0, independent of the distributed boxes); replicate 0 was rerun from the new boxes. | User ("consistently use Sage 2.3.0 throughout ... remove anything using Sage 2.2.1"; selection left as is, recommended option) | Comparing against 2.2.1 or 2.3.0rc1 mixed in different parameters (2.3.0 liquids are 0.01 to 0.03 g/mL denser than 2.2.1). The published fb-fit-v3 parameters are identical to the released openff-2.3.0 (checked handler by handler); only the NAGL model differs (0.1.0-rc.3 vs our 1.0.0). |
-| 2026-10-29 | Raise the V^E RMSE 'good' threshold in ml-peg's `metrics.yml` from 0.05 to 0.15 cm³/mol, just above the noise floor. Keep ΔHmix MAZE 'good' at 1.0; the earlier proposal of 1.5 is dropped. Supersedes the threshold part of the 2026-10-23 row above. | User ("change the thresholds so 'good' is close to [perfect] after noise") | A model matching experiment exactly scores 0.119 ± 0.018 cm³/mol on V^E RMSE with single 2 ns runs (Sage 2.3.0 power analysis), so 0.05 was unreachable; 0.15 is about 1.7 SD above that. ΔHmix MAZE's floor is 0.65 at 2 ns and 0.87 at 1 ns, both below 1.0. A bias-corrected RMSE was rejected because it relies on within-run errors that are about 1.2× too small. At 1 ns the V^E floor (0.145) would reach 0.15, so recheck if the protocol is shortened. |
-| 2026-10-29 | Score every property (ΔHmix, density, V^E, pure density) as MAZE, with MAE shown at weight 0. V^E moves from RMSE to MAE. Set the thresholds from the error analysis: 'good' = the perfect-model score with one 0.2 + 2 ns run per box + 2 SD; 'bad' = 5 × Sage 2.3.0's score. σ_Sage and σ_ref are added for V^E and pure densities, and NMP + DCE and pure 1,2-dichloroethane get the median floor on all four. Supersedes the two threshold rows above and the V^E RMSE choice. | User ("MAZE should be used for all metrics if possible", "the 'good' ML-PEG values should be decided by the error analysis", "bad = 5 x Sage's average errors (Sage was trained on these properties)") | One metric type across properties. A model matching experiment then scores 'good' about 98 % of the time, and Sage, which was fitted to these properties, scores 'bad' / 5. Values in `data/power_analysis/thresholds.csv`, with a ready-to-paste `metrics_snippet.yml` (e.g. ΔHmix MAE good 0.092 / bad 2.7 kJ/mol, ΔHmix MAZE 0.84 / 27). |
+Superseded decisions are marked ~~struck through~~ with what replaced them.
 
-## 8. Open questions
-
-- **Liquids with nanosecond conformer dynamics (raised 2026-10-22).** The user asked whether DCE and DMAE should stay at all. Starting MLIP runs from Sage-equilibrated conformer populations could hide a model that favours the wrong conformer, if that model also interconverts slowly.
-  - Evidence: NMP + DCE is the most-flagged system in the v2 Sage within- vs between-run check (replicate SD 2.0 to 2.5× the within-run sem at x = 0.74), and pure DCE replicate 4 shows an early density shift.
-  - Options under discussion:
-    - keep both and add a conformer-population diagnostic (dihedral populations and transition counts from the saved frames), flagging unconverged boxes;
-    - or drop NMP + DCE and DMAE + methanol.
-  - THP + ethanol is not affected: its equilibrium is essentially all chair.
-  - **Resolved for DCE (2026-10-23):** NMP + DCE is kept (section 7). DMAE + methanol is still open.
-- **Fluorinated systems** (section 5): not decided either way.
+- 2026-10-11: Benchmark ΔHmix, mixture density and V^E from the Sage training and validation sets, starting from the recommended fast-converging list. About 12 systems, 3 compositions each. Elements H, C, N, O and Cl. Exclude likely two-phase systems.
+- 2026-10-14: Choose maximally informative systems; avoid overlap with ml-peg; use the ash-sage-rc2 sets and pin all sources; take isotherms and pure densities from ThermoML and cross-check them; fix the 2-pyrrolidone tautomer.
+- 2026-10-14: Hard filters: lever-rule screen and RT/2 bound, Sage 3-replicate SD, |ΔHmix(0.5)| ≥ 0.4 kJ/mol, no viscous liquids, ≤ 10 heavy atoms. Aqueous systems chosen (methanol + water, water + pyridine at 303.15 K) and others excluded. Set reshaped for diversity; reserves listed. Fluorinated systems suggested, not adopted.
+- 2026-10-14: Box edge ≥ 25 Å, ~~≥ 150 molecules and ≥ 30 minority~~ (lowered on 2026-10-19). ~~Build boxes with Sage 2.2.1~~ (2.3.0 since 2026-10-28). Run Sage 5 times per box for σ_Sage, instead of scaling the published SDs.
+- 2026-10-19: Lever-rule test only when the largest |H^E| ≥ 0.4 kJ/mol. Relative ΔHmix uncertainty ≤ 15 % and pure-density uncertainties required. Minority floor ≥ 20 and total ≥ 100 molecules. N-methylformamide + o-toluidine not added. Selection frozen at 14 systems.
+- 2026-10-20: Drop piperidine + water (14 to 13 systems, 68 to 64 boxes). Build from the lowest-MMFF of 10 conformers with an anneal; rebuild every box and rerun Sage. Keep DMAE + methanol and NMP + DCE.
+- 2026-10-22: One estimator for Sage and the MLPs (ml-peg's `timeseries.py`), ~~after 1 ps binning~~ (dropped on 2026-10-23). The within-run sem being low is left open.
+- 2026-10-23: Check every curated component's charge and tautomer. V^E from each paper's own pure densities, with shared-error propagation. Methanol + water densities from one paper. Drop the 1 ps binning (median raw / binned sem 1.00). Keep NMP + DCE; its ΔHmix from one paper at x = 0.2, 0.5 and 0.8, with new boxes; σ_Sage of NMP + DCE at the floor. `FLAG_P` raised from 0.01 to 0.05. Keep 0.2 + 2 ns and report 0.2 + 1 ns as an option. ~~Flag the V^E RMSE and ΔHmix MAZE thresholds as below their noise floors~~ (thresholds set from the error analysis on 2026-10-29). NMF candidates moved to the report's reserves.
+- 2026-10-28: Use Sage 2.3.0 throughout (boxes, reference runs and the finite-size comparison); remove every 2.2.1 run. Selection still uses published results from several Sage versions.
+- 2026-10-29: ~~Raise the V^E RMSE 'good' threshold from 0.05 to 0.15 cm³/mol and keep ΔHmix MAZE 'good' at 1.0~~ (superseded the same day). Score every property by MAZE with MAE at weight 0; V^E moves from RMSE to MAE; σ_Sage and σ_ref added for V^E and pure densities, with NMP + DCE and pure DCE at the floor; 'good' = perfect-model score + 2 SD, 'bad' = 5× Sage.

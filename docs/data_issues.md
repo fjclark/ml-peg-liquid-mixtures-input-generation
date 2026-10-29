@@ -1,5 +1,7 @@
 # Data issues found while selecting the binary mixture systems
 
+**Summary.** Many of ml-peg's liquid_densities references look to be labelled about 5 K above the temperature they were measured at (suspected, section 1.1). The Sage training and validation data contain a wrong tautomer, a mislabelled temperature, wrong pure densities and placeholder uncertainties (verified, section 2). Each is either handled by the selection code or listed as an open caveat for this benchmark (section 3).
+
 Issues found during the selection of the binary mixtures benchmark (October 2026).
 Each entry says how it was found and whether it was verified. "Verified" means checked
 against the primary source or several independent sources; "suspected" means a
