@@ -893,7 +893,7 @@ LITERATURE = [
         ),
     },
     {
-        "model": "MACE-OFF23",
+        "model": "MACE-OFF23(M)",
         "property": "ΔHvap, 109 organic liquids",
         "result": "systematic offset of about 2 kcal/mol (8 kJ/mol)",
         "source": (

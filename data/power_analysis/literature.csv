@@ -3,7 +3,7 @@ MACE-OFF23(M),"pure density, 109 organic liquids",MAE 0.09 g/mL,"[Kovács et al.
 MACE-OFF23(S),"pure density, 109 organic liquids",MAE 0.23 g/mL (systematically too dense),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
 MACE-OFF23(L),"pure density, 109 organic liquids",no significant improvement over (M),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
 ANI-2x,"pure density, 109 organic liquids",MAE and RMSE about twice MACE-OFF23(M),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
-MACE-OFF23,"ΔHvap, 109 organic liquids",systematic offset of about 2 kcal/mol (8 kJ/mol),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
+MACE-OFF23(M),"ΔHvap, 109 organic liquids",systematic offset of about 2 kcal/mol (8 kJ/mol),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
 Organic_MPNICE,"pure density, 62 solvents",about 4 % mean error (4.9 % in Table 12),"[Weber et al. 2025](https://arxiv.org/abs/2505.06462), sec. 3.1.4"
 QRNN,"pure density, 62 solvents","about 16 % mean error, systematically high","[Weber et al. 2025](https://arxiv.org/abs/2505.06462), sec. 3.1.4"
 Hybrid / inorganic MPNICE,"pure density, 62 solvents",18 to 35 % mean absolute error,"[Weber et al. 2025](https://arxiv.org/abs/2505.06462), Table 12"

@@ -836,7 +836,7 @@ def literature_section(tables: dict) -> list[str]:
         "Density alone could be ranked from much shorter runs, but the runs serve "
         "ΔHmix too.",
         "- **ΔHmix.** There is no MLP baseline. MLP ΔHvap errors are several "
-        "kJ/mol (MACE-OFF23 offset about 8 kJ/mol; Picha et al. find large ΔHvap "
+        "kJ/mol (MACE-OFF23(M) offset about 8 kJ/mol; Picha et al. find large ΔHvap "
         "deviations for MACE-OFF23(M)). ΔHmix is a difference of such cohesive "
         "energies, so much of that error may cancel, but whatever remains is "
         f"compared with |ΔHmix| near x = 0.5 of {middle.min():.1f} to "
