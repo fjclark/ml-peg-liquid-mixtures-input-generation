@@ -7,7 +7,7 @@ import pytest
 from rdkit import Chem
 import yaml
 
-from liquid_mixtures_inputs import select_systems as ss
+from liquid_mixtures_inputs import select_systems
 from liquid_mixtures_inputs.thermoml import (
     Measurement,
     mol_from_inchi,
@@ -37,15 +37,15 @@ def test_inchi_round_trip_keeps_amides(smiles):
 )
 def test_structure_problems_flags_bad_structures(smiles, problem):
     """Test charged species and minor tautomers are flagged."""
-    assert any(problem in p for p in ss.structure_problems(smiles))
+    assert any(problem in p for p in select_systems.structure_problems(smiles))
 
 
 def test_selection_passes_structure_checks():
     """Test every curated component passes the structure checks."""
-    selection = yaml.safe_load((ss.HERE / "selection.yml").read_text())
-    ss.check_structures(selection["systems"])
+    selection = yaml.safe_load((select_systems.HERE / "selection.yml").read_text())
+    select_systems.check_structures(selection["systems"])
     with pytest.raises(ValueError, match="enol"):
-        ss.check_structures([{"a": "C=C(C)O", "b": "O"}])
+        select_systems.check_structures([{"a": "C=C(C)O", "b": "O"}])
 
 
 def _points(xs, values, sigma=0.005):
@@ -63,11 +63,11 @@ def _points(xs, values, sigma=0.005):
 
     Returns
     -------
-    list[ss.Point]
+    list[select_systems.Point]
         Points.
     """
     return [
-        ss.Point("hmix", x, 298.15, v, sigma, "doi", "test")
+        select_systems.Point("hmix", x, 298.15, v, sigma, "doi", "test")
         for x, v in zip(xs, values, strict=True)
     ]
 
@@ -75,37 +75,41 @@ def _points(xs, values, sigma=0.005):
 def test_two_phase_signature():
     """Test the linear-H^E test flags lever-rule data but not a curved isotherm."""
     # Acetophenone + water from the fast-converging list (two-phase).
-    assert ss.two_phase_signature(_points([0.2, 0.5, 0.8], [0.1379, 0.3413, 0.5414]))
+    assert select_systems.two_phase_signature(
+        _points([0.2, 0.5, 0.8], [0.1379, 0.3413, 0.5414])
+    )
     # Pyrrole + pyridine (single phase, strongly curved).
-    assert not ss.two_phase_signature(
+    assert not select_systems.two_phase_signature(
         _points([0.239, 0.509, 0.76], [-1.7662, -2.649, -1.6452])
     )
     # Full isotherms: a straight line versus a parabola.
     xs = np.linspace(0.1, 0.9, 9)
-    assert ss.two_phase_signature(_points(xs, 0.05 + 0.6 * xs))
-    assert not ss.two_phase_signature(_points(xs, 2.0 * xs * (1 - xs)))
+    assert select_systems.two_phase_signature(_points(xs, 0.05 + 0.6 * xs))
+    assert not select_systems.two_phase_signature(_points(xs, 2.0 * xs * (1 - xs)))
     # Ideal and near-ideal mixtures are straight lines but not two-phase.
-    assert not ss.two_phase_signature(_points([0.25, 0.5, 0.75], [0.0, 0.0, 0.0]))
-    assert not ss.two_phase_signature(_points(xs, 0.2 * xs * (1 - xs)))
+    assert not select_systems.two_phase_signature(
+        _points([0.25, 0.5, 0.75], [0.0, 0.0, 0.0])
+    )
+    assert not select_systems.two_phase_signature(_points(xs, 0.2 * xs * (1 - xs)))
 
 
 def test_redlich_kister_recovers_curve():
     """Test the Redlich-Kister fit reproduces a known two-term curve."""
     xs = np.linspace(0.05, 0.95, 12)
     ys = xs * (1 - xs) * (-3.0 + 0.8 * (2 * xs - 1))
-    curve = ss.redlich_kister(xs, ys, np.full_like(xs, 1e-3))
+    curve = select_systems.redlich_kister(xs, ys, np.full_like(xs, 1e-3))
     assert curve(0.37) == pytest.approx(0.37 * 0.63 * (-3.0 + 0.8 * (2 * 0.37 - 1)))
 
 
 def test_plan_box_constraints():
     """Test box plans respect the edge, molecule and composition rules."""
-    info_a = ss.molecule_info("CCCCC(=O)OC")
-    info_b = ss.molecule_info("CCCCCCCC")
-    box = ss.plan_box(0.2255, 0.73, info_a, info_b)
-    assert box["edge"] >= ss.MIN_EDGE - 0.5
-    assert box["n_a"] + box["n_b"] >= ss.MIN_MOLECULES
-    assert min(box["n_a"], box["n_b"]) >= ss.MIN_MINORITY
-    assert abs(box["x_box"] - 0.2255) <= ss.MAX_X_SHIFT
+    info_a = select_systems.molecule_info("CCCCC(=O)OC")
+    info_b = select_systems.molecule_info("CCCCCCCC")
+    box = select_systems.plan_box(0.2255, 0.73, info_a, info_b)
+    assert box["edge"] >= select_systems.MIN_EDGE - 0.5
+    assert box["n_a"] + box["n_b"] >= select_systems.MIN_MOLECULES
+    assert min(box["n_a"], box["n_b"]) >= select_systems.MIN_MINORITY
+    assert abs(box["x_box"] - 0.2255) <= select_systems.MAX_X_SHIFT
 
 
 def test_parse_record_binary_enthalpy():
@@ -168,7 +172,7 @@ def test_parse_record_binary_enthalpy():
         ],
     }
     (m,) = parse_record("10.0/test", record)
-    assert m.prop == "hmix"
+    assert m.property_name == "hmix"
     assert dict(zip(m.smiles, m.mole_fractions, strict=True)) == pytest.approx(
         {"CO": 0.3, "O": 0.7}
     )
@@ -236,8 +240,8 @@ def _density(x):
     float
         Density in g/mL.
     """
-    m_a = ss.molecule_info(ETHANOL)["molar_mass"]
-    m_b = ss.molecule_info(HEPTANE)["molar_mass"]
+    m_a = select_systems.molecule_info(ETHANOL)["molar_mass"]
+    m_b = select_systems.molecule_info(HEPTANE)["molar_mass"]
     ideal = x * m_a / RHO_A + (1 - x) * m_b / RHO_B
     return (x * m_a + (1 - x) * m_b) / (ideal + _vex(x))
 
@@ -301,9 +305,11 @@ def test_build_system_reproduces_analytic_mixture(
     the components in the record or in the spec must give x -> 1 - x and the
     same values.
     """
-    monkeypatch.setattr(ss, "fetch_record", lambda doi, cache: None)
+    monkeypatch.setattr(select_systems, "fetch_record", lambda doi, cache: None)
     monkeypatch.setattr(
-        ss, "parse_record", lambda doi, record: _analytic_record(record_order)
+        select_systems,
+        "parse_record",
+        lambda doi, record: _analytic_record(record_order),
     )
     spec = {
         "id": "analytic",
@@ -312,7 +318,7 @@ def test_build_system_reproduces_analytic_mixture(
         "temperature": 298.15,
         "extra_dois": [DOI],
     }
-    system = ss.build_system(spec, {}, {}, {}, tmp_path)
+    system = select_systems.build_system(spec, {}, {}, {}, tmp_path)
 
     assert system["pures"][ETHANOL]["density"] == RHO_A
     assert system["pures"][HEPTANE]["density"] == RHO_B
@@ -410,20 +416,24 @@ def test_excess_volumes_cancel_shared_density_error():
     net sensitivity. Independent propagation of the mixture density alone
     would give M/rho^2 * sigma, about 50 times larger here.
     """
-    m_a = ss.molecule_info(ETHANOL)["molar_mass"]
-    m_b = ss.molecule_info(HEPTANE)["molar_mass"]
+    m_a = select_systems.molecule_info(ETHANOL)["molar_mass"]
+    m_b = select_systems.molecule_info(HEPTANE)["molar_mass"]
     x = GRID[9]
     rho = _density(x)
-    dens = [ss.Point("density", x, 298.15, rho, 1e-3 * rho, DOI, "thermoml")]
+    dens = [
+        select_systems.Point("density", x, 298.15, rho, 1e-3 * rho, DOI, "thermoml")
+    ]
     pure = {
-        c: [ss.Point("density", 1.0, 298.15, r, 1e-3 * r, DOI, "thermoml")]
+        c: [select_systems.Point("density", 1.0, 298.15, r, 1e-3 * r, DOI, "thermoml")]
         for c, r in ((ETHANOL, RHO_A), (HEPTANE, RHO_B))
     }
     chosen = {
         ETHANOL: {"density": RHO_A, "sigma": 1e-4},
         HEPTANE: {"density": RHO_B, "sigma": 1e-4},
     }
-    (own,) = ss.excess_volumes(dens, pure, chosen, ETHANOL, HEPTANE, m_a, m_b)
+    (own,) = select_systems.excess_volumes(
+        dens, pure, chosen, ETHANOL, HEPTANE, m_a, m_b
+    )
     mean_mass = x * m_a + (1 - x) * m_b
     grad = np.array([-mean_mass / rho**2, x * m_a / RHO_A**2, (1 - x) * m_b / RHO_B**2])
     assert own.value == pytest.approx(_vex(x), abs=1e-9)
@@ -433,7 +443,7 @@ def test_excess_volumes_cancel_shared_density_error():
     assert own.sigma < mean_mass / rho**2 * 1e-3 * rho / 20
 
     # Ethanol's pure density from another source: its error no longer cancels.
-    (mixed,) = ss.excess_volumes(
+    (mixed,) = select_systems.excess_volumes(
         dens, {HEPTANE: pure[HEPTANE]}, chosen, ETHANOL, HEPTANE, m_a, m_b
     )
     correlated = max(

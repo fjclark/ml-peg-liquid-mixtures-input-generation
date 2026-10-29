@@ -1,21 +1,22 @@
 """
 Select binary liquid mixtures for the binary_mixtures benchmark.
 
-Stage 1 of the benchmark build:
-
 1. Download the OpenFF Sage physical-property sets (pinned commits) and screen
    every binary system against the hard filters, writing ``candidates.csv``.
-2. Check the curated systems in ``selection.yml`` against those filters.
+2. Check the curated systems in ``selection.yml``.
 3. Fetch the source papers' full isotherms and pure densities from the NIST
    TRC ThermoML archive, cross-check pure densities, fit Redlich-Kister curves
    and plan box sizes, writing ``systems.csv``, ``pure.csv`` and
    ``isotherms.csv``.
-4. Write the selection report (``report.py``).
+4. Write the selection report (``selection_report.py``).
 
 Run with::
 
     pixi run -e analysis select --output-dir selection \
         --fast-set selection/inputs/dataset-fast-converging.csv
+
+The reasons for every threshold below are in ``DECISIONS.md`` and in the
+hard-filter table of ``selection/report.md``.
 """
 
 from __future__ import annotations
@@ -27,7 +28,6 @@ from dataclasses import dataclass
 import math
 from pathlib import Path
 import statistics
-import urllib.request
 
 from ase.io import read
 import numpy as np
@@ -36,9 +36,11 @@ from rdkit.Chem import Descriptors
 from rdkit.Chem.MolStandardize import rdMolStandardize
 import yaml
 
+from liquid_mixtures_inputs.constants import AVOGADRO, GAS_CONSTANT_KJ_PER_MOL_K
 from liquid_mixtures_inputs.thermoml import (
     Measurement,
     canonical_smiles,
+    download,
     fetch_record,
     parse_record,
 )
@@ -59,10 +61,13 @@ SOURCES = {
     "final/output/validation-set.csv",
 }
 SAGE_BENCHMARKS = {
-    f"{split}-{prop}": f"{RAW}/ash-sage-rc2/{ASH_COMMIT}/04_benchmark/phys-prop/"
-    f"output/{split}/summary-benchmarks-{name}.csv"
+    f"{split}-{property_name}": f"{RAW}/ash-sage-rc2/{ASH_COMMIT}/04_benchmark/"
+    f"phys-prop/output/{split}/summary-benchmarks-{file_name}.csv"
     for split in ("training", "validation")
-    for prop, name in (("hmix", "EnthalpyOfMixing"), ("density", "Density"))
+    for property_name, file_name in (
+        ("hmix", "EnthalpyOfMixing"),
+        ("density", "Density"),
+    )
 }
 SAGE_FORCE_FIELDS = ("openff-2.0.0", "openff-2.1.0", "openff-2.2.1", "openff-2.3.0rc1")
 # Sage 2.3.0rc2 is benchmarked under its fit name: 04_benchmark/forcefields/
@@ -82,8 +87,8 @@ TAUTOMER_ENUMERATOR = rdMolStandardize.TautomerEnumerator()
 # Canonical SMILES reviewed and kept despite differing from it.
 TAUTOMER_REVIEWED: set[str] = set()
 
-# Hard-filter settings (see the plan / report for the rationale).
-SCREEN_T_RANGE = (297.0, 299.5)
+# Hard filters
+SCREEN_T_RANGE = (297.0, 299.5)  # K
 MAX_COMPOSITION_MISMATCH = 0.05
 ALLOWED_ELEMENTS = {"C", "H", "N", "O", "Cl"}
 MAX_HEAVY_ATOMS = 10
@@ -95,26 +100,31 @@ VISCOUS_SMARTS = {
     "polyamine-3": "[NX3;!$(N-C=O)][CX4][CX4][CX4][NX3;!$(N-C=O)]",
     "ethanolamine (2+ OH)": "[OX2H][CX4][CX4][NX3][CX4][CX4][OX2H]",
 }
-UCST_LIMIT = 0.5 * 8.314462618e-3 * 298.15  # RT/2 in kJ/mol
-MAX_REPEAT_SD = {"hmix": 0.10, "density": 0.001}
-MIN_SIGNAL = 0.4  # kJ/mol at x ~ 0.5
+UCST_LIMIT = 0.5 * GAS_CONSTANT_KJ_PER_MOL_K * 298.15  # RT/2 in kJ/mol
+MAX_REPEAT_SD = {"hmix": 0.10, "density": 0.001}  # kJ/mol, g/mL
+MIN_SIGNAL = 0.4  # kJ/mol, |ΔHmix| at x ~ 0.5
 # Relative experimental ΔHmix uncertainties among systems passing the other
 # filters are 0.5-3.5 %. Larger values are either flat 25 % uncertainties
 # assigned during dataset curation or come from H^E close to zero.
-MAX_REL_SIGMA_HMIX = 0.15
+MAX_RELATIVE_SIGMA_HMIX = 0.15
+# Uncertainty floors used when weighting fits: 2 % of the value for the
+# two-phase test, 0.001 in absolute units for the Redlich-Kister fits.
+RELATIVE_SIGMA_FLOOR = 0.02
+FIT_SIGMA_FLOOR = 1e-3
 
-# Box planning (stage 2 uses these counts).
+# Box planning
 MIN_EDGE = 25.0  # Angstrom
 MIN_MOLECULES = 100
 MIN_MINORITY = 20
 MAX_X_SHIFT = 0.01
-AVOGADRO = 6.02214076e23
+DEFAULT_TARGET_X = (0.25, 0.5, 0.75)
+MAX_TARGET_DISTANCE = 0.1  # a measured point must lie this close to each target
 
 PURE_DENSITY_TOLERANCE = 0.002  # g/mL, cross-check flag
 MAX_DENSITY_SIGMA = 0.002  # g/mL; noisier mixture densities are not used for V^E
 STATE_T_TOLERANCE = 0.7  # K, window around a system's target temperature
-# Systems whose enthalpy data sit just outside the window (see selection.yml).
-STATE_T_EXTRA: dict[str, float] = {}
+MLPEG_T_TOLERANCE = 1.0  # K, for using an ml-peg pure density
+PRESSURE_RANGE_KPA = (90.0, 110.0)
 
 
 @dataclass
@@ -124,7 +134,7 @@ class Point:
 
     Attributes
     ----------
-    prop
+    property_name
         ``hmix``, ``density`` or ``vex``.
     x
         Mole fraction of component a.
@@ -137,10 +147,11 @@ class Point:
     doi
         Source DOI.
     source
-        Where the point came from (data-set name or ``thermoml``).
+        Where the point came from (data-set name, ``thermoml``, ``derived``,
+        ``reference`` or ``ml-peg``).
     """
 
-    prop: str
+    property_name: str
     x: float
     temperature: float
     value: float
@@ -149,28 +160,39 @@ class Point:
     source: str
 
 
-def fetch(url: str, path: Path) -> Path:
+@dataclass
+class RedlichKisterFit:
     """
-    Download a file once and cache it.
+    Redlich-Kister expansion y = x(1-x) sum_k a_k (2x-1)^k.
 
-    Parameters
+    Attributes
     ----------
-    url
-        URL to download.
-    path
-        Local cache path.
-
-    Returns
-    -------
-    Path
-        Path to the cached file.
+    coefficients
+        The fitted a_k.
     """
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        request = urllib.request.Request(url, headers={"User-Agent": "ml-peg"})
-        with urllib.request.urlopen(request, timeout=120) as resp:
-            path.write_bytes(resp.read())
-    return path
+
+    coefficients: np.ndarray
+
+    def __call__(self, x: float) -> float:
+        """
+        Evaluate the fitted curve.
+
+        Parameters
+        ----------
+        x
+            Mole fraction of component a.
+
+        Returns
+        -------
+        float
+            Fitted excess property.
+        """
+        return float(
+            sum(
+                coefficient * x * (1 - x) * (2 * x - 1) ** k
+                for k, coefficient in enumerate(self.coefficients)
+            )
+        )
 
 
 def fix_smiles(smiles: str) -> str:
@@ -204,14 +226,14 @@ def structure_problems(smiles: str) -> list[str]:
     list[str]
         Problems found (empty if the structure passes).
     """
-    mol = Chem.MolFromSmiles(smiles)
+    molecule = Chem.MolFromSmiles(smiles)
     problems = []
-    if any(atom.GetFormalCharge() for atom in mol.GetAtoms()):
+    if any(atom.GetFormalCharge() for atom in molecule.GetAtoms()):
         problems.append("non-zero formal charge")
-    if mol.HasSubstructMatch(ENOL_OR_IMIDIC_ACID):
+    if molecule.HasSubstructMatch(ENOL_OR_IMIDIC_ACID):
         problems.append("enol or imidic acid tautomer")
-    stored = Chem.MolToSmiles(mol)
-    canonical = Chem.MolToSmiles(TAUTOMER_ENUMERATOR.Canonicalize(mol))
+    stored = Chem.MolToSmiles(molecule)
+    canonical = Chem.MolToSmiles(TAUTOMER_ENUMERATOR.Canonicalize(molecule))
     if canonical != stored and stored not in TAUTOMER_REVIEWED:
         problems.append(
             f"RDKit canonical tautomer is {canonical} (review, then add "
@@ -234,12 +256,12 @@ def check_structures(systems: list[dict]) -> None:
     ValueError
         Listing every failing component.
     """
-    smiles = sorted({spec[key] for spec in systems for key in ("a", "b")})
-    failures = [
-        f"{s}: {'; '.join(problems)}"
-        for s in smiles
-        if (problems := structure_problems(s))
-    ]
+    components = sorted({system[key] for system in systems for key in ("a", "b")})
+    failures = []
+    for smiles in components:
+        problems = structure_problems(smiles)
+        if problems:
+            failures.append(f"{smiles}: {'; '.join(problems)}")
     if failures:
         raise ValueError("Structure checks failed:\n" + "\n".join(failures))
 
@@ -259,20 +281,62 @@ def molecule_info(smiles: str) -> dict:
         Heavy-atom count, element set, molar mass (g/mol), total atoms and
         the names of any matched viscous-liquid patterns.
     """
-    mol = Chem.MolFromSmiles(smiles)
-    mol_h = Chem.AddHs(mol)
+    molecule = Chem.MolFromSmiles(smiles)
+    with_hydrogens = Chem.AddHs(molecule)
     viscous = [
         name
         for name, smarts in VISCOUS_SMARTS.items()
-        if mol.HasSubstructMatch(Chem.MolFromSmarts(smarts))
+        if molecule.HasSubstructMatch(Chem.MolFromSmarts(smarts))
     ]
     return {
-        "heavy_atoms": mol.GetNumHeavyAtoms(),
-        "elements": {a.GetSymbol() for a in mol_h.GetAtoms()},
-        "molar_mass": Descriptors.MolWt(mol),
-        "n_atoms": mol_h.GetNumAtoms(),
+        "heavy_atoms": molecule.GetNumHeavyAtoms(),
+        "elements": {atom.GetSymbol() for atom in with_hydrogens.GetAtoms()},
+        "molar_mass": Descriptors.MolWt(molecule),
+        "n_atoms": with_hydrogens.GetNumAtoms(),
         "viscous": viscous,
     }
+
+
+def parse_sage_row(row: dict, source: str) -> tuple[tuple[str, str], Point]:
+    """
+    Parse one row of a Sage physical-property data set.
+
+    Parameters
+    ----------
+    row
+        CSV row in the OpenFF data-set format.
+    source
+        Name of the data set, stored on the point.
+
+    Returns
+    -------
+    tuple[tuple[str, str], Point]
+        The sorted SMILES pair (``(smiles, "")`` for a pure liquid) and the
+        point, with x of the first SMILES of the pair.
+    """
+    first = fix_smiles(row["Component 1"])
+    second = fix_smiles(row["Component 2"]) if row["Component 2"] else ""
+    x_first = float(row["Mole Fraction 1"]) if row["Mole Fraction 1"] else 1.0
+    if second and second < first:
+        first, second, x_first = second, first, 1.0 - x_first
+    hmix = row.get("EnthalpyOfMixing Value (kJ / mol)")
+    if hmix:
+        property_name, value = "hmix", float(hmix)
+        sigma = row.get("EnthalpyOfMixing Uncertainty (kJ / mol)")
+    else:
+        property_name = "density"
+        value = float(row["Density Value (g / ml)"])
+        sigma = row.get("Density Uncertainty (g / ml)")
+    point = Point(
+        property_name=property_name,
+        x=x_first,
+        temperature=float(row["Temperature (K)"]),
+        value=value,
+        sigma=float(sigma) if sigma else None,
+        doi=row["Source"],
+        source=source,
+    )
+    return (first, second), point
 
 
 def load_points(cache: Path) -> dict[tuple[str, str], list[Point]]:
@@ -294,32 +358,11 @@ def load_points(cache: Path) -> dict[tuple[str, str], list[Point]]:
     """
     points = defaultdict(list)
     for name, url in SOURCES.items():
-        path = fetch(url, cache / f"{name}.csv")
+        path = download(url, cache / f"{name}.csv")
         with path.open() as handle:
             for row in csv.DictReader(handle):
-                c1 = fix_smiles(row["Component 1"])
-                c2 = fix_smiles(row["Component 2"]) if row["Component 2"] else ""
-                x1 = float(row["Mole Fraction 1"]) if row["Mole Fraction 1"] else 1.0
-                if c2 and c2 < c1:
-                    c1, c2, x1 = c2, c1, 1.0 - x1
-                hmix = row.get("EnthalpyOfMixing Value (kJ / mol)")
-                if hmix:
-                    prop, value = "hmix", float(hmix)
-                    sigma = row.get("EnthalpyOfMixing Uncertainty (kJ / mol)")
-                else:
-                    prop, value = "density", float(row["Density Value (g / ml)"])
-                    sigma = row.get("Density Uncertainty (g / ml)")
-                points[(c1, c2)].append(
-                    Point(
-                        prop=prop,
-                        x=x1,
-                        temperature=float(row["Temperature (K)"]),
-                        value=value,
-                        sigma=float(sigma) if sigma else None,
-                        doi=row["Source"],
-                        source=name,
-                    )
-                )
+                key, point = parse_sage_row(row, name)
+                points[key].append(point)
     return points
 
 
@@ -340,8 +383,8 @@ def load_sage_benchmarks(cache: Path) -> dict[tuple[str, str], list[dict]]:
     """
     results = defaultdict(list)
     for name, url in SAGE_BENCHMARKS.items():
-        prop = name.split("-")[-1]
-        path = fetch(url, cache / f"{name}.csv")
+        property_name = name.split("-")[-1]
+        path = download(url, cache / f"{name}.csv")
         with path.open() as handle:
             for row in csv.DictReader(handle):
                 if (
@@ -355,7 +398,7 @@ def load_sage_benchmarks(cache: Path) -> dict[tuple[str, str], list[dict]]:
                 results[key].append(
                     {
                         "forcefield": row["forcefield"],
-                        "prop": prop,
+                        "property_name": property_name,
                         "value": float(row["value"]),
                         "reference": float(row["reference_value"]),
                         "sd": float(row["uncertainty"]) if row["uncertainty"] else None,
@@ -396,13 +439,39 @@ def load_mlpeg_liquids() -> dict[str, dict]:
     return liquids
 
 
+def interior_hmix_arrays(points: list[Point]) -> tuple[np.ndarray, ...]:
+    """
+    Return sorted x, ΔHmix and floored σ of the points away from the pure ends.
+
+    Parameters
+    ----------
+    points
+        Enthalpy of mixing points of one system at one temperature.
+
+    Returns
+    -------
+    tuple[np.ndarray, ...]
+        The x, value and σ arrays, where σ has a 2 % relative floor so that tiny
+        reported uncertainties do not dominate.
+    """
+    interior = sorted((p for p in points if 0.05 < p.x < 0.95), key=lambda p: p.x)
+    x = np.array([p.x for p in interior])
+    value = np.array([p.value for p in interior])
+    sigma = np.array(
+        [
+            max(p.sigma or 0.0, RELATIVE_SIGMA_FLOOR * abs(p.value), 1e-3)
+            for p in interior
+        ]
+    )
+    return x, value, sigma
+
+
 def linear_fit_chi2(points: list[Point]) -> float | None:
     """
     Reduced chi^2 of a straight-line fit to interior excess-enthalpy points.
 
     A single-phase H^E curve gives a large value; a two-phase region, where
-    H^E = a + b x, gives a value near 1. A relative uncertainty floor of 2 %
-    stops tiny reported uncertainties dominating.
+    H^E = a + b x, gives a value near 1.
 
     Parameters
     ----------
@@ -414,14 +483,12 @@ def linear_fit_chi2(points: list[Point]) -> float | None:
     float | None
         Reduced chi^2, or ``None`` with fewer than four interior points.
     """
-    pts = sorted((p for p in points if 0.05 < p.x < 0.95), key=lambda p: p.x)
-    if len(pts) < 4:
+    x, value, sigma = interior_hmix_arrays(points)
+    if len(x) < 4:
         return None
-    x = np.array([p.x for p in pts])
-    h = np.array([p.value for p in pts])
-    s = np.array([max(p.sigma or 0.0, 0.02 * abs(p.value), 1e-3) for p in pts])
-    coeffs = np.polyfit(x, h, 1, w=1 / s)
-    return float(np.sum(((np.polyval(coeffs, x) - h) / s) ** 2)) / (len(pts) - 2)
+    coefficients = np.polyfit(x, value, 1, w=1 / sigma)
+    residuals = (np.polyval(coefficients, x) - value) / sigma
+    return float(np.sum(residuals**2)) / (len(x) - 2)
 
 
 def two_phase_signature(points: list[Point]) -> bool:
@@ -431,8 +498,7 @@ def two_phase_signature(points: list[Point]) -> bool:
     In a two-phase region H^E = a + b x. With full isotherms this fits a
     straight line through the interior points and flags reduced chi^2 <= 2.
     With exactly three points it compares the two consecutive slopes against
-    their propagated uncertainty. A relative floor of 2 % stops tiny reported
-    uncertainties from hiding curvature.
+    their propagated uncertainty.
 
     An ideal or near-ideal mixture (H^E close to zero everywhere) is also a
     straight line, so the test is only applied when the largest measured
@@ -450,16 +516,16 @@ def two_phase_signature(points: list[Point]) -> bool:
     bool
         ``True`` if the data are consistent with a straight line.
     """
-    pts = sorted((p for p in points if 0.05 < p.x < 0.95), key=lambda p: p.x)
-    if len(pts) < 3 or max(abs(p.value) for p in pts) < MIN_SIGNAL:
+    x, value, sigma = interior_hmix_arrays(points)
+    if len(x) < 3 or np.max(np.abs(value)) < MIN_SIGNAL:
         return False
-    x = np.array([p.x for p in pts])
-    h = np.array([p.value for p in pts])
-    s = np.array([max(p.sigma or 0.0, 0.02 * abs(p.value), 1e-3) for p in pts])
-    if len(pts) == 3:
-        slopes = np.diff(h) / np.diff(x)
-        var = [(s[i] ** 2 + s[i + 1] ** 2) / (x[i + 1] - x[i]) ** 2 for i in range(2)]
-        return bool(abs(slopes[0] - slopes[1]) < 2 * math.sqrt(var[0] + var[1]))
+    if len(x) == 3:
+        slopes = np.diff(value) / np.diff(x)
+        slope_variances = [
+            (sigma[i] ** 2 + sigma[i + 1] ** 2) / (x[i + 1] - x[i]) ** 2
+            for i in range(2)
+        ]
+        return bool(abs(slopes[0] - slopes[1]) < 2 * math.sqrt(sum(slope_variances)))
     return linear_fit_chi2(points) <= 2.0
 
 
@@ -480,6 +546,99 @@ def max_composition_mismatch(hmix: list[Point], density: list[Point]) -> float:
         Maximum |delta x|.
     """
     return max(min(abs(h.x - d.x) for d in density) for h in hmix)
+
+
+def largest_sage_sd(sage_rows: list[dict], property_name: str) -> float | None:
+    """
+    Return the largest published Sage 3-replicate SD of one property.
+
+    Parameters
+    ----------
+    sage_rows
+        Published Sage results of one system.
+    property_name
+        ``hmix`` or ``density``.
+
+    Returns
+    -------
+    float | None
+        The largest SD, or ``None`` if none is published.
+    """
+    return max(
+        (
+            row["sd"]
+            for row in sage_rows
+            if row["property_name"] == property_name
+            and row["sd"]
+            and row["forcefield"] in SAGE_FORCE_FIELDS
+        ),
+        default=None,
+    )
+
+
+def filter_failures(row: dict, info_a: dict, info_b: dict) -> list[str]:
+    """
+    List the hard filters a screened system fails.
+
+    Parameters
+    ----------
+    row
+        Screening metrics from :func:`screen_candidates`.
+    info_a, info_b
+        Output of :func:`molecule_info` for the two components.
+
+    Returns
+    -------
+    list[str]
+        Failed filters, in the order of the report's filter table.
+    """
+    failures = []
+    if row["max_dx"] > MAX_COMPOSITION_MISMATCH:
+        failures.append("composition mismatch")
+    if not (row["exp_sigma_hmix"] and row["exp_sigma_density"]):
+        failures.append("missing experimental uncertainty")
+    if (row["hmix_max_rel_sigma"] or 0.0) > MAX_RELATIVE_SIGMA_HMIX:
+        failures.append(
+            f"relative ΔHmix uncertainty > {100 * MAX_RELATIVE_SIGMA_HMIX:.0f} %"
+        )
+    if not row["pure_density_sigma"]:
+        failures.append("missing pure density with uncertainty")
+    if not (info_a["elements"] | info_b["elements"]) <= ALLOWED_ELEMENTS:
+        failures.append("elements")
+    if max(info_a["heavy_atoms"], info_b["heavy_atoms"]) > MAX_HEAVY_ATOMS:
+        failures.append("too many heavy atoms")
+    if row["viscous"]:
+        failures.append("viscous")
+    if row["linear_two_phase"]:
+        failures.append("two-phase (linear H^E)")
+    if row["ucst_screen"]:
+        failures.append("two-phase (H^E > RT/2)")
+    for property_name in ("hmix", "density"):
+        sd = row[f"sage_rep_sd_{property_name}"]
+        if sd is None:
+            failures.append(f"no Sage repeat SD ({property_name})")
+        elif sd > MAX_REPEAT_SD[property_name]:
+            failures.append(f"Sage repeat SD ({property_name})")
+    if abs(row["hmix_eq"]) < MIN_SIGNAL:
+        failures.append("small signal")
+    return failures
+
+
+def in_screen_window(point: Point) -> bool:
+    """
+    Test whether a point lies in the screening temperature window.
+
+    Parameters
+    ----------
+    point
+        Experimental point.
+
+    Returns
+    -------
+    bool
+        ``True`` inside ``SCREEN_T_RANGE``.
+    """
+    return SCREEN_T_RANGE[0] <= point.temperature <= SCREEN_T_RANGE[1]
 
 
 def screen_candidates(
@@ -504,44 +663,35 @@ def screen_candidates(
     list[dict]
         One row per candidate system with every metric and filter outcome.
     """
-    pure_with_sigma = {
-        key[0]: p
-        for key, pts in points.items()
+    pure_in_window = {
+        key[0]: point
+        for key, system_points in points.items()
         if not key[1]
-        for p in pts
-        if SCREEN_T_RANGE[0] <= p.temperature <= SCREEN_T_RANGE[1]
+        for point in system_points
+        if in_screen_window(point)
     }
     rows = []
-    for (a, b), pts in points.items():
+    for (a, b), system_points in points.items():
         if not b:
             continue
-        window = [
-            p for p in pts if SCREEN_T_RANGE[0] <= p.temperature <= SCREEN_T_RANGE[1]
-        ]
-        hmix = list({round(p.x, 3): p for p in window if p.prop == "hmix"}.values())
-        dens = list({round(p.x, 3): p for p in window if p.prop == "density"}.values())
-        if len(hmix) < 3 or len(dens) < 3:
+        window = [p for p in system_points if in_screen_window(p)]
+        # One point per distinct composition (the last one listed wins).
+        hmix = list(
+            {round(p.x, 3): p for p in window if p.property_name == "hmix"}.values()
+        )
+        density = list(
+            {round(p.x, 3): p for p in window if p.property_name == "density"}.values()
+        )
+        if len(hmix) < 3 or len(density) < 3:
             continue
         info_a, info_b = molecule_info(a), molecule_info(b)
-        h_eq = min(hmix, key=lambda p: abs(p.x - 0.5)).value
+        hmix_equimolar = min(hmix, key=lambda p: abs(p.x - 0.5)).value
+        hmix_by_x = sorted(hmix, key=lambda p: p.x)
         sage_rows = [r for r in sage.get((a, b), []) if not r["tautomer_error"]]
-        sd = {
-            prop: max(
-                (
-                    r["sd"]
-                    for r in sage_rows
-                    if r["prop"] == prop
-                    and r["sd"]
-                    and r["forcefield"] in SAGE_FORCE_FIELDS
-                ),
-                default=None,
-            )
-            for prop in ("hmix", "density")
-        }
-        mae_221 = [
+        sage_221_errors = [
             abs(r["value"] - r["reference"])
             for r in sage_rows
-            if r["forcefield"] == "openff-2.2.1" and r["prop"] == "hmix"
+            if r["forcefield"] == "openff-2.2.1" and r["property_name"] == "hmix"
         ]
         row = {
             "a": a,
@@ -550,66 +700,64 @@ def screen_candidates(
             "heavy_atoms": f"{info_a['heavy_atoms']}/{info_b['heavy_atoms']}",
             "elements": "".join(sorted(info_a["elements"] | info_b["elements"])),
             "n_hmix": len(hmix),
-            "n_density": len(dens),
-            "hmix_x": " ".join(f"{p.x:.3f}" for p in sorted(hmix, key=lambda p: p.x)),
-            "hmix_values": " ".join(
-                f"{p.value:.4f}" for p in sorted(hmix, key=lambda p: p.x)
-            ),
-            "hmix_eq": round(h_eq, 4),
-            "max_dx": round(max_composition_mismatch(hmix, dens), 3),
+            "n_density": len(density),
+            "hmix_x": " ".join(f"{p.x:.3f}" for p in hmix_by_x),
+            "hmix_values": " ".join(f"{p.value:.4f}" for p in hmix_by_x),
+            "hmix_eq": round(hmix_equimolar, 4),
+            "max_dx": round(max_composition_mismatch(hmix, density), 3),
             "exp_sigma_hmix": all(p.sigma for p in hmix),
             "hmix_max_rel_sigma": max(
                 (p.sigma / abs(p.value) for p in hmix if p.sigma and p.value),
                 default=None,
             ),
-            "exp_sigma_density": all(p.sigma for p in dens),
+            "exp_sigma_density": all(p.sigma for p in density),
             "pure_density_sigma": all(
-                c in pure_with_sigma and pure_with_sigma[c].sigma for c in (a, b)
+                c in pure_in_window and pure_in_window[c].sigma for c in (a, b)
             ),
             "in_mlpeg": "+".join(c for c in (a, b) if c in mlpeg),
             "n_in_mlpeg": sum(c in mlpeg for c in (a, b)),
-            "sage_rep_sd_hmix": sd["hmix"],
-            "sage_rep_sd_density": sd["density"],
-            "sage_2.2.1_hmix_mae": round(statistics.mean(mae_221), 4)
-            if mae_221
+            "sage_rep_sd_hmix": largest_sage_sd(sage_rows, "hmix"),
+            "sage_rep_sd_density": largest_sage_sd(sage_rows, "density"),
+            "sage_2.2.1_hmix_mae": round(statistics.mean(sage_221_errors), 4)
+            if sage_221_errors
             else None,
             "viscous": "+".join(info_a["viscous"] + info_b["viscous"]),
             "linear_two_phase": two_phase_signature(hmix),
-            "ucst_screen": h_eq > UCST_LIMIT,
+            "ucst_screen": hmix_equimolar > UCST_LIMIT,
         }
-        failures = []
-        if row["max_dx"] > MAX_COMPOSITION_MISMATCH:
-            failures.append("composition mismatch")
-        if not (row["exp_sigma_hmix"] and row["exp_sigma_density"]):
-            failures.append("missing experimental uncertainty")
-        if (row["hmix_max_rel_sigma"] or 0.0) > MAX_REL_SIGMA_HMIX:
-            failures.append(
-                f"relative ΔHmix uncertainty > {100 * MAX_REL_SIGMA_HMIX:.0f} %"
-            )
-        if not row["pure_density_sigma"]:
-            failures.append("missing pure density with uncertainty")
-        if not set(row["elements"].replace("Cl", "X")) <= set("CHNOX"):
-            failures.append("elements")
-        if max(info_a["heavy_atoms"], info_b["heavy_atoms"]) > MAX_HEAVY_ATOMS:
-            failures.append("too many heavy atoms")
-        if row["viscous"]:
-            failures.append("viscous")
-        if row["linear_two_phase"]:
-            failures.append("two-phase (linear H^E)")
-        if row["ucst_screen"]:
-            failures.append("two-phase (H^E > RT/2)")
-        for prop in ("hmix", "density"):
-            if sd[prop] is None:
-                failures.append(f"no Sage repeat SD ({prop})")
-            elif sd[prop] > MAX_REPEAT_SD[prop]:
-                failures.append(f"Sage repeat SD ({prop})")
-        if abs(h_eq) < MIN_SIGNAL:
-            failures.append("small signal")
+        failures = filter_failures(row, info_a, info_b)
         row["failures"] = "; ".join(failures)
         row["passes"] = not failures
         rows.append(row)
     return sorted(
         rows, key=lambda r: (not r["passes"], r["n_in_mlpeg"], -abs(r["hmix_eq"]))
+    )
+
+
+def thermoml_point(measurement: Measurement, x: float) -> Point:
+    """
+    Convert a ThermoML measurement into a point at mole fraction ``x`` of a.
+
+    Parameters
+    ----------
+    measurement
+        Parsed ThermoML measurement.
+    x
+        Mole fraction of component a (1.0 for a pure liquid).
+
+    Returns
+    -------
+    Point
+        The point, with ``source`` "thermoml".
+    """
+    return Point(
+        measurement.property_name,
+        x,
+        measurement.temperature,
+        measurement.value,
+        measurement.uncertainty,
+        measurement.doi,
+        "thermoml",
     )
 
 
@@ -650,66 +798,43 @@ def thermoml_points(
     mixture, pure, errors = [], defaultdict(list), {}
     for doi in sorted(dois):
         try:
-            measurements: list[Measurement] = parse_record(
-                doi, fetch_record(doi, cache / "thermoml")
-            )
-        except Exception as err:  # noqa: BLE001 - report and continue
-            errors[doi] = str(err)
+            measurements = parse_record(doi, fetch_record(doi, cache / "thermoml"))
+        except Exception as error:  # noqa: BLE001 - report and continue
+            errors[doi] = str(error)
             continue
-        fixed_t = (corrections or {}).get(doi)
-        for m in measurements:
-            if fixed_t is not None:
-                if len(m.smiles) == 1 or 1.0 in m.mole_fractions:
-                    continue
-                m.temperature = fixed_t
-            if abs(m.temperature - temperature) > window:
-                continue
-            if m.pressure is not None and not 90.0 <= m.pressure <= 110.0:
-                continue
-            fractions = dict(zip(m.smiles, m.mole_fractions, strict=True))
-            if set(m.smiles) == {a, b}:
-                x = fractions[a]
-                if x in (0.0, 1.0) and m.prop == "density":
-                    comp = a if x == 1.0 else b
-                    pure[comp].append(
-                        Point(
-                            "density",
-                            1.0,
-                            m.temperature,
-                            m.value,
-                            m.uncertainty,
-                            doi,
-                            "thermoml",
-                        )
-                    )
-                elif 0.0 < x < 1.0:
-                    mixture.append(
-                        Point(
-                            m.prop,
-                            x,
-                            m.temperature,
-                            m.value,
-                            m.uncertainty,
-                            doi,
-                            "thermoml",
-                        )
-                    )
-            elif len(m.smiles) == 1 and m.smiles[0] in (a, b) and m.prop == "density":
-                pure[m.smiles[0]].append(
-                    Point(
-                        "density",
-                        1.0,
-                        m.temperature,
-                        m.value,
-                        m.uncertainty,
-                        doi,
-                        "thermoml",
-                    )
+        corrected_temperature = (corrections or {}).get(doi)
+        for measurement in measurements:
+            if corrected_temperature is not None:
+                is_pure = (
+                    len(measurement.smiles) == 1 or 1.0 in measurement.mole_fractions
                 )
+                if is_pure:
+                    continue
+                measurement.temperature = corrected_temperature
+            if abs(measurement.temperature - temperature) > window:
+                continue
+            pressure = measurement.pressure
+            if pressure is not None and not (
+                PRESSURE_RANGE_KPA[0] <= pressure <= PRESSURE_RANGE_KPA[1]
+            ):
+                continue
+            is_density = measurement.property_name == "density"
+            if set(measurement.smiles) == {a, b}:
+                fractions = dict(
+                    zip(measurement.smiles, measurement.mole_fractions, strict=True)
+                )
+                x = fractions[a]
+                if x in (0.0, 1.0) and is_density:
+                    pure[a if x == 1.0 else b].append(thermoml_point(measurement, 1.0))
+                elif 0.0 < x < 1.0:
+                    mixture.append(thermoml_point(measurement, x))
+            elif len(measurement.smiles) == 1 and measurement.smiles[0] in (a, b):
+                if is_density:
+                    pure[measurement.smiles[0]].append(thermoml_point(measurement, 1.0))
     return mixture, dict(pure), errors
 
 
-def redlich_kister(x: np.ndarray, y: np.ndarray, sigma: np.ndarray):
+def redlich_kister(x: np.ndarray, y: np.ndarray, sigma: np.ndarray) -> RedlichKisterFit:
     """
     Fit a weighted Redlich-Kister expansion y = x(1-x) sum_k a_k (2x-1)^k.
 
@@ -727,36 +852,38 @@ def redlich_kister(x: np.ndarray, y: np.ndarray, sigma: np.ndarray):
 
     Returns
     -------
-    Callable[[float], float]
+    RedlichKisterFit
         The fitted curve.
     """
     n_terms = max(1, min(4, len(x) - 1))
     basis = np.stack([x * (1 - x) * (2 * x - 1) ** k for k in range(n_terms)], axis=1)
     weights = 1.0 / sigma
-    coeffs, *_ = np.linalg.lstsq(basis * weights[:, None], y * weights, rcond=None)
+    coefficients, *_ = np.linalg.lstsq(
+        basis * weights[:, None], y * weights, rcond=None
+    )
+    return RedlichKisterFit(coefficients)
 
-    def curve(value: float) -> float:
-        """
-        Evaluate the fitted curve.
 
-        Parameters
-        ----------
-        value
-            Mole fraction.
+def fit_points(points: list[Point]) -> RedlichKisterFit | None:
+    """
+    Fit a Redlich-Kister curve to excess-property points.
 
-        Returns
-        -------
-        float
-            Fitted excess property.
-        """
-        return float(
-            sum(
-                c * value * (1 - value) * (2 * value - 1) ** k
-                for k, c in enumerate(coeffs)
-            )
-        )
+    Parameters
+    ----------
+    points
+        Points to fit.
 
-    return curve
+    Returns
+    -------
+    RedlichKisterFit | None
+        Fitted curve, or ``None`` if there are no points.
+    """
+    if not points:
+        return None
+    x = np.array([p.x for p in points])
+    y = np.array([p.value for p in points])
+    sigma = np.array([max(p.sigma or 0.0, FIT_SIGMA_FLOOR) for p in points])
+    return redlich_kister(x, y, sigma)
 
 
 def plan_box(x: float, density: float, info_a: dict, info_b: dict) -> dict:
@@ -780,14 +907,14 @@ def plan_box(x: float, density: float, info_a: dict, info_b: dict) -> dict:
     mean_mass = x * info_a["molar_mass"] + (1 - x) * info_b["molar_mass"]
     volume_cm3 = (MIN_EDGE * 1e-8) ** 3
     n_total = max(MIN_MOLECULES, math.ceil(density * volume_cm3 * AVOGADRO / mean_mass))
-    pure = x in (0.0, 1.0)
+    is_pure = x in (0.0, 1.0)
+    # Add molecules until x is close enough and the minority is large enough.
     while True:
         n_a = round(x * n_total)
         n_b = n_total - n_a
-        ok = pure or (
+        if is_pure or (
             abs(n_a / n_total - x) <= MAX_X_SHIFT and min(n_a, n_b) >= MIN_MINORITY
-        )
-        if ok:
+        ):
             break
         n_total += 1
     mass = (n_a * info_a["molar_mass"] + n_b * info_b["molar_mass"]) / AVOGADRO
@@ -838,10 +965,10 @@ def choose_pure_density(
     Returns
     -------
     dict
-        Chosen value, uncertainty and source, all cross-check values and a
-        flag if they disagree by more than 0.002 g/mL.
+        Chosen value, uncertainty and source, all cross-check values and the
+        sources that disagree by more than ``PURE_DENSITY_TOLERANCE``.
     """
-    near = [
+    near_thermoml = [
         p
         for p in thermoml_pure
         if abs(p.temperature - temperature) <= STATE_T_TOLERANCE
@@ -849,12 +976,18 @@ def choose_pure_density(
     near_sage = [
         p for p in sage_pure if abs(p.temperature - temperature) <= STATE_T_TOLERANCE
     ]
-    checks = {f"thermoml:{p.doi}": p.value for p in near}
+    checks = {f"thermoml:{p.doi}": p.value for p in near_thermoml}
     checks.update({f"{p.source}:{p.doi}": p.value for p in near_sage})
-    ml = mlpeg.get(smiles)
-    if ml and abs(ml["temperature"] - temperature) <= 1.0:
-        checks["ml-peg"] = ml["density"]
-    same_paper = [p for doi in (preferred_dois or []) for p in near if p.doi == doi]
+    mlpeg_liquid = mlpeg.get(smiles)
+    mlpeg_usable = (
+        mlpeg_liquid is not None
+        and abs(mlpeg_liquid["temperature"] - temperature) <= MLPEG_T_TOLERANCE
+    )
+    if mlpeg_usable:
+        checks["ml-peg"] = mlpeg_liquid["density"]
+    same_paper = [
+        p for doi in (preferred_dois or []) for p in near_thermoml if p.doi == doi
+    ]
     if reference:
         chosen = Point(
             "density",
@@ -868,50 +1001,56 @@ def choose_pure_density(
         checks["reference"] = reference["density"]
     elif same_paper:
         chosen = same_paper[0]
-    elif near:
-        best = statistics.median(p.value for p in near)
-        chosen = min(near, key=lambda p: abs(p.value - best))
+    elif near_thermoml:
+        median = statistics.median(p.value for p in near_thermoml)
+        chosen = min(near_thermoml, key=lambda p: abs(p.value - median))
     elif near_sage:
         chosen = min(near_sage, key=lambda p: p.sigma or 1.0)
-    elif ml and abs(ml["temperature"] - temperature) <= 1.0:
+    elif mlpeg_usable:
         chosen = Point(
-            "density", 1.0, ml["temperature"], ml["density"], None, "ml-peg", "ml-peg"
+            "density",
+            1.0,
+            mlpeg_liquid["temperature"],
+            mlpeg_liquid["density"],
+            None,
+            "ml-peg",
+            "ml-peg",
         )
     else:
         chosen = None
+
     values = list(checks.values())
     spread = max(values) - min(values) if len(values) > 1 else 0.0
-    outliers = (
-        [k for k, v in checks.items() if abs(v - chosen.value) > PURE_DENSITY_TOLERANCE]
-        if chosen
-        else []
-    )
+    if chosen is None:
+        outliers, source = [], ""
+    else:
+        outliers = [
+            name
+            for name, value in checks.items()
+            if abs(value - chosen.value) > PURE_DENSITY_TOLERANCE
+        ]
+        is_reference = chosen.source == "reference"
+        source = chosen.doi if is_reference else f"{chosen.source}:{chosen.doi}"
     return {
         "density": chosen.value if chosen else None,
         "sigma": chosen.sigma if chosen else None,
-        "source": (
-            chosen.doi
-            if chosen and chosen.source == "reference"
-            else f"{chosen.source}:{chosen.doi}"
-            if chosen
-            else ""
-        ),
+        "source": source,
         "checks": checks,
         "spread": spread,
         "outliers": outliers,
-        "mlpeg_density": ml["density"] if ml else None,
-        "mlpeg_temperature": ml["temperature"] if ml else None,
+        "mlpeg_density": mlpeg_liquid["density"] if mlpeg_liquid else None,
+        "mlpeg_temperature": mlpeg_liquid["temperature"] if mlpeg_liquid else None,
     }
 
 
 def excess_volumes(
-    dens: list[Point],
-    thermo_pure: dict[str, list[Point]],
-    pures: dict[str, dict],
+    mixture_densities: list[Point],
+    thermoml_pure: dict[str, list[Point]],
+    chosen_pure: dict[str, dict],
     a: str,
     b: str,
-    ma: float,
-    mb: float,
+    molar_mass_a: float,
+    molar_mass_b: float,
 ) -> list[Point]:
     """
     Derive V^E from mixture densities, with correlated uncertainties.
@@ -933,15 +1072,15 @@ def excess_volumes(
 
     Parameters
     ----------
-    dens
+    mixture_densities
         Mixture densities in g/mL, x of component a.
-    thermo_pure
+    thermoml_pure
         Pure densities per component from the fetched ThermoML records.
-    pures
+    chosen_pure
         Chosen reference pure densities per component.
     a, b
         Component SMILES.
-    ma, mb
+    molar_mass_a, molar_mass_b
         Molar masses in g/mol.
 
     Returns
@@ -949,15 +1088,15 @@ def excess_volumes(
     list[Point]
         V^E points in cm3/mol with their correlated standard uncertainty.
     """
-    vex = []
-    for point in dens:
+    excess = []
+    for point in mixture_densities:
         x = point.x
-        # (density, sigma, same_paper) for the mixture, a and b.
+        # (density, sigma, from the same paper) for the mixture, a and b.
         densities = [(point.value, point.sigma, True)]
         for component in (a, b):
             same_paper = [
                 pure
-                for pure in thermo_pure.get(component, [])
+                for pure in thermoml_pure.get(component, [])
                 if pure.doi == point.doi
                 and abs(pure.temperature - point.temperature) <= STATE_T_TOLERANCE
             ]
@@ -967,21 +1106,25 @@ def excess_volumes(
                 )
                 densities.append((pure.value, pure.sigma, True))
             else:
-                chosen = pures[component]
+                chosen = chosen_pure[component]
                 densities.append((chosen["density"], chosen["sigma"], False))
-        (rho_mix, _, _), (rho_a, _, _), (rho_b, _, _) = densities
-        mean_mass = x * ma + (1 - x) * mb
-        value = mean_mass / rho_mix - x * ma / rho_a - (1 - x) * mb / rho_b
+        (rho_mixture, _, _), (rho_a, _, _), (rho_b, _, _) = densities
+        mean_mass = x * molar_mass_a + (1 - x) * molar_mass_b
+        value = (
+            mean_mass / rho_mixture
+            - x * molar_mass_a / rho_a
+            - (1 - x) * molar_mass_b / rho_b
+        )
         # Sensitivities dV^E/drho for the mixture, a and b.
         sensitivities = [
-            -mean_mass / rho_mix**2,
-            x * ma / rho_a**2,
-            (1 - x) * mb / rho_b**2,
+            -mean_mass / rho_mixture**2,
+            x * molar_mass_a / rho_a**2,
+            (1 - x) * molar_mass_b / rho_b**2,
         ]
         # (sensitivity, density, sigma) of the densities sharing the paper's error.
         shared = [
-            (sens, rho, sigma_rho or 0.0)
-            for sens, (rho, sigma_rho, same) in zip(
+            (sensitivity, rho, sigma_rho or 0.0)
+            for sensitivity, (rho, sigma_rho, same) in zip(
                 sensitivities, densities, strict=True
             )
             if same
@@ -991,30 +1134,35 @@ def excess_volumes(
         else:
             # Common scale error and common offset, each as large as the
             # paper's largest relative or absolute sigma at this point.
-            largest_rel_sigma = max(sigma_rho / rho for _, rho, sigma_rho in shared)
+            largest_relative_sigma = max(
+                sigma_rho / rho for _, rho, sigma_rho in shared
+            )
             largest_sigma = max(sigma_rho for _, _, sigma_rho in shared)
             scale_error = (
-                abs(sum(sens * rho for sens, rho, _ in shared)) * largest_rel_sigma
+                abs(sum(sensitivity * rho for sensitivity, rho, _ in shared))
+                * largest_relative_sigma
             )
-            offset_error = abs(sum(sens for sens, _, _ in shared)) * largest_sigma
+            offset_error = (
+                abs(sum(sensitivity for sensitivity, _, _ in shared)) * largest_sigma
+            )
             shared_error = max(scale_error, offset_error)
             independent_errors = [
-                sens * (sigma_rho or 0.0)
-                for sens, (_, sigma_rho, same) in zip(
+                sensitivity * (sigma_rho or 0.0)
+                for sensitivity, (_, sigma_rho, same) in zip(
                     sensitivities, densities, strict=True
                 )
                 if not same
             ]
             sigma_vex = math.sqrt(
-                shared_error**2 + sum(err**2 for err in independent_errors)
+                shared_error**2 + sum(error**2 for error in independent_errors)
             )
-        vex.append(
+        excess.append(
             Point("vex", x, point.temperature, value, sigma_vex, point.doi, "derived")
         )
-    return vex
+    return excess
 
 
-def add_fit_scatter(vex: list[Point], curve) -> list[Point]:
+def add_fit_scatter(vex: list[Point], curve: RedlichKisterFit) -> list[Point]:
     """
     Add the random part of the derived V^E uncertainty from the fit residuals.
 
@@ -1035,29 +1183,203 @@ def add_fit_scatter(vex: list[Point], curve) -> list[Point]:
     list[Point]
         The points with updated uncertainties for derived points.
     """
-    n = len(vex)
-    dof = n - max(1, min(4, n - 1))
-    if dof <= 0:
+    n_points = len(vex)
+    degrees_of_freedom = n_points - max(1, min(4, n_points - 1))
+    if degrees_of_freedom <= 0:
         return vex
-    sq = defaultdict(list)
+    squared_residuals = defaultdict(list)
     for p in vex:
         if p.source == "derived":
-            sq[p.doi].append((p.value - curve(p.x)) ** 2)
-    scatter = {doi: math.sqrt(sum(r) / len(r) * n / dof) for doi, r in sq.items()}
-    return [
-        Point(
-            p.prop,
-            p.x,
-            p.temperature,
-            p.value,
-            math.sqrt((p.sigma or 0.0) ** 2 + scatter[p.doi] ** 2),
-            p.doi,
-            p.source,
+            squared_residuals[p.doi].append((p.value - curve(p.x)) ** 2)
+    scatter = {
+        doi: math.sqrt(sum(squares) / len(squares) * n_points / degrees_of_freedom)
+        for doi, squares in squared_residuals.items()
+    }
+    updated = []
+    for p in vex:
+        if p.source == "derived":
+            sigma = math.sqrt((p.sigma or 0.0) ** 2 + scatter[p.doi] ** 2)
+            p = Point(
+                p.property_name, p.x, p.temperature, p.value, sigma, p.doi, p.source
+            )
+        updated.append(p)
+    return updated
+
+
+def orient_to_component_a(point: Point, flip: bool) -> Point:
+    """
+    Re-express a Sage-set point (keyed by the sorted pair) with x of component a.
+
+    Parameters
+    ----------
+    point
+        Point whose x refers to the first SMILES of the sorted pair.
+    flip
+        ``True`` if component a is the second SMILES of the sorted pair.
+
+    Returns
+    -------
+    Point
+        Point with x of component a.
+    """
+    return Point(
+        point.property_name,
+        1 - point.x if flip else point.x,
+        point.temperature,
+        point.value,
+        point.sigma,
+        point.doi,
+        point.source,
+    )
+
+
+def find_reference(
+    references: list[dict], smiles: str, temperature: float
+) -> dict | None:
+    """
+    Find an explicit pure-density reference for one component in ``selection.yml``.
+
+    Parameters
+    ----------
+    references
+        ``pure_density_references`` from ``selection.yml``.
+    smiles
+        Canonical SMILES.
+    temperature
+        Temperature in K.
+
+    Returns
+    -------
+    dict | None
+        The matching reference.
+    """
+    for reference in references:
+        if (
+            canonical_smiles(reference["smiles"]) == smiles
+            and abs(reference["temperature"] - temperature) < 0.1
+        ):
+            return reference
+    return None
+
+
+def target_points(hmix: list[Point], target_x) -> list[Point]:
+    """
+    Pick the measured ΔHmix points nearest each target composition.
+
+    Parameters
+    ----------
+    hmix
+        ΔHmix points sorted by x.
+    target_x
+        Target compositions of component a.
+
+    Returns
+    -------
+    list[Point]
+        One point per target that has a measurement within
+        ``MAX_TARGET_DISTANCE``, without duplicates.
+    """
+    targets = []
+    for goal in target_x:
+        if hmix:
+            nearest = min(hmix, key=lambda p: abs(p.x - goal))
+            if abs(nearest.x - goal) <= MAX_TARGET_DISTANCE and nearest not in targets:
+                targets.append(nearest)
+    return targets
+
+
+def box_row(
+    spec: dict,
+    target: Point,
+    context: dict,
+) -> dict:
+    """
+    Build one ``systems.csv`` row: box plan and experimental values at box x.
+
+    Parameters
+    ----------
+    spec
+        Entry from ``selection.yml``.
+    target
+        The measured ΔHmix point the box is built for.
+    context
+        The system's components, molecule info, pure densities, fits and
+        mixture densities, as assembled by :func:`build_system`.
+
+    Returns
+    -------
+    dict
+        The row.
+    """
+    a, b = context["a"], context["b"]
+    info, pures = context["info"], context["pures"]
+    hmix_fit, vex_fit = context["hmix_fit"], context["vex_fit"]
+    densities, density_dois = context["densities"], context["density_dois"]
+    molar_mass_a, molar_mass_b = info[a]["molar_mass"], info[b]["molar_mass"]
+    have_pure_densities = bool(pures[a]["density"] and pures[b]["density"])
+
+    density_guess = (
+        pures[a]["density"] * target.x + pures[b]["density"] * (1 - target.x)
+        if have_pure_densities
+        else 1.0
+    )
+    box = plan_box(target.x, density_guess, info[a], info[b])
+    x_box = box["x_box"]
+    row = {
+        "system_id": spec["id"],
+        "a": a,
+        "b": b,
+        "temperature": context["temperature"],
+        "x_target": round(target.x, 4),
+        "x_box": round(x_box, 4),
+        "n_a": box["n_a"],
+        "n_b": box["n_b"],
+        "n_atoms": box["n_atoms"],
+        "hmix_measured": target.value,
+        "hmix_measured_sigma": target.sigma,
+        "hmix_measured_T": target.temperature,
+        # The measured value, moved from the measured x to the box x along the fit.
+        "hmix_exp": round(hmix_fit(x_box) + (target.value - hmix_fit(target.x)), 5),
+        "hmix_sigma": target.sigma,
+        "hmix_doi": target.doi,
+    }
+    if not (vex_fit and have_pure_densities):
+        row.update(
+            vex_exp=None,
+            density_exp=None,
+            density_sigma=None,
+            density_doi="",
+            density_nearest_dx=None,
+            edge=round(box["edge"], 2),
         )
-        if p.source == "derived"
-        else p
-        for p in vex
-    ]
+        return row
+
+    mean_mass = x_box * molar_mass_a + (1 - x_box) * molar_mass_b
+    ideal_volume = (
+        x_box * molar_mass_a / pures[a]["density"]
+        + (1 - x_box) * molar_mass_b / pures[b]["density"]
+    )
+    vex_box = vex_fit(x_box)
+    row["vex_exp"] = round(vex_box, 5)
+    row["density_exp"] = round(mean_mass / (ideal_volume + vex_box), 5)
+    nearest = min(densities, key=lambda p: abs(p.x - x_box)) if densities else None
+    # Uncertainty from the main density paper near x_box (other papers
+    # sometimes report implausible uncertainties).
+    local_sigmas = [
+        p.sigma
+        for p in densities
+        if abs(p.x - x_box) <= 0.05 and p.sigma and p.doi == density_dois[0]
+    ] or [p.sigma for p in densities if abs(p.x - x_box) <= 0.05 and p.sigma]
+    if local_sigmas:
+        row["density_sigma"] = statistics.median(local_sigmas)
+    else:
+        row["density_sigma"] = nearest.sigma if nearest else None
+    row["density_doi"] = nearest.doi if nearest else ""
+    row["density_nearest_dx"] = round(abs(nearest.x - x_box), 3) if nearest else None
+    row["edge"] = round(
+        plan_box(target.x, row["density_exp"], info[a], info[b])["edge"], 2
+    )
+    return row
 
 
 def build_system(
@@ -1094,36 +1416,16 @@ def build_system(
     references = references or []
     a, b = canonical_smiles(spec["a"]), canonical_smiles(spec["b"])
     temperature = float(spec["temperature"])
-    window = STATE_T_EXTRA.get(spec["id"], STATE_T_TOLERANCE)
     key = tuple(sorted((a, b)))
     flip = key[0] != a
 
-    def oriented(p: Point) -> Point:
-        """
-        Re-express a Sage-set point with x referring to component a.
-
-        Parameters
-        ----------
-        p
-            Point keyed by the sorted pair.
-
-        Returns
-        -------
-        Point
-            Point with x of component a.
-        """
-        return Point(
-            p.prop,
-            1 - p.x if flip else p.x,
-            p.temperature,
-            p.value,
-            p.sigma,
-            p.doi,
-            p.source,
-        )
-
-    set_points = [oriented(p) for p in points.get(key, [])]
-    dois = {p.doi for p in set_points if abs(p.temperature - temperature) <= window}
+    # Fetch every paper that the Sage sets cite for this system or its pure liquids.
+    set_points = [orient_to_component_a(p, flip) for p in points.get(key, [])]
+    dois = {
+        p.doi
+        for p in set_points
+        if abs(p.temperature - temperature) <= STATE_T_TOLERANCE
+    }
     sage_pure = {c: points.get((c, ""), []) for c in (a, b)}
     dois |= {
         p.doi
@@ -1132,153 +1434,78 @@ def build_system(
         if abs(p.temperature - temperature) <= STATE_T_TOLERANCE
     }
     dois |= set(spec.get("extra_dois", []))
-    mixture, thermo_pure, errors = thermoml_points(
-        a, b, dois, temperature, window, cache, spec.get("temperature_corrections")
+    mixture, thermoml_pure, errors = thermoml_points(
+        a,
+        b,
+        dois,
+        temperature,
+        STATE_T_TOLERANCE,
+        cache,
+        spec.get("temperature_corrections"),
     )
 
-    hmix = sorted((p for p in mixture if p.prop == "hmix"), key=lambda p: p.x)
+    hmix = sorted((p for p in mixture if p.property_name == "hmix"), key=lambda p: p.x)
     # Restrict ΔHmix to chosen papers where the sources disagree.
     if spec.get("hmix_dois"):
         hmix = [p for p in hmix if p.doi in spec["hmix_dois"]]
-    all_dens = sorted((p for p in mixture if p.prop == "density"), key=lambda p: p.x)
+    all_densities = sorted(
+        (p for p in mixture if p.property_name == "density"), key=lambda p: p.x
+    )
     # Restrict densities to one paper, so its pure densities serve throughout.
     if spec.get("density_dois"):
-        all_dens = [p for p in all_dens if p.doi in spec["density_dois"]]
-    dens = [p for p in all_dens if p.sigma is None or p.sigma <= MAX_DENSITY_SIGMA]
-    noisy_density = Counter(p.doi for p in all_dens if p not in dens)
-    density_dois = [doi for doi, _ in Counter(p.doi for p in dens).most_common()]
+        all_densities = [p for p in all_densities if p.doi in spec["density_dois"]]
+    densities = [
+        p for p in all_densities if p.sigma is None or p.sigma <= MAX_DENSITY_SIGMA
+    ]
+    noisy_density = Counter(p.doi for p in all_densities if p not in densities)
+    density_dois = [doi for doi, _ in Counter(p.doi for p in densities).most_common()]
 
     info = {a: molecule_info(a), b: molecule_info(b)}
     pures = {
         c: choose_pure_density(
             c,
             temperature,
-            thermo_pure.get(c, []),
+            thermoml_pure.get(c, []),
             sage_pure[c],
             mlpeg,
             density_dois,
-            next(
-                (
-                    r
-                    for r in references
-                    if canonical_smiles(r["smiles"]) == c
-                    and abs(r["temperature"] - temperature) < 0.1
-                ),
-                None,
-            ),
+            find_reference(references, c, temperature),
         )
         for c in (a, b)
     }
-    vex_direct = sorted((p for p in mixture if p.prop == "vex"), key=lambda p: p.x)
 
-    ma, mb = info[a]["molar_mass"], info[b]["molar_mass"]
-    vex = list(vex_direct)
+    vex = sorted((p for p in mixture if p.property_name == "vex"), key=lambda p: p.x)
     if pures[a]["density"] and pures[b]["density"]:
-        vex += excess_volumes(dens, thermo_pure, pures, a, b, ma, mb)
-
-    def fit(pts: list[Point], floor: float):
-        """
-        Fit a Redlich-Kister curve to excess-property points.
-
-        Parameters
-        ----------
-        pts
-            Points to fit.
-        floor
-            Minimum uncertainty used for weighting.
-
-        Returns
-        -------
-        Callable[[float], float] | None
-            Fitted curve, or ``None`` if there are no points.
-        """
-        if not pts:
-            return None
-        x = np.array([p.x for p in pts])
-        y = np.array([p.value for p in pts])
-        s = np.array([max(p.sigma or 0.0, floor) for p in pts])
-        return redlich_kister(x, y, s)
-
-    hmix_fit = fit(hmix, 1e-3)
-    vex_fit = fit(vex, 1e-3)
-    if vex_fit:
-        vex = add_fit_scatter(vex, vex_fit)
-        vex_fit = fit(vex, 1e-3)
-
-    # Target compositions: measured enthalpy points nearest 0.25, 0.5 and 0.75,
-    # unless the system sets its own.
-    targets = []
-    for goal in spec.get("target_x", (0.25, 0.5, 0.75)):
-        if hmix:
-            nearest = min(hmix, key=lambda p: abs(p.x - goal))
-            if abs(nearest.x - goal) <= 0.1 and nearest not in targets:
-                targets.append(nearest)
-
-    rows = []
-    for target in targets:
-        rho_guess = (
-            pures[a]["density"] * target.x + pures[b]["density"] * (1 - target.x)
-            if (pures[a]["density"] and pures[b]["density"])
-            else 1.0
+        vex += excess_volumes(
+            densities,
+            thermoml_pure,
+            pures,
+            a,
+            b,
+            info[a]["molar_mass"],
+            info[b]["molar_mass"],
         )
-        box = plan_box(target.x, rho_guess, info[a], info[b])
-        x_box = box["x_box"]
-        row = {
-            "system_id": spec["id"],
-            "a": a,
-            "b": b,
-            "temperature": temperature,
-            "x_target": round(target.x, 4),
-            "x_box": round(x_box, 4),
-            "n_a": box["n_a"],
-            "n_b": box["n_b"],
-            "n_atoms": box["n_atoms"],
-            "hmix_measured": target.value,
-            "hmix_measured_sigma": target.sigma,
-            "hmix_measured_T": target.temperature,
-            "hmix_exp": round(hmix_fit(x_box) + (target.value - hmix_fit(target.x)), 5),
-            "hmix_sigma": target.sigma,
-            "hmix_doi": target.doi,
-        }
-        if vex_fit and pures[a]["density"] and pures[b]["density"]:
-            mean_mass = x_box * ma + (1 - x_box) * mb
-            ideal = (
-                x_box * ma / pures[a]["density"]
-                + (1 - x_box) * mb / pures[b]["density"]
-            )
-            vex_box = vex_fit(x_box)
-            row["vex_exp"] = round(vex_box, 5)
-            row["density_exp"] = round(mean_mass / (ideal + vex_box), 5)
-            nearest_d = min(dens, key=lambda p: abs(p.x - x_box)) if dens else None
-            # Uncertainty from the main density paper near x_box (other papers
-            # sometimes report implausible uncertainties).
-            local = [
-                p.sigma
-                for p in dens
-                if abs(p.x - x_box) <= 0.05 and p.sigma and p.doi == density_dois[0]
-            ] or [p.sigma for p in dens if abs(p.x - x_box) <= 0.05 and p.sigma]
-            row["density_sigma"] = (
-                statistics.median(local)
-                if local
-                else (nearest_d.sigma if nearest_d else None)
-            )
-            row["density_doi"] = nearest_d.doi if nearest_d else ""
-            row["density_nearest_dx"] = (
-                round(abs(nearest_d.x - x_box), 3) if nearest_d else None
-            )
-            row["edge"] = round(
-                plan_box(target.x, row["density_exp"], info[a], info[b])["edge"], 2
-            )
-        else:
-            row.update(
-                vex_exp=None,
-                density_exp=None,
-                density_sigma=None,
-                density_doi="",
-                density_nearest_dx=None,
-                edge=round(box["edge"], 2),
-            )
-        rows.append(row)
+
+    hmix_fit = fit_points(hmix)
+    vex_fit = fit_points(vex)
+    if vex_fit:
+        # Refit once the random scatter is part of each point's σ.
+        vex = add_fit_scatter(vex, vex_fit)
+        vex_fit = fit_points(vex)
+
+    context = {
+        "a": a,
+        "b": b,
+        "temperature": temperature,
+        "info": info,
+        "pures": pures,
+        "hmix_fit": hmix_fit,
+        "vex_fit": vex_fit,
+        "densities": densities,
+        "density_dois": density_dois,
+    }
+    targets = target_points(hmix, spec.get("target_x", DEFAULT_TARGET_X))
+    rows = [box_row(spec, target, context) for target in targets]
 
     sage_rows = [r for r in sage.get(key, []) if not r["tautomer_error"]]
     return {
@@ -1289,7 +1516,7 @@ def build_system(
         "info": info,
         "pures": pures,
         "hmix": hmix,
-        "density": dens,
+        "density": densities,
         "vex": vex,
         "hmix_fit": hmix_fit,
         "vex_fit": vex_fit,
@@ -1303,6 +1530,89 @@ def build_system(
     }
 
 
+def pure_rows(systems: list[dict], mlpeg: dict[str, dict]) -> list[dict]:
+    """
+    Build one ``pure.csv`` row per pure liquid and temperature.
+
+    Parameters
+    ----------
+    systems
+        Output of :func:`build_system` for every system.
+    mlpeg
+        The ml-peg pure liquids.
+
+    Returns
+    -------
+    list[dict]
+        Rows with the chosen density, its cross-checks and the box plan.
+    """
+    rows, seen = [], set()
+    for system in systems:
+        temperature = system["temperature"]
+        for smiles in (system["a"], system["b"]):
+            if (smiles, temperature) in seen:
+                continue
+            seen.add((smiles, temperature))
+            pure = system["pures"][smiles]
+            info = system["info"][smiles]
+            box = plan_box(1.0, pure["density"] or 1.0, info, info)
+            rows.append(
+                {
+                    "smiles": smiles,
+                    "temperature": temperature,
+                    "density": pure["density"],
+                    "sigma": pure["sigma"],
+                    "source": pure["source"],
+                    "in_mlpeg": smiles in mlpeg,
+                    # Liquids already in ml-peg's liquid_densities are run
+                    # (ΔHmix needs them) but not scored twice.
+                    "scored": smiles not in mlpeg,
+                    "mlpeg_density": pure["mlpeg_density"],
+                    "mlpeg_temperature": pure["mlpeg_temperature"],
+                    "spread": round(pure["spread"], 5),
+                    "outliers": "; ".join(pure["outliers"]),
+                    "checks": "; ".join(
+                        f"{source}={density:.5f}"
+                        for source, density in pure["checks"].items()
+                    ),
+                    "n_molecules": box["n_a"],
+                    "n_atoms": box["n_atoms"],
+                    "edge": round(box["edge"], 2),
+                }
+            )
+    return rows
+
+
+def isotherm_rows(systems: list[dict]) -> list[dict]:
+    """
+    List every experimental point behind the fits, one row each.
+
+    Parameters
+    ----------
+    systems
+        Output of :func:`build_system` for every system.
+
+    Returns
+    -------
+    list[dict]
+        Rows of ``isotherms.csv``.
+    """
+    return [
+        {
+            "system_id": system["spec"]["id"],
+            "prop": point.property_name,
+            "x": point.x,
+            "temperature": point.temperature,
+            "value": point.value,
+            "sigma": point.sigma,
+            "doi": point.doi,
+            "source": point.source,
+        }
+        for system in systems
+        for point in system["hmix"] + system["density"] + system["vex"]
+    ]
+
+
 def write_csv(path: Path, rows: list[dict]) -> None:
     """
     Write a list of dictionaries to CSV, using the union of keys as header.
@@ -1314,7 +1624,7 @@ def write_csv(path: Path, rows: list[dict]) -> None:
     rows
         Rows to write.
     """
-    fields = list(dict.fromkeys(k for row in rows for k in row))
+    fields = list(dict.fromkeys(key for row in rows for key in row))
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -1322,7 +1632,7 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 
 def main() -> None:
-    """Run the selection and write all stage 1 outputs."""
+    """Run the selection and write all outputs."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--output-dir", type=Path, default=Path("selection"))
     parser.add_argument("--cache-dir", type=Path, default=CACHE_DIR)
@@ -1353,58 +1663,11 @@ def main() -> None:
     write_csv(
         out / "systems.csv", [row for system in systems for row in system["rows"]]
     )
+    write_csv(out / "pure.csv", pure_rows(systems, mlpeg))
+    write_csv(out / "isotherms.csv", isotherm_rows(systems))
 
-    pure_rows, seen = [], set()
-    for system in systems:
-        temperature = system["temperature"]
-        for smiles in (system["a"], system["b"]):
-            if (smiles, temperature) in seen:
-                continue
-            seen.add((smiles, temperature))
-            pure = system["pures"][smiles]
-            info = system["info"][smiles]
-            box = plan_box(1.0, pure["density"] or 1.0, info, info)
-            pure_rows.append(
-                {
-                    "smiles": smiles,
-                    "temperature": temperature,
-                    "density": pure["density"],
-                    "sigma": pure["sigma"],
-                    "source": pure["source"],
-                    "in_mlpeg": smiles in mlpeg,
-                    "scored": smiles not in mlpeg,
-                    "mlpeg_density": pure["mlpeg_density"],
-                    "mlpeg_temperature": pure["mlpeg_temperature"],
-                    "spread": round(pure["spread"], 5),
-                    "outliers": "; ".join(pure["outliers"]),
-                    "checks": "; ".join(
-                        f"{source}={density:.5f}"
-                        for source, density in pure["checks"].items()
-                    ),
-                    "n_molecules": box["n_a"],
-                    "n_atoms": box["n_atoms"],
-                    "edge": round(box["edge"], 2),
-                }
-            )
-    write_csv(out / "pure.csv", pure_rows)
-
-    iso_rows = [
-        {
-            "system_id": system["spec"]["id"],
-            "prop": point.prop,
-            "x": point.x,
-            "temperature": point.temperature,
-            "value": point.value,
-            "sigma": point.sigma,
-            "doi": point.doi,
-            "source": point.source,
-        }
-        for system in systems
-        for point in system["hmix"] + system["density"] + system["vex"]
-    ]
-    write_csv(out / "isotherms.csv", iso_rows)
-
-    from liquid_mixtures_inputs.report import write_report
+    # Imported here because the report imports this module.
+    from liquid_mixtures_inputs.selection_report import write_report
 
     write_report(
         out, selection, candidates, systems, points, sage, mlpeg, args.fast_set

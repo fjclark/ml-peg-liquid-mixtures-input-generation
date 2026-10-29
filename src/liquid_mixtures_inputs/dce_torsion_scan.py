@@ -3,10 +3,10 @@ Cl-C-C-Cl torsion of 1,2-dichloroethane (DCE): gas-phase scans and Sage sampling
 
 Supports the report's case for keeping NMP + DCE. Four steps::
 
-    pixi run -e openff python -m liquid_mixtures_inputs.dce_torsion_scan sage
+    pixi run -e openff dce-scan sage
     ../ml-peg/.venv/bin/python src/liquid_mixtures_inputs/dce_torsion_scan.py mace
-    pixi run -e openff python -m liquid_mixtures_inputs.dce_torsion_scan flips
-    pixi run -e openff python -m liquid_mixtures_inputs.dce_torsion_scan plot
+    pixi run -e openff dce-scan flips
+    pixi run -e openff dce-scan plot
 
 ``sage`` runs a relaxed scan with the benchmark force field and writes the
 optimised structures. ``mace`` re-optimises them with MACE-OFF23(M) at the same
@@ -23,12 +23,14 @@ from pathlib import Path
 
 import numpy as np
 
+# Constants are defined here rather than imported from the package, because the
+# MACE step runs this file directly in the ml-peg virtual environment.
 SMILES = "ClCCCl"
 DIHEDRAL = [0, 1, 2, 3]  # Cl-C-C-Cl in the OpenFF atom order of SMILES
 ANGLES = np.arange(0, 181, 15)
 GAUCHE_MAX = 120.0  # |dihedral| below this counts as gauche
 KJ_PER_MOL_PER_EV = 96.48533212
-RT_KJ_PER_MOL = 0.0083144626 * 298.15
+RT_KJ_PER_MOL = 8.314462618e-3 * 298.15
 OUT = Path("data/sage_summary")
 
 
@@ -48,12 +50,14 @@ def moving_atoms(n_atoms: int) -> list[int]:
     """
     from openff.toolkit import Molecule
 
-    mol = Molecule.from_smiles(SMILES)
-    assert mol.n_atoms == n_atoms
-    side = {3} | {
-        n.molecule_atom_index for n in mol.atom(2).bonded_atoms if n.atomic_number == 1
+    molecule = Molecule.from_smiles(SMILES)
+    assert molecule.n_atoms == n_atoms
+    hydrogens = {
+        neighbour.molecule_atom_index
+        for neighbour in molecule.atom(2).bonded_atoms
+        if neighbour.atomic_number == 1
     }
-    return sorted(side)
+    return sorted({3} | hydrogens)
 
 
 def scan_sage(out: Path) -> None:
@@ -74,11 +78,11 @@ def scan_sage(out: Path) -> None:
 
     from liquid_mixtures_inputs.build_boxes import FORCE_FIELD, NAGL_MODEL
 
-    mol = Molecule.from_smiles(SMILES)
-    mol.generate_conformers(n_conformers=1)
-    mol.assign_partial_charges(NAGL_MODEL)
+    molecule = Molecule.from_smiles(SMILES)
+    molecule.generate_conformers(n_conformers=1)
+    molecule.assign_partial_charges(NAGL_MODEL)
     interchange = ForceField(FORCE_FIELD).create_interchange(
-        mol.to_topology(), charge_from_molecules=[mol]
+        molecule.to_topology(), charge_from_molecules=[molecule]
     )
     system = interchange.to_openmm_system()
     restraint = openmm.CustomTorsionForce(
@@ -94,8 +98,8 @@ def scan_sage(out: Path) -> None:
         openmm.VerletIntegrator(0.001),
         openmm.Platform.getPlatformByName("Reference"),
     )
-    symbols = [a.symbol for a in mol.atoms]
-    atoms = Atoms(symbols, positions=mol.conformers[0].m_as("angstrom"))
+    symbols = [atom.symbol for atom in molecule.atoms]
+    atoms = Atoms(symbols, positions=molecule.conformers[0].m_as("angstrom"))
     mask = np.zeros(len(atoms), bool)
     mask[moving_atoms(len(atoms))] = True
     frames, rows = [], []
@@ -174,10 +178,8 @@ def flip_statistics(data_dir: Path, runs_dir: Path, out: Path) -> None:
     from ase.io import read
     import pandas as pd
 
-    from liquid_mixtures_inputs.run_sage_benchmark import (
-        EQUILIBRATION_PS,
-        FRAME_EVERY_PS,
-    )
+    from liquid_mixtures_inputs.constants import EQUILIBRATION_PS
+    from liquid_mixtures_inputs.run_sage_benchmark import FRAME_EVERY_PS
 
     rows = []
     for box_path in sorted((data_dir / "boxes").glob("*.xyz")):
@@ -200,23 +202,23 @@ def flip_statistics(data_dir: Path, runs_dir: Path, out: Path) -> None:
             gauche = []
             for frame in frames:
                 states = []
-                for m in range(n_mol):
-                    first = start + m * size
+                for molecule_index in range(n_mol):
+                    first = start + molecule_index * size
                     assert frame[first].symbol == "Cl" == frame[first + 3].symbol
                     angle = frame.get_dihedral(*(first + i for i in DIHEDRAL), mic=True)
                     states.append(abs(((angle + 180) % 360) - 180) < GAUCHE_MAX)
                 gauche.append(states)
             gauche = np.array(gauche)
-            p_g = gauche.mean()
+            gauche_fraction = gauche.mean()
             changed = (gauche[1:] != gauche[:-1]).mean()
-            limit = 2 * p_g * (1 - p_g)
+            limit = 2 * gauche_fraction * (1 - gauche_fraction)
             ratio = changed / limit
             rows.append(
                 {
                     "box_id": info["box_id"],
                     "replicate": path.name.split("_")[0],
                     "n_dce": n_mol,
-                    "gauche_fraction": p_g,
+                    "gauche_fraction": gauche_fraction,
                     "changed_per_frame": changed,
                     "uncorrelated_limit": limit,
                     "tau_ps": -FRAME_EVERY_PS / np.log(1 - ratio)
@@ -225,6 +227,27 @@ def flip_statistics(data_dir: Path, runs_dir: Path, out: Path) -> None:
                 }
             )
     pd.DataFrame(rows).to_csv(out / "dce_flips.csv", index=False)
+
+
+def torsion_summary(table, column: str) -> tuple[float, float]:
+    """
+    Return the gauche minimum and trans-to-gauche barrier of one scan.
+
+    Parameters
+    ----------
+    table
+        ``dce_torsion_scan.csv`` as a data frame (energies relative to trans).
+    column
+        Scan column: ``sage`` or ``mace_off_m``.
+
+    Returns
+    -------
+    tuple[float, float]
+        Gauche energy and barrier height above trans, in kJ/mol.
+    """
+    gauche = table[(table.dihedral > 30) & (table.dihedral < 100)][column].min()
+    barrier = table[(table.dihedral > 90) & (table.dihedral < 160)][column].max()
+    return float(gauche), float(barrier)
 
 
 def plot(out: Path) -> None:
@@ -257,25 +280,8 @@ def plot(out: Path) -> None:
     fig.savefig(out / "figures" / "dce_torsion_scan.png", dpi=110)
     plt.close(fig)
 
-    def summary(column: str) -> tuple[float, float]:
-        """
-        Gauche minimum and trans-to-gauche barrier of one scan.
-
-        Parameters
-        ----------
-        column
-            Scan column.
-
-        Returns
-        -------
-        tuple[float, float]
-            Gauche energy and barrier height above trans, in kJ/mol.
-        """
-        gauche = table[(table.dihedral > 30) & (table.dihedral < 100)][column].min()
-        barrier = table[(table.dihedral > 90) & (table.dihedral < 160)][column].max()
-        return gauche, barrier
-
-    (g_sage, b_sage), (g_ref, b_ref) = summary("sage"), summary("mace_off_m")
+    g_sage, b_sage = torsion_summary(table, "sage")
+    g_ref, b_ref = torsion_summary(table, "mace_off_m")
     slowdown = np.exp((b_sage - b_ref) / RT_KJ_PER_MOL)
     print(f"gauche - trans: Sage {g_sage:.1f}, MACE-OFF23(M) {g_ref:.1f} kJ/mol")
     print(f"barrier above trans: Sage {b_sage:.1f}, MACE-OFF23(M) {b_ref:.1f} kJ/mol")

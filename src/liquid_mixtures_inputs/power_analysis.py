@@ -37,16 +37,21 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from scipy import stats  # noqa: E402
 
+from liquid_mixtures_inputs.constants import (  # noqa: E402
+    EQUILIBRATION_PS,
+    PRODUCTION_PS,
+)
 from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (  # noqa: E402
     mixing_matrix,
     observables,
 )
 from ml_peg.analysis.utils.timeseries import estimate_mean  # noqa: E402
 
-TOTAL_PS = 2200.0
-EQUILIBRATION_PS = (100.0, 200.0)
-PRODUCTION_PS = (250.0, 500.0, 1000.0, 1500.0, 2000.0)
-REFERENCE = (200.0, 2000.0)  # the benchmark protocol
+REFERENCE = (EQUILIBRATION_PS, PRODUCTION_PS)  # the benchmark protocol
+TOTAL_PS = EQUILIBRATION_PS + PRODUCTION_PS
+# Every Sage run is re-analysed for each pair of these lengths.
+EQUILIBRATION_LENGTHS_PS = (100.0, 200.0)
+PRODUCTION_LENGTHS_PS = (250.0, 500.0, 1000.0, 1500.0, 2000.0)
 EARLY_WINDOW = (100.0, 100.0)  # 100 to 200 ps, for the equilibration test
 OBSERVABLES = ("h", "density", "v_molar")
 # Two-sided 5 % test with 80 % power
@@ -98,19 +103,26 @@ def truncated_estimates(task: tuple) -> list[dict]:
     if data.time_ps.iloc[-1] < TOTAL_PS - 0.5:
         return []
     rows = []
-    windows = [(eq, prod) for eq in EQUILIBRATION_PS for prod in PRODUCTION_PS]
-    for eq, prod in [*windows, EARLY_WINDOW]:
-        window = data[(data.time_ps > eq) & (data.time_ps <= eq + prod + 1e-6)]
-        for name, y in observables(window, n_molecules).items():
+    windows = [
+        (equilibration, production)
+        for equilibration in EQUILIBRATION_LENGTHS_PS
+        for production in PRODUCTION_LENGTHS_PS
+    ]
+    for equilibration, production in [*windows, EARLY_WINDOW]:
+        window = data[
+            (data.time_ps > equilibration)
+            & (data.time_ps <= equilibration + production + 1e-6)
+        ]
+        for name, series in observables(window, n_molecules).items():
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", RuntimeWarning)
-                estimate = estimate_mean(y)
+                estimate = estimate_mean(series)
             rows.append(
                 {
                     "box_id": box_id,
                     "replicate": replicate,
-                    "equilibration_ps": eq,
-                    "production_ps": prod,
+                    "equilibration_ps": equilibration,
+                    "production_ps": production,
                     "observable": name,
                     "mean": estimate.mean,
                     "sem": estimate.sem,
@@ -184,12 +196,13 @@ def box_noise(truncated: pd.DataFrame) -> pd.DataFrame:
         )
         .reset_index()
     )
-    chi = (noise["n"] - 1) * (noise["sd"] / noise["sem"]) ** 2
+    chi2 = (noise["n"] - 1) * (noise["sd"] / noise["sem"]) ** 2
     pooled = (
-        noise.assign(chi=chi, dof=noise["n"] - 1)
+        noise.assign(chi=chi2, dof=noise["n"] - 1)
         .groupby(keys)
         .apply(
-            lambda g: float(np.sqrt(g.chi.sum() / g.dof.sum())), include_groups=False
+            lambda group: float(np.sqrt(group.chi.sum() / group.dof.sum())),
+            include_groups=False,
         )
         .rename("k")
     )
@@ -229,10 +242,10 @@ def equilibration_shift(truncated: pd.DataFrame) -> pd.DataFrame:
     ].set_index(index)
     shift = (early["mean"] - full["mean"]).dropna()
     rows = []
-    for obs, values in shift.groupby(level="observable"):
+    for observable, values in shift.groupby(level="observable"):
         rows.append(
             {
-                "observable": obs,
+                "observable": observable,
                 "n_runs": len(values),
                 "mean_shift": float(values.mean()),
                 "rms_shift": float(np.sqrt((values**2).mean())),
@@ -381,7 +394,7 @@ def point_sigma(matrix: np.ndarray, sigma_box: np.ndarray) -> np.ndarray:
 
 
 def metric_noise(
-    prop: dict,
+    property_set: dict,
     sigma_box: np.ndarray,
     profile: float,
     rng: np.random.Generator,
@@ -395,7 +408,7 @@ def metric_noise(
 
     Parameters
     ----------
-    prop
+    property_set
         One entry of :func:`metric_sets`.
     sigma_box
         Single-run noise of every box for ``prop["observable"]``.
@@ -414,16 +427,16 @@ def metric_noise(
         are well above the noise) and the resolvable difference between two
         independent models, Z_DETECT·√2·SD.
     """
-    matrix, error = prop["matrix"], profile * prop["error"]
+    matrix, error = property_set["matrix"], profile * property_set["error"]
     noise = (rng.standard_normal((N_DRAWS, len(sigma_box))) * sigma_box) @ matrix.T
-    observed = metric(error + noise, prop["metric"], scale)
-    true = float(metric(error, prop["metric"], scale))
+    observed = metric(error + noise, property_set["metric"], scale)
+    true = float(metric(error, property_set["metric"], scale))
     sd = float(observed.std(ddof=1))
     closed = np.nan
-    if prop["metric"] == "mae" and profile > 0:
+    if property_set["metric"] == "mae" and profile > 0:
         weights = np.sign(error) / (scale if scale is not None else 1.0)
-        cov = matrix @ np.diag(sigma_box**2) @ matrix.T
-        closed = float(np.sqrt(weights @ cov @ weights) / len(error))
+        covariance = matrix @ np.diag(sigma_box**2) @ matrix.T
+        closed = float(np.sqrt(weights @ covariance @ weights) / len(error))
     return {
         "true": true,
         "observed_mean": float(observed.mean()),
@@ -435,14 +448,14 @@ def metric_noise(
 
 
 def system_bootstrap(
-    prop: dict, rng: np.random.Generator, scale: np.ndarray | None = None
+    property_set: dict, rng: np.random.Generator, scale: np.ndarray | None = None
 ) -> float:
     """
     SD of Sage's noiseless metric over resampled systems (cluster bootstrap).
 
     Parameters
     ----------
-    prop
+    property_set
         One entry of :func:`metric_sets`.
     rng
         Random generator.
@@ -454,14 +467,17 @@ def system_bootstrap(
     float
         Bootstrap SD of the metric.
     """
-    labels = prop["system"]
-    clusters = [np.flatnonzero(labels == s) for s in np.unique(labels)]
-    error = prop["error"] if scale is None else prop["error"] / scale
+    labels = property_set["system"]
+    clusters = [np.flatnonzero(labels == system) for system in np.unique(labels)]
+    error = property_set["error"]
+    if scale is not None:
+        error = error / scale
     values = np.empty(N_BOOTSTRAP)
     for i in range(N_BOOTSTRAP):
-        pick = rng.integers(len(clusters), size=len(clusters))
+        picked = rng.integers(len(clusters), size=len(clusters))
         values[i] = metric(
-            np.concatenate([error[clusters[j]] for j in pick]), prop["metric"]
+            np.concatenate([error[clusters[j]] for j in picked]),
+            property_set["metric"],
         )
     return float(values.std(ddof=1))
 
@@ -501,17 +517,17 @@ def allocate(
         free = ~fixed
         shape = np.sqrt(coefficient[free] / n_atoms[free])
         # Σ A/(λ·shape) = remaining  ⇒  λ = Σ (A/shape) / remaining
-        lam = np.sum(coefficient[free] / shape) / remaining
-        t = np.full(len(coefficient), min_ps)
-        t[free] = lam * shape
-        newly = free & (t < min_ps)
-        if not newly.any():
-            return t
-        fixed |= newly
+        multiplier = np.sum(coefficient[free] / shape) / remaining
+        lengths = np.full(len(coefficient), min_ps)
+        lengths[free] = multiplier * shape
+        below_minimum = free & (lengths < min_ps)
+        if not below_minimum.any():
+            return lengths
+        fixed |= below_minimum
 
 
 def sigma_at(
-    noise: pd.DataFrame, box_ids: list[str], obs: str, prod: float
+    noise: pd.DataFrame, box_ids: list[str], observable: str, production: float
 ) -> np.ndarray:
     """
     Single-run noise of every box for one observable and production length.
@@ -522,9 +538,9 @@ def sigma_at(
         Output of :func:`box_noise`.
     box_ids
         Box order.
-    obs
+    observable
         Observable.
-    prod
+    production
         Production length in ps (with the reference equilibration).
 
     Returns
@@ -534,8 +550,8 @@ def sigma_at(
     """
     rows = noise[
         (noise.equilibration_ps == REFERENCE[0])
-        & (noise.production_ps == prod)
-        & (noise.observable == obs)
+        & (noise.production_ps == production)
+        & (noise.observable == observable)
     ].set_index("box_id")
     return rows.sigma.loc[box_ids].to_numpy()
 
@@ -564,87 +580,114 @@ def analyse(
     """
     rng = np.random.default_rng(seed)
     box_ids = sets["box_ids"]
-    props = {k: v for k, v in sets.items() if k != "box_ids"}
-    point_rows, metric_rows, boot_rows = [], [], []
-    for name, prop in props.items():
-        variants = [(prop["metric"].upper(), None)]
-        if prop["sigma_ref"] is not None:
-            variants.append(("MAZE", prop["sigma_ref"]))
+    property_sets = {name: value for name, value in sets.items() if name != "box_ids"}
+    point_rows, metric_rows, bootstrap_rows = [], [], []
+    for name, property_set in property_sets.items():
+        # Every property is scored as a plain metric and, if it has σ_ref, a MAZE.
+        variants = [(property_set["metric"].upper(), None)]
+        if property_set["sigma_ref"] is not None:
+            variants.append(("MAZE", property_set["sigma_ref"]))
         for label, scale in variants:
-            boot_rows.append(
+            bootstrap_rows.append(
                 {
                     "property": name,
                     "metric": label,
-                    "sage": float(metric(prop["error"], prop["metric"], scale)),
-                    "bootstrap_sd": system_bootstrap(prop, rng, scale),
+                    "sage": float(
+                        metric(property_set["error"], property_set["metric"], scale)
+                    ),
+                    "bootstrap_sd": system_bootstrap(property_set, rng, scale),
                 }
             )
-        for prod in PRODUCTION_PS:
-            sigma_box = sigma_at(noise, box_ids, prop["observable"], prod)
-            sigma_sim = point_sigma(prop["matrix"], sigma_box)
-            sigma_tot = np.sqrt(sigma_sim**2 + prop["sigma_exp"] ** 2)
+        for production in PRODUCTION_LENGTHS_PS:
+            sigma_box = sigma_at(noise, box_ids, property_set["observable"], production)
+            sigma_sim = point_sigma(property_set["matrix"], sigma_box)
+            sigma_total = np.sqrt(sigma_sim**2 + property_set["sigma_exp"] ** 2)
             for i in range(len(sigma_sim)):
                 point_rows.append(
                     {
                         "property": name,
                         "point": i,
-                        "system_id": prop["system"][i],
-                        "production_ps": prod,
+                        "system_id": property_set["system"][i],
+                        "production_ps": production,
                         "sigma_sim": sigma_sim[i],
-                        "sigma_exp": prop["sigma_exp"][i],
-                        "mde": Z_DETECT * sigma_tot[i],
-                        "sage_error": prop["error"][i],
+                        "sigma_exp": property_set["sigma_exp"][i],
+                        "mde": Z_DETECT * sigma_total[i],
+                        "sage_error": property_set["error"][i],
                     }
                 )
             for label, scale in variants:
                 for profile in PROFILES:
-                    row = metric_noise(prop, sigma_box, profile, rng, scale)
+                    row = metric_noise(property_set, sigma_box, profile, rng, scale)
                     metric_rows.append(
                         {
                             "property": name,
                             "metric": label,
-                            "production_ps": prod,
+                            "production_ps": production,
                             "profile": profile,
                             **row,
                         }
                     )
+    return {
+        "points": pd.DataFrame(point_rows),
+        "metrics": pd.DataFrame(metric_rows),
+        "bootstrap": pd.DataFrame(bootstrap_rows),
+        "allocation": allocation_table(property_sets, noise, box_ids, n_atoms),
+    }
 
-    # Allocation for ΔHmix MAE, mixture density MAE and pure density MAE together,
-    # each variance normalised by its value for uniform 2 ns runs. With random
-    # error signs, E[(Σ_i s_i M_ib)²] = Σ_i M_ib², so A_b = Σ_i M_ib² c_b / N².
+
+def allocation_table(
+    property_sets: dict, noise: pd.DataFrame, box_ids: list[str], n_atoms: np.ndarray
+) -> pd.DataFrame:
+    """
+    Choose per-box production lengths that keep the noise of uniform 2 ns runs.
+
+    ΔHmix MAE, mixture density MAE and pure density MAE are weighted together,
+    each variance normalised by its value for uniform 2 ns runs. With random
+    error signs, E[(Σ_i s_i M_ib)²] = Σ_i M_ib², so A_b = Σ_i M_ib² c_b / N².
+
+    Parameters
+    ----------
+    property_sets
+        Entries of :func:`metric_sets` by property.
+    noise
+        Output of :func:`box_noise`.
+    box_ids
+        Box order.
+    n_atoms
+        Atoms per box.
+
+    Returns
+    -------
+    pd.DataFrame
+        Weight and production length per box.
+    """
     total = np.zeros(len(box_ids))
     for name in ("hmix", "density", "pure_density"):
-        prop = props[name]
-        c = (
-            sigma_at(noise, box_ids, prop["observable"], REFERENCE[1]) ** 2
+        property_set = property_sets[name]
+        # Single-run variance × run length, which is constant if σ ∝ 1/sqrt(t).
+        variance_times_length = (
+            sigma_at(noise, box_ids, property_set["observable"], REFERENCE[1]) ** 2
             * REFERENCE[1]
         )
-        a = (prop["matrix"] ** 2).sum(axis=0) * c / len(prop["error"]) ** 2
-        total += a / np.sum(a / REFERENCE[1])
+        contribution = (
+            (property_set["matrix"] ** 2).sum(axis=0)
+            * variance_times_length
+            / len(property_set["error"]) ** 2
+        )
+        total += contribution / np.sum(contribution / REFERENCE[1])
     used = total > 0
-    uniform_cost = np.sum(n_atoms * (REFERENCE[0] + REFERENCE[1]))
-    t = np.full(len(box_ids), np.nan)
-    t[used] = allocate(
+    lengths = np.full(len(box_ids), np.nan)
+    lengths[used] = allocate(
         total[used], n_atoms[used], MIN_ALLOCATION_PS, np.sum(total) / REFERENCE[1]
     )
-    allocation = pd.DataFrame(
+    return pd.DataFrame(
         {
             "box_id": box_ids,
             "n_atoms": n_atoms,
             "weight": total,
-            "production_ps": t,
+            "production_ps": lengths,
         }
     )
-    allocation.attrs["uniform_cost"] = uniform_cost
-    allocation.attrs["allocated_cost"] = float(
-        np.nansum(n_atoms[used] * (REFERENCE[0] + t[used]))
-    )
-    return {
-        "points": pd.DataFrame(point_rows),
-        "metrics": pd.DataFrame(metric_rows),
-        "bootstrap": pd.DataFrame(boot_rows),
-        "allocation": allocation,
-    }
 
 
 def box_atoms(data_dir: Path, box_ids: list[str]) -> np.ndarray:
@@ -839,13 +882,13 @@ def plot_resolvable(metrics: pd.DataFrame, bootstrap: pd.DataFrame, path: Path) 
     fig, axes = plt.subplots(2, 2, figsize=(9, 6.4))
     for ax, (prop, label, unit) in zip(axes.flat, panels, strict=True):
         rows = metrics[(metrics.property == prop) & (metrics.metric == label)]
-        t = np.array(PRODUCTION_PS) / 1000
+        t = np.array(PRODUCTION_LENGTHS_PS) / 1000
         band = rows.groupby("production_ps").resolvable.agg(["min", "max"])
         ax.fill_between(t, band["min"], band["max"], color=COLORS[0], alpha=0.2, lw=0)
         sage = rows[rows.profile == 1.0].set_index("production_ps").resolvable
         ax.plot(
             t,
-            sage.loc[list(PRODUCTION_PS)],
+            sage.loc[list(PRODUCTION_LENGTHS_PS)],
             "o-",
             color=COLORS[0],
             lw=2,
@@ -863,7 +906,7 @@ def plot_resolvable(metrics: pd.DataFrame, bootstrap: pd.DataFrame, path: Path) 
         floor = rows[rows.profile == 0.0].set_index("production_ps").observed_mean
         ax.plot(
             t,
-            floor.loc[list(PRODUCTION_PS)],
+            floor.loc[list(PRODUCTION_LENGTHS_PS)],
             "s:",
             color=COLORS[2],
             lw=2,
@@ -1071,7 +1114,7 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
     d_sd = m("density", "MAE", ref, 1.0, "sd")
     d_boot = float(boot.loc[("density", "MAE"), "bootstrap_sd"])
     total_atoms = float(n_atoms.sum())
-    cost = {p: total_atoms * (REFERENCE[0] + p) for p in PRODUCTION_PS}
+    cost = {p: total_atoms * (REFERENCE[0] + p) for p in PRODUCTION_LENGTHS_PS}
     alloc_cost = float(
         np.nansum(allocation.n_atoms * (REFERENCE[0] + allocation.production_ps))
     )
@@ -1163,7 +1206,8 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "1. **Run length.** Every Sage run is re-analysed with the benchmark's "
         "estimator "
         "(`mixing.observables` and `timeseries.estimate_mean`, as in `summarise-sage`) "
-        f"keeping {', '.join(f'{p / 1000:g}' for p in PRODUCTION_PS)} ns of production "
+        "keeping "
+        f"{', '.join(f'{p / 1000:g}' for p in PRODUCTION_LENGTHS_PS)} ns of production "
         "after "
         "0.2 ns of equilibration. The 2 ns analysis reproduces `runs.csv` exactly "
         "(tested).",
@@ -1218,7 +1262,7 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "",
     ]
     rows = []
-    for p in PRODUCTION_PS:
+    for p in PRODUCTION_LENGTHS_PS:
         rows.append(
             [
                 f"{p / 1000:g}",
@@ -1380,7 +1424,7 @@ def write_report(out: Path, noise, equilibration, results, n_atoms) -> None:
         "",
     ]
     rows = []
-    for p in PRODUCTION_PS:
+    for p in PRODUCTION_LENGTHS_PS:
         rows.append(
             [
                 f"0.2 + {p / 1000:g}",

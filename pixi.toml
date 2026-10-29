@@ -36,6 +36,9 @@ matplotlib-base = "*"
 [feature.openff.tasks]
 build-boxes = "python -m liquid_mixtures_inputs.build_boxes"
 run-sage = "python -m liquid_mixtures_inputs.run_sage_benchmark"
+# One step per call: sage, flips or plot (the mace step needs the ml-peg venv;
+# see the module docstring).
+dce-scan = "python -m liquid_mixtures_inputs.dce_torsion_scan"
 
 # ml-peg's binary_mixtures analysis code (branch add-liquid-mixture-properties)
 # is not on GitHub yet, so it is installed from a local checkout next to this

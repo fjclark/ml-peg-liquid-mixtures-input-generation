@@ -38,7 +38,7 @@ class Measurement:
     ----------
     doi
         DOI of the source paper.
-    prop
+    property_name
         Short property name: ``density``, ``hmix`` or ``vex``.
     smiles
         Canonical SMILES of each component, in record order.
@@ -55,7 +55,7 @@ class Measurement:
     """
 
     doi: str
-    prop: str
+    property_name: str
     smiles: tuple[str, ...]
     mole_fractions: tuple[float, ...]
     temperature: float
@@ -106,6 +106,30 @@ def mol_from_inchi(inchi: str) -> Chem.Mol | None:
     return mol
 
 
+def download(url: str, path: Path) -> Path:
+    """
+    Download a file once and cache it.
+
+    Parameters
+    ----------
+    url
+        URL to download.
+    path
+        Local cache path.
+
+    Returns
+    -------
+    Path
+        Path to the cached file.
+    """
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        request = urllib.request.Request(url, headers={"User-Agent": "ml-peg"})
+        with urllib.request.urlopen(request, timeout=120) as response:
+            path.write_bytes(response.read())
+    return path
+
+
 def fetch_record(doi: str, cache_dir: Path) -> dict:
     """
     Download (or read from cache) the ThermoML JSON record for a DOI.
@@ -123,14 +147,7 @@ def fetch_record(doi: str, cache_dir: Path) -> dict:
         Parsed JSON record.
     """
     path = cache_dir / f"{doi.replace('/', '_')}.json"
-    if not path.exists():
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        request = urllib.request.Request(
-            THERMOML_URL.format(doi=doi), headers={"User-Agent": "ml-peg"}
-        )
-        with urllib.request.urlopen(request, timeout=60) as resp:
-            path.write_bytes(resp.read())
-    return json.loads(path.read_text())
+    return json.loads(download(THERMOML_URL.format(doi=doi), path).read_text())
 
 
 def _standard_uncertainty(container: dict) -> float | None:
@@ -151,27 +168,27 @@ def _standard_uncertainty(container: dict) -> float | None:
         Standard uncertainty in ThermoML units, or ``None`` if absent.
     """
     for key in ("CombinedUncertainty", "PropUncertainty"):
-        unc = container.get(key)
-        if isinstance(unc, list):
-            unc = unc[0] if unc else None
-        if not unc:
+        uncertainty = container.get(key)
+        if isinstance(uncertainty, list):
+            uncertainty = uncertainty[0] if uncertainty else None
+        if not uncertainty:
             continue
-        for std_key in ("nCombStdUncertValue", "nStdUncertValue"):
-            if std_key in unc:
-                return float(unc[std_key])
-        for exp_key in ("nCombExpandUncertValue", "nExpandUncertValue"):
-            if exp_key in unc:
-                return float(unc[exp_key]) / 2.0
+        for standard_key in ("nCombStdUncertValue", "nStdUncertValue"):
+            if standard_key in uncertainty:
+                return float(uncertainty[standard_key])
+        for expanded_key in ("nCombExpandUncertValue", "nExpandUncertValue"):
+            if expanded_key in uncertainty:
+                return float(uncertainty[expanded_key]) / 2.0
     return None
 
 
-def _property_name(prop: dict) -> str | None:
+def _property_name(property_entry: dict) -> str | None:
     """
     Return the ThermoML property name of a ``Property`` entry.
 
     Parameters
     ----------
-    prop
+    property_entry
         ``Property`` entry of a ``PureOrMixtureData`` block.
 
     Returns
@@ -179,7 +196,7 @@ def _property_name(prop: dict) -> str | None:
     str | None
         The ``ePropName`` string, or ``None`` if it cannot be found.
     """
-    group = prop["Property-MethodID"]["PropertyGroup"]
+    group = property_entry["Property-MethodID"]["PropertyGroup"]
     for value in group.values():
         if isinstance(value, dict) and "ePropName" in value:
             return value["ePropName"]
@@ -207,17 +224,18 @@ def _parse_state(entries: list[dict], values: dict[int, float], org_to_smiles):
     temperature = pressure = None
     fractions: dict[str, float] = {}
     for entry in entries:
-        ident = entry.get("VariableID") or entry.get("ConstraintID")
+        identifier = entry.get("VariableID") or entry.get("ConstraintID")
         number = entry.get("nVarNumber", entry.get("nConstraintNumber"))
         if number not in values:
             continue
-        kind = ident.get("VariableType") or ident.get("ConstraintType")
+        kind = identifier.get("VariableType") or identifier.get("ConstraintType")
         if "eTemperature" in kind:
             temperature = values[number]
         elif "ePressure" in kind:
             pressure = values[number]
         elif kind.get("eComponentComposition") == "Mole fraction":
-            fractions[org_to_smiles[ident["RegNum"]["nOrgNum"]]] = values[number]
+            compound = identifier["RegNum"]["nOrgNum"]
+            fractions[org_to_smiles[compound]] = values[number]
     return temperature, pressure, fractions
 
 
@@ -245,41 +263,46 @@ def parse_record(doi: str, record: dict) -> list[Measurement]:
 
     measurements = []
     for block in record.get("PureOrMixtureData", []):
-        orgs = [c["RegNum"]["nOrgNum"] for c in block["Component"]]
+        compounds = [c["RegNum"]["nOrgNum"] for c in block["Component"]]
         phases = {p["ePhase"] for p in block.get("PhaseID", [])}
         if (
             phases != {"Liquid"}
-            or len(orgs) > 2
-            or any(o not in org_to_smiles for o in orgs)
+            or len(compounds) > 2
+            or any(c not in org_to_smiles for c in compounds)
         ):
             continue
-        smiles = tuple(org_to_smiles[o] for o in orgs)
-        props = {}
-        for prop in block["Property"]:
-            name = _property_name(prop)
+        smiles = tuple(org_to_smiles[c] for c in compounds)
+        # ThermoML property number -> (our property name, unit factor)
+        wanted = {}
+        for property_entry in block["Property"]:
+            name = _property_name(property_entry)
             if name in PROPERTIES:
-                props[prop["nPropNumber"]] = PROPERTIES[name]
-        if not props:
+                wanted[property_entry["nPropNumber"]] = PROPERTIES[name]
+        if not wanted:
             continue
 
+        # The state is set by constraints (fixed for the block) and variables
+        # (per row); a variable overrides a constraint.
         constraint_values = {
             c["nConstraintNumber"]: float(c["nConstraintValue"])
             for c in block.get("Constraint", [])
         }
-        t_c, p_c, x_c = _parse_state(
+        fixed_temperature, fixed_pressure, fixed_fractions = _parse_state(
             block.get("Constraint", []), constraint_values, org_to_smiles
         )
         for row in block["NumValues"]:
-            var_values = {
+            variable_values = {
                 v["nVarNumber"]: float(v["nVarValue"])
                 for v in row.get("VariableValue", [])
             }
-            t_v, p_v, x_v = _parse_state(
-                block.get("Variable", []), var_values, org_to_smiles
+            row_temperature, row_pressure, row_fractions = _parse_state(
+                block.get("Variable", []), variable_values, org_to_smiles
             )
-            temperature = t_v if t_v is not None else t_c
-            pressure = p_v if p_v is not None else p_c
-            fractions = {**x_c, **x_v}
+            temperature = (
+                row_temperature if row_temperature is not None else fixed_temperature
+            )
+            pressure = row_pressure if row_pressure is not None else fixed_pressure
+            fractions = {**fixed_fractions, **row_fractions}
             if temperature is None:
                 continue
             if len(smiles) == 1:
@@ -290,21 +313,23 @@ def parse_record(doi: str, record: dict) -> list[Measurement]:
                 fractions[other] = 1.0 - x
             if set(fractions) != set(smiles):
                 continue
-            for pv in row["PropertyValue"]:
-                if pv["nPropNumber"] not in props:
+            for property_value in row["PropertyValue"]:
+                if property_value["nPropNumber"] not in wanted:
                     continue
-                prop, factor = props[pv["nPropNumber"]]
-                unc = _standard_uncertainty(pv)
+                property_name, factor = wanted[property_value["nPropNumber"]]
+                uncertainty = _standard_uncertainty(property_value)
                 measurements.append(
                     Measurement(
                         doi=doi,
-                        prop=prop,
+                        property_name=property_name,
                         smiles=smiles,
                         mole_fractions=tuple(fractions[s] for s in smiles),
                         temperature=temperature,
                         pressure=pressure,
-                        value=float(pv["nPropValue"]) * factor,
-                        uncertainty=None if unc is None else unc * factor,
+                        value=float(property_value["nPropValue"]) * factor,
+                        uncertainty=None
+                        if uncertainty is None
+                        else uncertainty * factor,
                     )
                 )
     return measurements

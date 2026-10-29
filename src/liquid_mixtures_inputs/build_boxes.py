@@ -7,14 +7,17 @@ Run in the ``openff`` pixi environment (the OpenFF stack is conda-only)::
 
 Each box is packed with packmol at the experimental density, parametrised with
 openff-2.3.0 (NAGL AM1-BCC charges, TIP3P water from the force field library
-charges), minimised and run for 500 ps NVT at the experimental density.
+charges), minimised, annealed from 450 K to the target temperature over 1.6 ns
+and run for 500 ps NVT at the experimental density. Every molecule starts from
+the lowest-MMFF-energy of 10 ETKDG conformers. See DECISIONS.md (box build) for
+why the anneal is needed.
 """
 
 from __future__ import annotations
 
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import json
 import logging
 import multiprocessing
@@ -34,11 +37,12 @@ import pandas as pd
 from rdkit.Chem import AllChem
 import yaml
 
+from liquid_mixtures_inputs.constants import AVOGADRO
+
 HERE = Path(__file__).parent
 FORCE_FIELD = "openff-2.3.0.offxml"
 NAGL_MODEL = "openff-gnn-am1bcc-1.0.0.pt"
 WATER = "O"
-AVOGADRO = 6.02214076e23
 PACK_TOLERANCE = 2.0  # Angstrom
 TIMESTEP_FS = 2.0
 FRICTION_PER_PS = 1.0
@@ -90,10 +94,9 @@ class BoxSpec:
     density_source: str
     system_id: str = ""
     x: float = 1.0
-    extra: dict = field(default_factory=dict)
 
 
-def _slug(name: str) -> str:
+def file_slug(name: str) -> str:
     """
     Turn a molecule name into a file-name-safe slug.
 
@@ -107,8 +110,8 @@ def _slug(name: str) -> str:
     str
         Lower-case slug.
     """
-    keep = [c if c.isalnum() else "_" for c in name.lower()]
-    return "_".join(filter(None, "".join(keep).split("_")))
+    characters = [c if c.isalnum() else "_" for c in name.lower()]
+    return "_".join(part for part in "".join(characters).split("_") if part)
 
 
 def molar_mass(smiles: str) -> float:
@@ -125,8 +128,8 @@ def molar_mass(smiles: str) -> float:
     float
         Molar mass.
     """
-    mol = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
-    return sum(a.mass.m_as("dalton") for a in mol.atoms)
+    molecule = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
+    return sum(atom.mass.m_as("dalton") for atom in molecule.atoms)
 
 
 def load_specs(selection_dir: Path, selection_yml: Path) -> list[BoxSpec]:
@@ -163,13 +166,13 @@ def load_specs(selection_dir: Path, selection_yml: Path) -> list[BoxSpec]:
         if pd.isna(density):
             # Ideal mixing from the pure densities (V^E is small next to the
             # equilibration tolerance; NPT finds the model's own density anyway).
-            t = round(row.temperature, 2)
-            m_a, m_b = molar_mass(row.a), molar_mass(row.b)
-            v_ideal = (
-                row.x_box * m_a / pure_density[(row.a, t)]
-                + (1 - row.x_box) * m_b / pure_density[(row.b, t)]
+            temperature = round(row.temperature, 2)
+            mass_a, mass_b = molar_mass(row.a), molar_mass(row.b)
+            ideal_volume = (
+                row.x_box * mass_a / pure_density[(row.a, temperature)]
+                + (1 - row.x_box) * mass_b / pure_density[(row.b, temperature)]
             )
-            density = (row.x_box * m_a + (1 - row.x_box) * m_b) / v_ideal
+            density = (row.x_box * mass_a + (1 - row.x_box) * mass_b) / ideal_volume
             source = "ideal mixing of pure densities (no mixture density data)"
         specs.append(
             BoxSpec(
@@ -187,7 +190,7 @@ def load_specs(selection_dir: Path, selection_yml: Path) -> list[BoxSpec]:
     for row in pure.itertuples():
         specs.append(
             BoxSpec(
-                box_id=f"pure_{_slug(names[row.smiles])}_{round(row.temperature)}",
+                box_id=f"pure_{file_slug(names[row.smiles])}_{round(row.temperature)}",
                 kind="pure",
                 smiles=[row.smiles],
                 counts=[int(row.n_molecules)],
@@ -199,7 +202,7 @@ def load_specs(selection_dir: Path, selection_yml: Path) -> list[BoxSpec]:
     return specs
 
 
-def set_low_energy_conformer(mol: Molecule, n_conformers: int = 10) -> None:
+def set_low_energy_conformer(molecule: Molecule, n_conformers: int = 10) -> None:
     """
     Keep the lowest-energy of several conformers as the molecule's only conformer.
 
@@ -210,19 +213,20 @@ def set_low_energy_conformer(mol: Molecule, n_conformers: int = 10) -> None:
 
     Parameters
     ----------
-    mol
+    molecule
         Molecule, modified in place.
     n_conformers
         Number of ETKDG conformers to compare after MMFF minimisation. They
         are embedded with RDKit directly, because ``generate_conformers``
         prunes by RMSD and returns a single conformer for small molecules.
     """
-    rdmol = mol.to_rdkit()
-    AllChem.EmbedMultipleConfs(rdmol, n_conformers, randomSeed=1)
-    energies = [e for _, e in AllChem.MMFFOptimizeMoleculeConfs(rdmol, maxIters=5000)]
-    best = rdmol.GetConformer(int(np.argmin(energies))).GetPositions()
-    mol._conformers = None
-    mol.add_conformer(Quantity(best, "angstrom"))
+    rdkit_molecule = molecule.to_rdkit()
+    AllChem.EmbedMultipleConfs(rdkit_molecule, n_conformers, randomSeed=1)
+    results = AllChem.MMFFOptimizeMoleculeConfs(rdkit_molecule, maxIters=5000)
+    energies = [energy for _, energy in results]
+    best = rdkit_molecule.GetConformer(int(np.argmin(energies))).GetPositions()
+    molecule._conformers = None
+    molecule.add_conformer(Quantity(best, "angstrom"))
 
 
 def prepare_molecule(smiles: str) -> Molecule:
@@ -239,11 +243,12 @@ def prepare_molecule(smiles: str) -> Molecule:
     Molecule
         OpenFF molecule.
     """
-    mol = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
-    set_low_energy_conformer(mol)
+    molecule = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
+    set_low_energy_conformer(molecule)
+    # Water takes the force field's TIP3P library charges instead.
     if smiles != WATER:
-        mol.assign_partial_charges(NAGL_MODEL)
-    return mol
+        molecule.assign_partial_charges(NAGL_MODEL)
+    return molecule
 
 
 def box_edge(spec: BoxSpec) -> float:
@@ -289,8 +294,8 @@ def pack(molecules: list[Molecule], counts: list[int], edge: float, seed: int):
     if packmol is None:
         raise RuntimeError("packmol not found; run inside the pixi environment")
     margin = PACK_TOLERANCE / 2
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp = Path(tmp)
+    with tempfile.TemporaryDirectory() as temporary:
+        work_dir = Path(temporary)
         lines = [
             f"tolerance {PACK_TOLERANCE}",
             "filetype xyz",
@@ -298,32 +303,33 @@ def pack(molecules: list[Molecule], counts: list[int], edge: float, seed: int):
             f"seed {seed}",
             "nloop 400",
         ]
-        for i, (mol, n) in enumerate(zip(molecules, counts, strict=True)):
-            xyz = mol.conformers[0].m_as("angstrom")
-            symbols = [a.symbol for a in mol.atoms]
+        low, high = margin, edge - margin
+        for i, (molecule, count) in enumerate(zip(molecules, counts, strict=True)):
+            xyz = molecule.conformers[0].m_as("angstrom")
+            symbols = [atom.symbol for atom in molecule.atoms]
             body = "\n".join(
-                f"{s} {x:.4f} {y:.4f} {z:.4f}"
-                for s, (x, y, z) in zip(symbols, xyz, strict=True)
+                f"{symbol} {x:.4f} {y:.4f} {z:.4f}"
+                for symbol, (x, y, z) in zip(symbols, xyz, strict=True)
             )
-            (tmp / f"mol{i}.xyz").write_text(f"{len(symbols)}\nmol{i}\n{body}\n")
-            lo, hi = margin, edge - margin
+            (work_dir / f"mol{i}.xyz").write_text(f"{len(symbols)}\nmol{i}\n{body}\n")
             lines += [
                 f"structure mol{i}.xyz",
-                f"  number {n}",
-                f"  inside box {lo:.3f} {lo:.3f} {lo:.3f} {hi:.3f} {hi:.3f} {hi:.3f}",
+                f"  number {count}",
+                f"  inside box {low:.3f} {low:.3f} {low:.3f} "
+                f"{high:.3f} {high:.3f} {high:.3f}",
                 "end structure",
             ]
-        (tmp / "pack.inp").write_text("\n".join(lines) + "\n")
-        with open(tmp / "pack.inp") as stdin:
+        (work_dir / "pack.inp").write_text("\n".join(lines) + "\n")
+        with open(work_dir / "pack.inp") as stdin:
             result = subprocess.run(
-                [packmol], stdin=stdin, cwd=tmp, capture_output=True, text=True
+                [packmol], stdin=stdin, cwd=work_dir, capture_output=True, text=True
             )
-        out = tmp / "packed.xyz"
-        if not out.exists():
+        packed = work_dir / "packed.xyz"
+        if not packed.exists():
             raise RuntimeError(f"packmol failed:\n{result.stdout[-2000:]}")
         if "Success!" not in result.stdout:
             LOGGER.warning("packmol did not reach full convergence; minimising anyway")
-        return read(out).get_positions()
+        return read(packed).get_positions()
 
 
 def make_simulation(
@@ -365,8 +371,12 @@ def make_simulation(
     """
     from openmm import app
 
-    mols = [m for m, n in zip(molecules, counts, strict=True) for _ in range(n)]
-    topology = Topology.from_molecules(mols)
+    copies = [
+        molecule
+        for molecule, count in zip(molecules, counts, strict=True)
+        for _ in range(count)
+    ]
+    topology = Topology.from_molecules(copies)
     cell = np.diag([edge] * 3) if np.ndim(edge) == 0 else np.asarray(edge)
     topology.box_vectors = Quantity(cell, "angstrom")
     force_field = ForceField(FORCE_FIELD)
@@ -428,8 +438,8 @@ def equilibrate_nvt(simulation, temperature: float, seed: int) -> None:
     integrator.setStepSize(1.0 * unit.femtosecond)
     simulation.step(round(WARMUP_PS * 1000))
     integrator.setStepSize(TIMESTEP_FS * unit.femtosecond)
-    for t in np.linspace(ANNEAL_T_HOT, temperature, ANNEAL_STEPS):
-        integrator.setTemperature(t * unit.kelvin)
+    for anneal_temperature in np.linspace(ANNEAL_T_HOT, temperature, ANNEAL_STEPS):
+        integrator.setTemperature(anneal_temperature * unit.kelvin)
         simulation.step(round(ANNEAL_STEP_PS * 1000 / TIMESTEP_FS))
     integrator.setTemperature(temperature * unit.kelvin)
     simulation.step(round(NVT_PS * 1000 / TIMESTEP_FS))
@@ -457,18 +467,17 @@ def whole_molecule_positions(
     np.ndarray
         Coordinates with whole molecules.
     """
-    out = positions.copy()
+    whole = positions.copy()
     start = 0
-    for n, size in zip(counts, sizes, strict=True):
-        for _ in range(n):
-            mol = out[start : start + size]
-            ref = mol[0]
-            mol -= edge * np.round((mol - ref) / edge)
-            centre = mol.mean(axis=0)
-            mol -= edge * np.floor(centre / edge)
-            out[start : start + size] = mol
+    for count, size in zip(counts, sizes, strict=True):
+        for _ in range(count):
+            molecule = whole[start : start + size]
+            # Unwrap every atom next to the first, then wrap the centre into the box.
+            molecule -= edge * np.round((molecule - molecule[0]) / edge)
+            molecule -= edge * np.floor(molecule.mean(axis=0) / edge)
+            whole[start : start + size] = molecule
             start += size
-    return out
+    return whole
 
 
 def build_box(
@@ -494,9 +503,9 @@ def build_box(
         The equilibrated structure and the molecules used.
     """
     molecules = molecules or [prepare_molecule(s) for s in spec.smiles]
-    for mol in molecules:
-        if not mol.n_conformers:
-            set_low_energy_conformer(mol)
+    for molecule in molecules:
+        if not molecule.n_conformers:
+            set_low_energy_conformer(molecule)
     edge = box_edge(spec)
     positions = pack(molecules, spec.counts, edge, seed)
     simulation, _ = make_simulation(
@@ -505,13 +514,13 @@ def build_box(
     equilibrate_nvt(simulation, spec.temperature, seed)
     state = simulation.context.getState(getPositions=True)
     final = state.getPositions(asNumpy=True).value_in_unit(unit.angstrom)
-    sizes = [m.n_atoms for m in molecules]
+    sizes = [molecule.n_atoms for molecule in molecules]
     final = whole_molecule_positions(np.asarray(final), spec.counts, sizes, edge)
     symbols = [
-        a.symbol
-        for m, n in zip(molecules, spec.counts, strict=True)
-        for _ in range(n)
-        for a in m.atoms
+        atom.symbol
+        for molecule, count in zip(molecules, spec.counts, strict=True)
+        for _ in range(count)
+        for atom in molecule.atoms
     ]
     atoms = Atoms(symbols, positions=final, cell=[edge] * 3, pbc=True)
     atoms.info.update(box_info(spec, molecules, seed))
@@ -551,14 +560,13 @@ def box_info(spec: BoxSpec, molecules: list[Molecule], seed: int) -> dict:
         "seed": seed,
         "builder": f"{FORCE_FIELD} {NAGL_MODEL} packmol NVT {NVT_PS:g} ps",
     }
-    for i, (smiles, n, mol) in enumerate(
-        zip(spec.smiles, spec.counts, molecules, strict=True)
+    for key, smiles, count, molecule in zip(
+        "ab", spec.smiles, spec.counts, molecules, strict=False
     ):
-        key = "ab"[i]
         info[f"smiles_{key}"] = smiles
-        info[f"n_{key}"] = int(n)
-        info[f"n_atoms_{key}"] = mol.n_atoms
-        info[f"mapped_smiles_{key}"] = mol.to_smiles(mapped=True)
+        info[f"n_{key}"] = int(count)
+        info[f"n_atoms_{key}"] = molecule.n_atoms
+        info[f"mapped_smiles_{key}"] = molecule.to_smiles(mapped=True)
     return info
 
 
@@ -578,12 +586,12 @@ def molecules_from_info(info: dict) -> tuple[list[Molecule], list[int]]:
     """
     molecules, counts = [], []
     for key in "ab"[: int(info["n_components"])]:
-        mol = Molecule.from_mapped_smiles(
+        molecule = Molecule.from_mapped_smiles(
             info[f"mapped_smiles_{key}"], allow_undefined_stereo=True
         )
         if info[f"smiles_{key}"] != WATER:
-            mol.assign_partial_charges(NAGL_MODEL)
-        molecules.append(mol)
+            molecule.assign_partial_charges(NAGL_MODEL)
+        molecules.append(molecule)
         counts.append(int(info[f"n_{key}"]))
     return molecules, counts
 
@@ -609,9 +617,11 @@ def _build_and_write(spec: BoxSpec, seed: int, platform: str, box_dir: Path) -> 
         Number of atoms in the box.
     """
     atoms, _ = build_box(spec, seed, platform)
-    tmp = box_dir / f".{spec.box_id}.xyz"
-    write(tmp, atoms, format="extxyz")
-    tmp.rename(box_dir / f"{spec.box_id}.xyz")
+    # Write to a hidden file first, so an interrupted build is never mistaken
+    # for a finished box.
+    partial = box_dir / f".{spec.box_id}.xyz"
+    write(partial, atoms, format="extxyz")
+    partial.rename(box_dir / f"{spec.box_id}.xyz")
     return len(atoms)
 
 
@@ -635,17 +645,20 @@ def main() -> None:
         shutil.copy(args.selection_dir / name, args.output_dir / name)
     pd.DataFrame(
         [
-            vars(s)
-            | {"smiles": ";".join(s.smiles), "counts": ";".join(map(str, s.counts))}
-            for s in specs
+            vars(spec)
+            | {
+                "smiles": ";".join(spec.smiles),
+                "counts": ";".join(map(str, spec.counts)),
+            }
+            for spec in specs
         ]
-    ).drop(columns="extra").to_csv(args.output_dir / "boxes.csv", index=False)
+    ).to_csv(args.output_dir / "boxes.csv", index=False)
 
     todo = [
-        s
-        for s in specs
-        if (not args.box_id or s.box_id in args.box_id)
-        and not (box_dir / f"{s.box_id}.xyz").exists()
+        spec
+        for spec in specs
+        if (not args.box_id or spec.box_id in args.box_id)
+        and not (box_dir / f"{spec.box_id}.xyz").exists()
     ]
     LOGGER.info("%d boxes to build with %d workers", len(todo), args.workers)
     context = multiprocessing.get_context("spawn")

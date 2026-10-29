@@ -33,6 +33,12 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from scipy import stats  # noqa: E402
 
+from liquid_mixtures_inputs.constants import (  # noqa: E402
+    AVOGADRO,
+    EQUILIBRATION_PS,
+    KJ_PER_MOL_PER_EV,
+    PRODUCTION_PS,
+)
 from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (  # noqa: E402
     MIN_N_EFF,
     N_BLOCKS,
@@ -43,8 +49,8 @@ from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (  # noqa:
     read_production,
 )
 
-EQUILIBRATION_PS = 200.0
-PRODUCTION_PS = 2000.0
+# Family-wise significance level for every test in this summary (Holm-adjusted
+# per box and per point, Bonferroni over the pooled tests).
 FLAG_P = 0.05
 START_T = 4.0  # |t| above which replicate 0 is reported as start-dependent
 # Sage 2.3.0rc2, benchmarked under its fit name. Its bonded, vdW and library-charge
@@ -58,7 +64,8 @@ PUBLISHED_FF_URL = (
 )
 PUBLISHED_X_TOLERANCE = 0.02
 # Systems whose σ_Sage is set to the floor: their replicate spread comes from a
-# Sage artefact that a model need not share (see the report's last section).
+# Sage artefact that a model need not share (the slow Cl-C-C-Cl torsion of
+# 1,2-dichloroethane; see DECISIONS.md).
 SIGMA_SAGE_AT_FLOOR = {"nmp_dichloroethane"}
 # Thresholds for the "systems to inspect" summary
 SIZE_GAP = {"hmix": 0.15, "density": 0.002}  # kJ/mol, g/mL
@@ -83,14 +90,16 @@ def load_run(task: tuple) -> dict | None:
         One row of per-run statistics, or ``None`` if the run is incomplete.
     """
     box, box_path, csv_path = task
-    prod = read_production(csv_path, EQUILIBRATION_PS, EQUILIBRATION_PS + PRODUCTION_PS)
-    if prod is None:
+    production = read_production(
+        csv_path, EQUILIBRATION_PS, EQUILIBRATION_PS + PRODUCTION_PS
+    )
+    if production is None:
         return None
     reference = read(box_path)
-    n_mol = int(reference.info["n_molecules"])
+    n_molecules = int(reference.info["n_molecules"])
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
-        result = box_result(prod, n_mol)
+        result = box_result(production, n_molecules)
     row = {
         "box_id": box["box_id"],
         "replicate": int(csv_path.stem[3:]),
@@ -99,9 +108,9 @@ def load_run(task: tuple) -> dict | None:
         "smiles": box["smiles"],
         "temperature": box["temperature"],
         "x": box["x"],
-        "n_molecules": n_mol,
+        "n_molecules": n_molecules,
         "run_ps": result.run_ps,
-        "mean_T": float(prod.temperature_K.mean()),
+        "mean_T": float(production.temperature_K.mean()),
     }
     for name, estimate in result.estimates.items():
         row[f"{name}_mean"] = estimate.mean
@@ -111,18 +120,20 @@ def load_run(task: tuple) -> dict | None:
         row[f"{name}_p_drift"] = result.p_drift[name]
         row[f"{name}_p_half"] = result.p_half[name]
         row[f"{name}_block_ratio"] = result.block_ratio[name]
-    t = prod.time_ps
-    first = prod.density_g_cm3[t < EQUILIBRATION_PS + 200].mean()
-    rest = prod.density_g_cm3[t >= EQUILIBRATION_PS + 200].mean()
+    # First 200 ps block of production against the rest: a sign that the
+    # density was still relaxing after equilibration.
+    time = production.time_ps
+    first = production.density_g_cm3[time < EQUILIBRATION_PS + 200].mean()
+    rest = production.density_g_cm3[time >= EQUILIBRATION_PS + 200].mean()
     row["density_first_block_shift"] = float(first - rest)
 
     frames_path = csv_path.with_name(f"{csv_path.stem}_frames.xyz")
     row["reacted"], row["like_fraction"] = np.nan, np.nan
     if frames_path.exists():
         frames = [
-            f
-            for f in read(frames_path, ":")
-            if f.info["time_ps"] >= EQUILIBRATION_PS - 1e-6
+            frame
+            for frame in read(frames_path, ":")
+            if frame.info["time_ps"] >= EQUILIBRATION_PS - 1e-6
         ]
         reacted, fraction = frame_checks(frames, reference, box["kind"] == "mixture")
         row["reacted"], row["like_fraction"] = reacted, fraction
@@ -178,38 +189,39 @@ def mixture_points(runs: pd.DataFrame, systems: pd.DataFrame) -> pd.DataFrame:
     """
     pure = runs[runs.kind == "pure"].set_index(["smiles", "temperature", "replicate"])
     rows = []
-    for exp in systems.itertuples():
-        box_id = mixture_box_id(exp.system_id, exp.x_box)
+    for experiment in systems.itertuples():
+        box_id = mixture_box_id(experiment.system_id, experiment.x_box)
         for run in runs[runs.box_id == box_id].itertuples():
             try:
-                a = pure.loc[(exp.a, run.temperature, run.replicate)]
-                b = pure.loc[(exp.b, run.temperature, run.replicate)]
+                a = pure.loc[(experiment.a, run.temperature, run.replicate)]
+                b = pure.loc[(experiment.b, run.temperature, run.replicate)]
             except KeyError:
                 continue
             x = run.x
             point = {
-                "system_id": exp.system_id,
+                "system_id": experiment.system_id,
                 "box_id": box_id,
                 "replicate": run.replicate,
                 "x": x,
                 "density": run.density_mean,
                 "density_sigma_run": run.density_sigma,
-                "hmix_exp": exp.hmix_exp,
-                "hmix_exp_sigma": exp.hmix_sigma,
-                "density_exp": exp.density_exp,
-                "density_exp_sigma": exp.density_sigma,
-                "vex_exp": exp.vex_exp,
+                "hmix_exp": experiment.hmix_exp,
+                "hmix_exp_sigma": experiment.hmix_sigma,
+                "density_exp": experiment.density_exp,
+                "density_exp_sigma": experiment.density_sigma,
+                "vex_exp": experiment.vex_exp,
             }
-            for name, obs in (("hmix", "h"), ("vex", "v_molar")):
+            # Excess property = mixture - x·pure a - (1 - x)·pure b, per molecule.
+            for name, observable in (("hmix", "h"), ("vex", "v_molar")):
                 point[name] = (
-                    getattr(run, f"{obs}_mean")
-                    - x * a[f"{obs}_mean"]
-                    - (1 - x) * b[f"{obs}_mean"]
+                    getattr(run, f"{observable}_mean")
+                    - x * a[f"{observable}_mean"]
+                    - (1 - x) * b[f"{observable}_mean"]
                 )
                 point[f"{name}_sigma_run"] = np.sqrt(
-                    getattr(run, f"{obs}_sigma") ** 2
-                    + (x * a[f"{obs}_sigma"]) ** 2
-                    + ((1 - x) * b[f"{obs}_sigma"]) ** 2
+                    getattr(run, f"{observable}_sigma") ** 2
+                    + (x * a[f"{observable}_sigma"]) ** 2
+                    + ((1 - x) * b[f"{observable}_sigma"]) ** 2
                 )
             rows.append(point)
     return pd.DataFrame(rows)
@@ -251,19 +263,39 @@ def pooled_sigma(points: pd.DataFrame, n_replicates: int) -> pd.DataFrame:
         vex_exp=("vex_exp", "first"),
     ).reset_index()
     summary["complete"] = summary.n_rep >= n_replicates
-    for prop in ("hmix", "density"):
-        pooled = summary.groupby("system_id")[f"{prop}_sd"].apply(
-            lambda s: float(np.sqrt(np.nanmean(s**2)))
+    for property_name in ("hmix", "density"):
+        # RMS of the replicate SDs over a system's compositions.
+        pooled = summary.groupby("system_id")[f"{property_name}_sd"].apply(
+            lambda sds: float(np.sqrt(np.nanmean(sds**2)))
         )
         floor = float(np.nanmedian(pooled))
         sigma = summary.system_id.map(pooled).clip(lower=floor)
         sigma[summary.system_id.isin(SIGMA_SAGE_AT_FLOOR)] = floor
-        summary[f"sigma_sage_{prop}"] = sigma.round(6)
-        summary[f"sigma_ref_{prop}"] = np.sqrt(
-            summary[f"sigma_sage_{prop}"] ** 2
-            + summary[f"{prop}_exp_sigma"].fillna(0.0) ** 2
+        summary[f"sigma_sage_{property_name}"] = sigma.round(6)
+        summary[f"sigma_ref_{property_name}"] = np.sqrt(
+            summary[f"sigma_sage_{property_name}"] ** 2
+            + summary[f"{property_name}_exp_sigma"].fillna(0.0) ** 2
         ).round(6)
     return summary
+
+
+def published_x_first(row: pd.Series) -> float:
+    """
+    Parse the mole fraction of ``smiles_1`` from a published substance string.
+
+    Parameters
+    ----------
+    row
+        Row of the published results, e.g. substance ``CO{solv}{x=0.25}|O{...}``.
+
+    Returns
+    -------
+    float
+        Mole fraction, or NaN if it cannot be parsed.
+    """
+    pattern = re.escape(str(row.smiles_1)) + r"\{solv\}\{x=([0-9.]+)\}"
+    match = re.search(pattern, row.substance)
+    return float(match.group(1)) if match else np.nan
 
 
 def published_sage(cache_dir: Path) -> pd.DataFrame:
@@ -292,31 +324,32 @@ def published_sage(cache_dir: Path) -> pd.DataFrame:
             frames.append(pd.read_csv(path))
     data = pd.concat(frames)
     data = data[data.forcefield == PUBLISHED_FF].copy()
-
-    def x_first(row) -> float:
-        """
-        Parse the mole fraction of ``smiles_1`` from the substance string.
-
-        Parameters
-        ----------
-        row
-            Row of the published results.
-
-        Returns
-        -------
-        float
-            Mole fraction, or NaN if it cannot be parsed.
-        """
-        pattern = re.escape(str(row.smiles_1)) + r"\{solv\}\{x=([0-9.]+)\}"
-        match = re.search(pattern, row.substance)
-        return float(match.group(1)) if match else np.nan
-
-    data["x_1"] = data.apply(x_first, axis=1)
+    data["x_1"] = data.apply(published_x_first, axis=1)
     data["prop"] = data.type.map({"EnthalpyOfMixing": "hmix", "Density": "density"})
     return data
 
 
-def shift_to_composition(prop: str, xs: np.ndarray, values: np.ndarray, x: float):
+def redlich_kister_basis(x) -> np.ndarray:
+    """
+    Evaluate the first two Redlich-Kister basis functions, x(1-x) and x(1-x)(2x-1).
+
+    Parameters
+    ----------
+    x
+        Mole fraction(s).
+
+    Returns
+    -------
+    np.ndarray
+        Basis values with shape (len(x), 2).
+    """
+    x = np.atleast_1d(x)
+    return np.stack([x * (1 - x), x * (1 - x) * (2 * x - 1)], axis=1)
+
+
+def shift_to_composition(
+    property_name: str, xs: np.ndarray, values: np.ndarray, x: float
+) -> float:
     """
     Move the published value nearest ``x`` to ``x`` along a fitted curve.
 
@@ -328,7 +361,7 @@ def shift_to_composition(prop: str, xs: np.ndarray, values: np.ndarray, x: float
 
     Parameters
     ----------
-    prop
+    property_name
         ``hmix`` or ``density``.
     xs
         Published mole fractions of component a.
@@ -343,63 +376,20 @@ def shift_to_composition(prop: str, xs: np.ndarray, values: np.ndarray, x: float
         Published value shifted to ``x``.
     """
     nearest = int(np.argmin(np.abs(xs - x)))
-    if prop == "hmix":
-
-        def basis(z):
-            """
-            Evaluate the two Redlich-Kister basis functions.
-
-            Parameters
-            ----------
-            z
-                Mole fractions.
-
-            Returns
-            -------
-            np.ndarray
-                Basis values with shape (len(z), 2).
-            """
-            z = np.atleast_1d(z)
-            return np.stack([z * (1 - z), z * (1 - z) * (2 * z - 1)], axis=1)
-
-        coeffs, *_ = np.linalg.lstsq(basis(xs)[:, : len(xs)], values, rcond=None)
-
-        def curve(z):
-            """
-            Evaluate the fitted Redlich-Kister curve.
-
-            Parameters
-            ----------
-            z
-                Mole fraction.
-
-            Returns
-            -------
-            float
-                Fitted ΔHmix.
-            """
-            return float(basis(z)[0, : len(coeffs)] @ coeffs)
-
+    if property_name == "hmix":
+        n_terms = min(2, len(xs))
+        coefficients, *_ = np.linalg.lstsq(
+            redlich_kister_basis(xs)[:, :n_terms], values, rcond=None
+        )
+        fitted_at_x = float(redlich_kister_basis(x)[0, :n_terms] @ coefficients)
+        fitted_at_nearest = float(
+            redlich_kister_basis(xs[nearest])[0, :n_terms] @ coefficients
+        )
     else:
-        poly = np.polyfit(xs, values, min(2, len(xs) - 1))
-
-        def curve(z):
-            """
-            Evaluate the fitted density polynomial.
-
-            Parameters
-            ----------
-            z
-                Mole fraction.
-
-            Returns
-            -------
-            float
-                Fitted density.
-            """
-            return float(np.polyval(poly, z))
-
-    return float(values[nearest] + curve(x) - curve(xs[nearest]))
+        polynomial = np.polyfit(xs, values, min(2, len(xs) - 1))
+        fitted_at_x = float(np.polyval(polynomial, x))
+        fitted_at_nearest = float(np.polyval(polynomial, xs[nearest]))
+    return float(values[nearest] + fitted_at_x - fitted_at_nearest)
 
 
 def finite_size_check(summary: pd.DataFrame, systems, published) -> pd.DataFrame:
@@ -428,44 +418,50 @@ def finite_size_check(summary: pd.DataFrame, systems, published) -> pd.DataFrame
         One row per matched point.
     """
     rows = []
-    meta = systems.assign(
-        box_id=lambda d: (
-            d.system_id
-            + "_x"
-            + (d.x_box * 1000).round().astype(int).astype(str).str.zfill(3)
-        )
+    components = systems.assign(
+        box_id=[
+            mixture_box_id(system_id, x_box)
+            for system_id, x_box in zip(systems.system_id, systems.x_box, strict=True)
+        ]
     ).set_index("box_id")
     for point in summary.itertuples():
-        a, b = meta.loc[point.box_id, ["a", "b"]]
-        for prop in ("hmix", "density"):
-            pub = published[published.prop == prop]
-            same = pub[(pub.smiles_1 == a) & (pub.smiles_2 == b)]
-            swap = pub[(pub.smiles_1 == b) & (pub.smiles_2 == a)]
+        a, b = components.loc[point.box_id, ["a", "b"]]
+        for property_name in ("hmix", "density"):
+            values = published[published.prop == property_name]
+            same_order = values[(values.smiles_1 == a) & (values.smiles_2 == b)]
+            swapped = values[(values.smiles_1 == b) & (values.smiles_2 == a)]
             candidates = pd.concat(
-                [same.assign(xa=same.x_1), swap.assign(xa=1 - swap.x_1)]
+                [
+                    same_order.assign(xa=same_order.x_1),
+                    swapped.assign(xa=1 - swapped.x_1),
+                ]
             )
             if candidates.empty:
                 continue
             nearest = candidates.iloc[(candidates.xa - point.x).abs().argmin()]
             if abs(nearest.xa - point.x) > PUBLISHED_X_TOLERANCE:
                 continue
-            published_x = shift_to_composition(
-                prop, candidates.xa.to_numpy(), candidates.value.to_numpy(), point.x
+            published_at_x = shift_to_composition(
+                property_name,
+                candidates.xa.to_numpy(),
+                candidates.value.to_numpy(),
+                point.x,
             )
-            ours = getattr(point, f"{prop}_sage")
-            se_ours = getattr(point, f"{prop}_sd") / np.sqrt(point.n_rep)
-            se_pub = nearest.uncertainty / np.sqrt(3)
+            ours = getattr(point, f"{property_name}_sage")
+            # Standard errors of the two replicate means (published: 3 replicates).
+            se_ours = getattr(point, f"{property_name}_sd") / np.sqrt(point.n_rep)
+            se_published = nearest.uncertainty / np.sqrt(3)
             rows.append(
                 {
                     "box_id": point.box_id,
-                    "prop": prop,
+                    "prop": property_name,
                     "x_ours": point.x,
                     "x_published": nearest.xa,
                     "ours": ours,
                     "published_nearest": nearest.value,
-                    "published": published_x,
-                    "diff": ours - published_x,
-                    "z": (ours - published_x) / np.hypot(se_ours, se_pub),
+                    "published": published_at_x,
+                    "diff": ours - published_at_x,
+                    "z": (ours - published_at_x) / np.hypot(se_ours, se_published),
                 }
             )
     return pd.DataFrame(rows)
@@ -567,15 +563,16 @@ def start_dependence(runs: pd.DataFrame) -> pd.DataFrame:
         others = group[group.replicate > 0]
         if group.replicate.min() != 0 or len(others) < 2:
             continue
-        for obs in ("h_mean", "density_mean"):
-            first = group.loc[group.replicate == 0, obs].iloc[0]
-            spread = others[obs].std(ddof=1) * np.sqrt(1 + 1 / len(others))
+        for column in ("h_mean", "density_mean"):
+            first = group.loc[group.replicate == 0, column].iloc[0]
+            spread = others[column].std(ddof=1) * np.sqrt(1 + 1 / len(others))
+            offset = first - others[column].mean()
             rows.append(
                 {
                     "box_id": box_id,
-                    "observable": obs,
-                    "offset": first - others[obs].mean(),
-                    "t": (first - others[obs].mean()) / spread,
+                    "observable": column,
+                    "offset": offset,
+                    "t": offset / spread,
                 }
             )
     return pd.DataFrame(rows)
@@ -604,34 +601,34 @@ def within_between(runs: pd.DataFrame, points: pd.DataFrame) -> pd.DataFrame:
         and property (``level`` "point").
     """
     rows = []
-    for level, data, key, pairs in (
-        ("box", runs, "box_id", (("h", "h"), ("density", "density"))),
-        ("point", points, "box_id", (("hmix", "hmix"), ("vex", "vex"))),
-    ):
-        for box_id, group in data.groupby(key):
-            for obs, column in pairs:
-                means = group[f"{column}_mean" if level == "box" else column]
-                sems = group[
-                    f"{column}_sigma" if level == "box" else f"{column}_sigma_run"
-                ]
+    # (level, table, observables, mean column, standard error column)
+    tests = (
+        ("box", runs, ("h", "density"), "{}_mean", "{}_sigma"),
+        ("point", points, ("hmix", "vex"), "{}", "{}_sigma_run"),
+    )
+    for level, table, observables, mean_column, sem_column in tests:
+        for box_id, group in table.groupby("box_id"):
+            for observable in observables:
+                means = group[mean_column.format(observable)]
+                sems = group[sem_column.format(observable)]
                 n = len(means)
                 if n < 3:
                     continue
                 sd = float(means.std(ddof=1))
                 sem = float(np.sqrt(np.mean(sems**2)))
-                chi = (n - 1) * (sd / sem) ** 2
+                chi2 = (n - 1) * (sd / sem) ** 2
                 rows.append(
                     {
                         "level": level,
                         "box_id": box_id,
-                        "observable": obs,
+                        "observable": observable,
                         "n": n,
                         "sd_between": sd,
                         "sem_within": sem,
                         "ratio": sd / sem,
-                        "chi2": chi,
-                        "p_high": float(stats.chi2.sf(chi, n - 1)),
-                        "p_low": float(stats.chi2.cdf(chi, n - 1)),
+                        "chi2": chi2,
+                        "p_high": float(stats.chi2.sf(chi2, n - 1)),
+                        "p_low": float(stats.chi2.cdf(chi2, n - 1)),
                     }
                 )
     table = pd.DataFrame(rows)
@@ -658,17 +655,22 @@ def pooled_ratio(table: pd.DataFrame) -> pd.DataFrame:
         Pooled ratio sqrt(Σχ² / Σdof), median ratio and the two-sided p-value.
     """
     rows = []
-    for (level, obs), group in table.groupby(["level", "observable"], sort=False):
-        dof = float((group.n - 1).sum())
-        chi = float(group.chi2.sum())
-        p = 2 * min(stats.chi2.sf(chi, dof), stats.chi2.cdf(chi, dof))
+    for (level, observable), group in table.groupby(
+        ["level", "observable"], sort=False
+    ):
+        degrees_of_freedom = float((group.n - 1).sum())
+        chi2 = float(group.chi2.sum())
+        p = 2 * min(
+            stats.chi2.sf(chi2, degrees_of_freedom),
+            stats.chi2.cdf(chi2, degrees_of_freedom),
+        )
         rows.append(
             {
                 "level": level,
-                "observable": obs,
+                "observable": observable,
                 "n_tests": len(group),
                 "median_ratio": float(group.ratio.median()),
-                "pooled_ratio": float(np.sqrt(chi / dof)),
+                "pooled_ratio": float(np.sqrt(chi2 / degrees_of_freedom)),
                 "p": float(min(1.0, p)),
                 "n_sig_high": int((group.p_high < FLAG_P).sum()),
                 "n_sig_low": int((group.p_low < FLAG_P).sum()),
@@ -776,9 +778,10 @@ def plot_replicates(runs_dir: Path, runs: pd.DataFrame, box_id: str, path: Path)
     for csv in sorted((runs_dir / box_id).glob("rep*.csv")):
         data = pd.read_csv(csv)
         block = ((data.time_ps - 1e-6) // 100).astype(int)
+        # Enthalpy per molecule, (E_pot + pV) / N in kJ/mol, at 1 atm.
         h = (
-            data.epot_eV * 96.48533212
-            + 101325.0 * data.volume_A3 * 1e-30 * 6.02214076e23 / 1000
+            data.epot_eV * KJ_PER_MOL_PER_EV
+            + 101325.0 * data.volume_A3 * 1e-30 * AVOGADRO / 1000
         ) / n_mol
         means = (
             data.assign(h=h)

@@ -39,14 +39,17 @@ from liquid_mixtures_inputs.build_boxes import (
     molecules_from_info,
     prepare_molecule,
 )
+from liquid_mixtures_inputs.constants import (
+    EQUILIBRATION_PS,
+    GAS_CONSTANT_KJ_PER_MOL_K,
+    KJ_PER_MOL_PER_EV,
+    PRODUCTION_PS,
+)
 
 LOGGER = logging.getLogger("run_sage_benchmark")
 
-EQUILIBRATION_PS = 200.0
-PRODUCTION_PS = 2000.0
 LOG_EVERY_PS = 0.1
 FRAME_EVERY_PS = 100.0
-KJ_PER_MOL_TO_EV = 1 / 96.48533212
 AMU_PER_A3_TO_G_ML = 1.66053906660
 CSV_HEADER = "step,time_ps,epot_eV,ekin_eV,temperature_K,volume_A3,density_g_cm3"
 
@@ -116,14 +119,14 @@ class ScalarReporter:
         state
             OpenMM state with energies.
         """
-        epot = state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)
-        ekin = state.getKineticEnergy().value_in_unit(unit.kilojoule_per_mole)
+        potential = state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)
+        kinetic = state.getKineticEnergy().value_in_unit(unit.kilojoule_per_mole)
         volume = state.getPeriodicBoxVolume().value_in_unit(unit.angstrom**3)
-        temperature = 2 * ekin / (self._dof * 0.00831446261815324)
+        temperature = 2 * kinetic / (self._dof * GAS_CONSTANT_KJ_PER_MOL_K)
         step = simulation.currentStep
         self._file.write(
             f"{step},{step * TIMESTEP_FS / 1000:.4f},"
-            f"{epot * KJ_PER_MOL_TO_EV:.6f},{ekin * KJ_PER_MOL_TO_EV:.6f},"
+            f"{potential / KJ_PER_MOL_PER_EV:.6f},{kinetic / KJ_PER_MOL_PER_EV:.6f},"
             f"{temperature:.3f},{volume:.4f},"
             f"{self._mass / volume * AMU_PER_A3_TO_G_ML:.6f}\n"
         )
@@ -208,12 +211,15 @@ def run_replicate(
     simulation.context.setVelocitiesToTemperature(temperature * unit.kelvin, seed)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    tmp_csv = out_dir / f".rep{replicate}.csv"
-    tmp_frames = out_dir / f".rep{replicate}_frames.xyz"
-    tmp_frames.unlink(missing_ok=True)
+    # Hidden files until the run finishes, so a restart redoes partial runs.
+    partial_csv = out_dir / f".rep{replicate}.csv"
+    partial_frames = out_dir / f".rep{replicate}_frames.xyz"
+    partial_frames.unlink(missing_ok=True)
     log_steps = round(LOG_EVERY_PS * 1000 / TIMESTEP_FS)
     frame_steps = round(FRAME_EVERY_PS * 1000 / TIMESTEP_FS)
-    reporter = ScalarReporter(tmp_csv, log_steps, dof, float(atoms.get_masses().sum()))
+    reporter = ScalarReporter(
+        partial_csv, log_steps, dof, float(atoms.get_masses().sum())
+    )
     simulation.reporters.append(reporter)
     total_steps = round(run_ps * 1000 / TIMESTEP_FS)
     symbols = atoms.get_chemical_symbols()
@@ -227,10 +233,10 @@ def run_replicate(
             pbc=True,
         )
         frame.info["time_ps"] = simulation.currentStep * TIMESTEP_FS / 1000
-        write(tmp_frames, frame, format="extxyz", append=True)
+        write(partial_frames, frame, format="extxyz", append=True)
     reporter.close()
-    tmp_frames.rename(out_dir / f"rep{replicate}_frames.xyz")
-    tmp_csv.rename(out_dir / f"rep{replicate}.csv")
+    partial_frames.rename(out_dir / f"rep{replicate}_frames.xyz")
+    partial_csv.rename(out_dir / f"rep{replicate}.csv")
     return time.time() - start
 
 
@@ -256,8 +262,8 @@ def _job(box_path: Path, replicate: int, out_dir: Path, platform: str, run_ps: f
     tuple[str, int, float]
         Box id, replicate and wall time.
     """
-    wall = run_replicate(box_path, replicate, out_dir, platform, run_ps)
-    return box_path.stem, replicate, wall
+    wall_time = run_replicate(box_path, replicate, out_dir, platform, run_ps)
+    return box_path.stem, replicate, wall_time
 
 
 def main() -> None:
@@ -283,10 +289,10 @@ def main() -> None:
         boxes = [b for b in boxes if b.stem in args.box_id]
     # Replicate-major order, so complete replicate sets finish first.
     jobs = [
-        (box, r)
-        for r in range(args.replicates)
+        (box, replicate)
+        for replicate in range(args.replicates)
         for box in boxes
-        if not (args.output_dir / box.stem / f"rep{r}.csv").exists()
+        if not (args.output_dir / box.stem / f"rep{replicate}.csv").exists()
     ]
     LOGGER.info("%d runs to do with %d workers", len(jobs), args.workers)
     # Warm the NAGL model cache once before forking workers.
@@ -295,20 +301,25 @@ def main() -> None:
     with ProcessPoolExecutor(args.workers, mp_context=context) as pool:
         futures = [
             pool.submit(
-                _job, box, r, args.output_dir / box.stem, args.platform, args.run_ps
+                _job,
+                box,
+                replicate,
+                args.output_dir / box.stem,
+                args.platform,
+                args.run_ps,
             )
-            for box, r in jobs
+            for box, replicate in jobs
         ]
         for done, future in enumerate(as_completed(futures), 1):
             try:
-                box_id, replicate, wall = future.result()
+                box_id, replicate, wall_time = future.result()
                 LOGGER.info(
                     "[%d/%d] %s rep%d done in %.0f s",
                     done,
                     len(jobs),
                     box_id,
                     replicate,
-                    wall,
+                    wall_time,
                 )
             except Exception:  # keep the other runs going
                 LOGGER.exception("run failed")
