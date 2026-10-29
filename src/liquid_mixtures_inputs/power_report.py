@@ -314,6 +314,8 @@ def write_summary(out: Path, tables: dict) -> None:
         metrics, "hmix", "MAZE", ALTERNATIVE_PS, 0.0, "observed_mean"
     )
     reference_ns, longer_ns = reference / 1000, ALTERNATIVE_PS / 1000
+    n_boxes = len(tables["n_atoms"])
+    n_runs = len(tables["shifts"].xs("density", level="observable"))
     protocol = f"{REFERENCE[0] / 1000:g} + {reference_ns:g} ns"
     longer = f"{REFERENCE[0] / 1000:g} + {longer_ns:g} ns"
 
@@ -327,7 +329,8 @@ def write_summary(out: Path, tables: dict) -> None:
         "",
         f"ml-peg runs every MLP once per box: {REFERENCE[0] / 1000:g} ns of NPT "
         f"equilibration and {reference / 1000:g} ns of production at a 1 fs time "
-        "step. The 320 Sage runs (64 boxes × 5 replicates, "
+        f"step. The {n_runs} Sage runs ({n_boxes} boxes × {n_runs // n_boxes} "
+        "replicates, "
         "[Sage report](../sage_summary/report.md)) stand in for MLP simulation "
         "noise. From them we estimate what one run per box can resolve, what it "
         "costs, and where ml-peg's 'good' and 'bad' thresholds should sit.",
@@ -349,7 +352,7 @@ def write_summary(out: Path, tables: dict) -> None:
         "points). "
         f"{(hmix_points.sage_error.abs() > hmix_points.mde).mean():.0%} of Sage's "
         "ΔHmix errors are larger.",
-        f"- **Cost.** {tables['n_atoms'].sum():,.0f} atoms over 64 boxes, about "
+        f"- **Cost.** {tables['n_atoms'].sum():,.0f} atoms over {n_boxes} boxes, about "
         f"{gpu_days(cost[reference]):.0f} MACE-OFF23(M) A100 GPU-days per model "
         f"(order of magnitude). {longer} would cost "
         f"{cost[ALTERNATIVE_PS] / cost[reference]:.1f}× as much (about "
@@ -419,6 +422,8 @@ def method_section(tables: dict) -> list[str]:
         Markdown lines.
     """
     reference = REFERENCE[1]
+    n_mixtures = point_rows(tables["points"], "hmix", reference).system_id.nunique()
+    n_pure = len(point_rows(tables["points"], "pure_density", reference))
     noise = tables["noise"]
     standard = noise[noise.equilibration_ps == REFERENCE[0]]
     k = standard.groupby("observable").k.agg(["min", "max"])
@@ -461,7 +466,8 @@ def method_section(tables: dict) -> list[str]:
         "point covariance) is given as a check; it holds when errors are well "
         "above the noise.",
         f"5. **System choice.** A cluster bootstrap over systems ({N_BOOTSTRAP} "
-        "resamples of the 13 mixtures, or of the 11 scored pure liquids) of "
+        f"resamples of the {n_mixtures} mixtures, or of the {n_pure} scored pure "
+        "liquids) of "
         "Sage's noiseless metric measures how much the metric depends on which "
         "systems were picked.",
         "",
@@ -619,6 +625,7 @@ def ranking_section(tables: dict) -> list[str]:
     metrics = tables["metrics"]
     bootstrap = tables["bootstrap"].set_index(["property", "metric"])
     reference = REFERENCE[1]
+    n_systems = point_rows(tables["points"], "hmix", reference).system_id.nunique()
     rows = []
     for property_name, metric in METRIC_ORDER:
         low, high = resolvable_range(metrics, property_name, metric, reference)
@@ -678,7 +685,7 @@ def ranking_section(tables: dict) -> list[str]:
         "",
         "The two kinds of uncertainty answer different questions. The simulation "
         "noise says whether rerunning the benchmark would give the same ranking on "
-        f"these 13 systems; at {reference / 1000:g} ns it would, for any gap "
+        f"these {n_systems} systems; at {reference / 1000:g} ns it would, for any gap "
         "above the resolvable "
         "difference. The system spread says how far a model's score depends on "
         "this set of systems, which no run length can reduce.",
@@ -752,15 +759,16 @@ def run_length_section(tables: dict) -> list[str]:
         "",
         md_table(pd.DataFrame(rows, columns=columns)),
         "",
-        f"Cost is Σ atoms × simulated time over the 64 boxes ({n_atoms.sum():,.0f} "
-        "atoms). GPU-days are an order of magnitude only: MACE-OFF23(M) runs "
-        "1.1×10⁶ steps/day for ~600-atom liquid boxes on one A100 "
+        f"Cost is Σ atoms × simulated time over the {len(n_atoms)} boxes "
+        f"({n_atoms.sum():,.0f} atoms). GPU-days are an order of magnitude only: "
+        "MACE-OFF23(M) runs 1.1×10⁶ steps/day for ~600-atom liquid boxes on one A100 "
         "([arXiv:2312.15211](https://arxiv.org/abs/2312.15211), sec. III.3.2), "
         f"scaled linearly to our {n_atoms.min():,.0f} to {n_atoms.max():,.0f}-atom "
         "boxes. Faster and slower models scale the column, not the ratios.",
         "",
         "**Equilibration.** The mean over the 100 to 200 ps window minus the mean "
-        f"over the {reference / 1000:g} ns production, over all 320 Sage runs, is "
+        f"over the {reference / 1000:g} ns production, over all {len(density_shifts)} "
+        "Sage runs, is "
         f"{equilibration.loc['h', 'mean_shift']:+.3f} kJ/mol for h (p = "
         f"{equilibration.loc['h', 'p']:.1g}) and "
         f"{equilibration.loc['density', 'mean_shift']:+.4f} g/mL for density "

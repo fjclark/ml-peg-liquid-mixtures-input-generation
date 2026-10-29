@@ -1018,6 +1018,7 @@ def known_gaps_section(points: dict) -> list[str]:
         "standard-InChI conversion would otherwise turn N-methylformamide into "
         "`CN=CO`; `thermoml.py` repairs amide tautomers). See reserves.",
         "- **No amide-water system.** 2-pyrrolidone + water was dropped (see below).",
+        "- **No ester.** Methyl pentanoate + octane was dropped for cost (see below).",
         "- **Selection bias.** Every system comes from the Sage training/validation "
         "pools, so the set reflects ThermoML coverage and Sage's curation choices "
         "rather than a designed spread.",

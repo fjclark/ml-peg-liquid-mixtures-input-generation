@@ -17,7 +17,7 @@ A system must pass every filter below to be a candidate. The filter names match 
 | too many heavy atoms | ≤ 10 heavy atoms per molecule. | Keeps boxes small at MLIP cost while holding enough molecules. |
 | viscous | No diol, polyol, polyamine or bis-hydroxyethyl amine motifs (SMARTS in `VISCOUS_SMARTS`). | Slow dynamics would not converge in 1 ns of production. |
 | two-phase (linear H^E) | ΔHmix is not consistent with a straight line in x (three points: consecutive slopes differ by > 2σ; more points: reduced χ² of a linear fit > 2). σ has a 2 % relative floor. Applied only when the largest measured \|H^E\| ≥ 0.4 kJ/mol. | A two-phase region gives H^E = a + b·x (lever rule). An ideal or near-ideal mixture is also a straight line (H^E ≈ 0), so the test is skipped for small H^E; the small-signal filter handles those. |
-| two-phase (H^E > RT/2) | ΔHmix(x≈0.5) ≤ RT/2 = 1.24 kJ/mol. | Regular-solution critical value: H^E = βx(1 − x) splits into two phases below T_c = β/(2R) ([derivation](https://scipython.com/blog/the-miscibility-of-a-regular-solution/)), and H^E(0.5) = β/4 = RT/2 at T_c. A conservative screen for an upper critical solution temperature above 298 K. |
+| two-phase (H^E > RT/2) | ΔHmix(x≈0.5) ≤ RT/2 = 1.24 kJ/mol. | Regular-solution critical value: H^E = βx(1 − x) splits into two phases below T_c = β/(2R) ([discussion](https://scipython.com/blog/the-miscibility-of-a-regular-solution/)), and H^E(0.5) = β/4 = RT/2 at T_c. A conservative screen for an upper critical solution temperature above 298 K. |
 | Sage repeat SD (hmix / density) | Largest published Sage 3-replicate SD over openff-2.0.0 to 2.3.0rc1 ≤ 0.1 kJ/mol (ΔHmix) and ≤ 0.001 g/mL (density). | A large spread between replicates suggests slow equilibration. |
 | no Sage repeat SD (hmix / density) | A published Sage SD exists for the property. | Without it the convergence check above cannot be made. |
 | small signal | \|ΔHmix(x≈0.5)\| ≥ 0.4 kJ/mol. | Our estimate of the simulation σ is 0.15–0.25 kJ/mol (see `DECISIONS.md`), so smaller values might discriminate between models less well. |
@@ -87,17 +87,14 @@ The H^E-linearity test flags systems whose enthalpies are consistent with a stra
 | 2 | methanol + water | 298.15 | -0.80 / -0.78 / -0.58 | -0.61 / -1.00 / -0.81 | exception. Fails: composition mismatch; missing pure density with uncertainty. The rc2 density and ΔHmix compositions differ by up to \|Δx\| = 0.06 (limit 0.05), and no data set gives water's pure density with an uncertainty. Kept because it is the aqueous calibration system (smallest Sage repeat spread in the pool) and both failures are artefacts of the screening data: the full ThermoML isotherms have a density within \|Δx\| ≤ 0.002 of every box composition, and water's pure density comes from [IAPWS-95](https://doi.org/10.1063/1.1461829). | alcohol-water hydrogen-bond network |
 | 3 | water + pyridine | 303.15 | -1.13 / -1.28 / -1.10 | – / – / – | exception. Fails: not in the screened pool. Not in the Sage training or validation sets; the data come from the recommended fast-converging list. Screened, it would fail the entry filter (3 ΔHmix points but no mixture densities) and both no Sage repeat SD filters (no pyridine + water rows in the [rc2 benchmark outputs](https://github.com/openforcefield/ash-sage-rc2/tree/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output)). The ΔHmix data are also at 303.15 K, outside the 297.0–299.5 K window (the [ThermoML record](https://trc.nist.gov/ThermoML/10.1021/je2002495.json) stores 298.15 K, but the [paper's title](https://doi.org/10.1021/je2002495) gives 303.15 K). Kept because it is the only aromatic-water system available. It is scored on ΔHmix only (unless ThermoML provides a 303.15 K mixture density), and our own Sage replicates replace the missing repeat SDs for MAZE. | aromatic nitrogen-water hydrogen bonding |
 | 4 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 298.15 | -0.82 / -1.26 / -0.74 | -0.08 / -0.12 / -0.07 | exception. Fails: composition mismatch. The 3-point rc2 subsets miss the composition-match limit by a hair (\|Δx\| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove the mismatch (largest box \|Δx\| = 0.006), and the system widens the exothermic range and is the only one with chlorine. | tertiary amide with a chloroalkane (C-H···O=C, dipolar) |
-| 5 | 2-(dimethylamino)ethanol + methanol | 298.15 | -0.80 / -0.87 / -0.53 | -0.90 / -1.05 / -0.57 | pass | amino-alcohol with an alcohol (O-H···N and O-H···O) |
-| 6 | acetone + N-methylaniline | 298.15 | -0.50 / -0.67 / -0.53 | -0.45 / -0.73 / -0.67 | pass | aromatic N-H donor with a ketone acceptor |
-| 7 | methyl pentanoate + octane | 298.15 | 0.77 / 1.05 / 0.79 | 0.50 / 0.62 / 0.47 | pass | dilution of ester dipoles in an alkane |
-| 8 | 1-propanol + benzene | 298.15 | 1.04 / 0.97 / 0.55 | 0.14 / 0.09 / 0.02 | pass | alcohol self-association broken by an aromatic (O-H···π) |
-| 9 | tetrahydropyran + ethanol | 298.15 | 0.57 / 0.85 / 0.75 | -0.02 / 0.01 / 0.04 | pass | cyclic ether with an alcohol |
-| 10 | dipropylamine + N,N-dimethylformamide | 298.15 | 0.61 / 0.75 / 0.53 | -0.25 / -0.29 / -0.21 | pass | secondary amine with a tertiary amide |
-| 11 | propionitrile + tert-amyl ethyl ether | 298.15 | 0.50 / 0.70 / 0.59 | -0.22 / -0.37 / -0.33 | pass | nitrile dipoles diluted in an ether |
-| 12 | 2-butanone + dibutylamine | 298.15 | 0.42 / 0.62 / 0.43 | 0.17 / 0.26 / 0.20 | pass | ketone with a secondary amine |
-| 13 | heptane + toluene | 298.15 | 0.45 / 0.56 / 0.39 | 0.11 / 0.15 / 0.11 | pass | dispersion and π control (no polar groups) |
+| 5 | acetone + N-methylaniline | 298.15 | -0.50 / -0.67 / -0.53 | -0.45 / -0.73 / -0.67 | pass | aromatic N-H donor with a ketone acceptor |
+| 6 | 1-propanol + benzene | 298.15 | 1.04 / 0.97 / 0.55 | 0.14 / 0.09 / 0.02 | pass | alcohol self-association broken by an aromatic (O-H···π) |
+| 7 | tetrahydropyran + ethanol | 298.15 | 0.57 / 0.85 / 0.75 | -0.02 / 0.01 / 0.04 | pass | cyclic ether with an alcohol |
+| 8 | dipropylamine + N,N-dimethylformamide | 298.15 | 0.61 / 0.75 / 0.53 | -0.25 / -0.29 / -0.21 | pass | secondary amine with a tertiary amide |
+| 9 | propionitrile + tert-amyl ethyl ether | 298.15 | 0.50 / 0.70 / 0.59 | -0.22 / -0.37 / -0.33 | pass | nitrile dipoles diluted in an ether |
+| 10 | heptane + toluene | 298.15 | 0.45 / 0.56 / 0.39 | 0.11 / 0.15 / 0.11 | pass | dispersion and π control (no polar groups) |
 
-13 systems, 39 mixture boxes and 25 pure boxes (64 in total).
+10 systems, 30 mixture boxes and 20 pure boxes (50 in total).
 
 ### Structures
 
@@ -109,30 +106,27 @@ Component a is the one whose mole fraction x is quoted.
 | 2 | ![methanol](figures/structures/methanol_water_a.png)<br>methanol<br>`CO` | ![water](figures/structures/methanol_water_b.png)<br>water<br>`O` |
 | 3 | ![water](figures/structures/water_pyridine_a.png)<br>water<br>`O` | ![pyridine](figures/structures/water_pyridine_b.png)<br>pyridine<br>`c1ccncc1` |
 | 4 | ![N-methyl-2-pyrrolidone](figures/structures/nmp_dichloroethane_a.png)<br>N-methyl-2-pyrrolidone<br>`CN1CCCC1=O` | ![1,2-dichloroethane](figures/structures/nmp_dichloroethane_b.png)<br>1,2-dichloroethane<br>`ClCCCl` |
-| 5 | ![2-(dimethylamino)ethanol](figures/structures/dmae_methanol_a.png)<br>2-(dimethylamino)ethanol<br>`CN(C)CCO` | ![methanol](figures/structures/dmae_methanol_b.png)<br>methanol<br>`CO` |
-| 6 | ![acetone](figures/structures/acetone_nmethylaniline_a.png)<br>acetone<br>`CC(C)=O` | ![N-methylaniline](figures/structures/acetone_nmethylaniline_b.png)<br>N-methylaniline<br>`CNc1ccccc1` |
-| 7 | ![methyl pentanoate](figures/structures/methylpentanoate_octane_a.png)<br>methyl pentanoate<br>`CCCCC(=O)OC` | ![octane](figures/structures/methylpentanoate_octane_b.png)<br>octane<br>`CCCCCCCC` |
-| 8 | ![1-propanol](figures/structures/propanol_benzene_a.png)<br>1-propanol<br>`CCCO` | ![benzene](figures/structures/propanol_benzene_b.png)<br>benzene<br>`c1ccccc1` |
-| 9 | ![tetrahydropyran](figures/structures/tetrahydropyran_ethanol_a.png)<br>tetrahydropyran<br>`C1CCOCC1` | ![ethanol](figures/structures/tetrahydropyran_ethanol_b.png)<br>ethanol<br>`CCO` |
-| 10 | ![dipropylamine](figures/structures/dipropylamine_dmf_a.png)<br>dipropylamine<br>`CCCNCCC` | ![N,N-dimethylformamide](figures/structures/dipropylamine_dmf_b.png)<br>N,N-dimethylformamide<br>`CN(C)C=O` |
-| 11 | ![propionitrile](figures/structures/propionitrile_taee_a.png)<br>propionitrile<br>`CCC#N` | ![tert-amyl ethyl ether](figures/structures/propionitrile_taee_b.png)<br>tert-amyl ethyl ether<br>`CCOC(C)(C)CC` |
-| 12 | ![2-butanone](figures/structures/butanone_dibutylamine_a.png)<br>2-butanone<br>`CCC(C)=O` | ![dibutylamine](figures/structures/butanone_dibutylamine_b.png)<br>dibutylamine<br>`CCCCNCCCC` |
-| 13 | ![heptane](figures/structures/heptane_toluene_a.png)<br>heptane<br>`CCCCCCC` | ![toluene](figures/structures/heptane_toluene_b.png)<br>toluene<br>`Cc1ccccc1` |
+| 5 | ![acetone](figures/structures/acetone_nmethylaniline_a.png)<br>acetone<br>`CC(C)=O` | ![N-methylaniline](figures/structures/acetone_nmethylaniline_b.png)<br>N-methylaniline<br>`CNc1ccccc1` |
+| 6 | ![1-propanol](figures/structures/propanol_benzene_a.png)<br>1-propanol<br>`CCCO` | ![benzene](figures/structures/propanol_benzene_b.png)<br>benzene<br>`c1ccccc1` |
+| 7 | ![tetrahydropyran](figures/structures/tetrahydropyran_ethanol_a.png)<br>tetrahydropyran<br>`C1CCOCC1` | ![ethanol](figures/structures/tetrahydropyran_ethanol_b.png)<br>ethanol<br>`CCO` |
+| 8 | ![dipropylamine](figures/structures/dipropylamine_dmf_a.png)<br>dipropylamine<br>`CCCNCCC` | ![N,N-dimethylformamide](figures/structures/dipropylamine_dmf_b.png)<br>N,N-dimethylformamide<br>`CN(C)C=O` |
+| 9 | ![propionitrile](figures/structures/propionitrile_taee_a.png)<br>propionitrile<br>`CCC#N` | ![tert-amyl ethyl ether](figures/structures/propionitrile_taee_b.png)<br>tert-amyl ethyl ether<br>`CCOC(C)(C)CC` |
+| 10 | ![heptane](figures/structures/heptane_toluene_a.png)<br>heptane<br>`CCCCCCC` | ![toluene](figures/structures/heptane_toluene_b.png)<br>toluene<br>`Cc1ccccc1` |
 
 ### V^E coverage
 
 V^E diversity was not a selection criterion. Sign at the three box compositions:
 
-- negative: 6
-- positive: 4
+- negative: 5
 - sign change: 2
+- positive: 2
 - no density data: 1
 
 ### Box plan
 
 Boxes have edge ≥ 25.0 Å, ≥ 100 molecules and ≥ 20 minority molecules, with x within 0.01 of the measured composition. Evaluator, by comparison, uses a fixed total (1000 molecules for Sage), rounds x·N per component and only requires at least one molecule of each, so at the compositions used here its minority counts are about 200 or more.
 
-Mixture boxes: 1104–2470 atoms (median 1495); total 62744 atoms across 39 boxes. Constraint that sets the size: edge 25, total 14.
+Mixture boxes: 1104–2100 atoms (median 1466); total 45198 atoms across 30 boxes. Constraint that sets the size: edge 22, total 8.
 
 | System | x (box) | Molecules a / b | Total | Atoms | Edge (Å) | Set by |
 |---|---|---|---|---|---|---|
@@ -148,15 +142,9 @@ Mixture boxes: 1104–2470 atoms (median 1495); total 62744 atoms across 39 boxe
 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.200 | 23 / 92 | 115 | 1104 | 25.0 | edge |
 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.500 | 54 / 54 | 108 | 1296 | 25.1 | edge |
 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.804 | 82 / 20 | 102 | 1472 | 25.1 | edge |
-| 2-(dimethylamino)ethanol + methanol | 0.247 | 41 / 125 | 166 | 1447 | 25.0 | edge |
-| 2-(dimethylamino)ethanol + methanol | 0.500 | 65 / 65 | 130 | 1495 | 25.1 | edge |
-| 2-(dimethylamino)ethanol + methanol | 0.750 | 81 / 27 | 108 | 1539 | 25.0 | edge |
 | acetone + N-methylaniline | 0.230 | 23 / 77 | 100 | 1539 | 25.6 | total |
 | acetone + N-methylaniline | 0.505 | 51 / 50 | 101 | 1360 | 25.1 | edge |
 | acetone + N-methylaniline | 0.709 | 78 / 32 | 110 | 1324 | 25.0 | edge |
-| methyl pentanoate + octane | 0.230 | 23 / 77 | 100 | 2462 | 29.6 | total |
-| methyl pentanoate + octane | 0.490 | 49 / 51 | 100 | 2306 | 29.1 | total |
-| methyl pentanoate + octane | 0.730 | 73 / 27 | 100 | 2162 | 28.6 | total |
 | 1-propanol + benzene | 0.245 | 27 / 83 | 110 | 1320 | 25.1 | edge |
 | 1-propanol + benzene | 0.500 | 57 / 57 | 114 | 1368 | 25.1 | edge |
 | 1-propanol + benzene | 0.750 | 90 / 30 | 120 | 1440 | 25.0 | edge |
@@ -169,9 +157,6 @@ Mixture boxes: 1104–2470 atoms (median 1495); total 62744 atoms across 39 boxe
 | propionitrile + tert-amyl ethyl ether | 0.200 | 20 / 80 | 100 | 2100 | 28.3 | total |
 | propionitrile + tert-amyl ethyl ether | 0.500 | 50 / 50 | 100 | 1650 | 26.4 | total |
 | propionitrile + tert-amyl ethyl ether | 0.700 | 70 / 30 | 100 | 1350 | 25.1 | edge |
-| 2-butanone + dibutylamine | 0.220 | 22 / 78 | 100 | 2470 | 29.4 | total |
-| 2-butanone + dibutylamine | 0.500 | 50 / 50 | 100 | 2050 | 27.9 | total |
-| 2-butanone + dibutylamine | 0.790 | 79 / 21 | 100 | 1615 | 26.1 | total |
 | heptane + toluene | 0.250 | 25 / 75 | 100 | 1700 | 26.9 | total |
 | heptane + toluene | 0.500 | 50 / 50 | 100 | 1900 | 27.6 | total |
 | heptane + toluene | 0.750 | 75 / 25 | 100 | 2100 | 28.4 | total |
@@ -184,14 +169,11 @@ Mixture boxes: 1104–2470 atoms (median 1495); total 62744 atoms across 39 boxe
 | methanol + water | 0.030 | 0.0010 | 0.815 | 0.826 | 0.825 | 0.833 | 0.703 | 0.0396 |
 | water + pyridine | – | – | – | – | – | – | – | – |
 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.062 | 0.0008 | 0.520 | 0.520 | 0.454 | 0.577 | 0.556 | 0.0216 |
-| 2-(dimethylamino)ethanol + methanol | 0.075 | 0.0005 | 0.069 | 0.326 | 0.393 | 0.171 | 0.405 | 0.0087 |
 | acetone + N-methylaniline | 0.091 | 0.0004 | 0.024 | 0.126 | 0.172 | 0.088 | 0.091 | 0.0055 |
-| methyl pentanoate + octane | 0.083 | 0.0004 | 0.366 | 0.275 | 0.277 | 0.274 | 0.253 | 0.0073 |
 | 1-propanol + benzene | 0.075 | 0.0004 | 0.212 | 0.195 | 0.227 | 0.292 | 0.310 | 0.0131 |
 | tetrahydropyran + ethanol | 0.077 | 0.0005 | 0.047 | 0.096 | 0.084 | 0.154 | 0.099 | 0.0089 |
 | dipropylamine + N,N-dimethylformamide | 0.069 | 0.0004 | 0.375 | 0.483 | 0.473 | 0.407 | 0.481 | 0.0087 |
 | propionitrile + tert-amyl ethyl ether | 0.061 | 0.0003 | 0.286 | 0.355 | 0.347 | 0.382 | 0.370 | 0.0003 |
-| 2-butanone + dibutylamine | 0.093 | 0.0004 | 0.281 | 0.246 | 0.286 | 0.283 | 0.365 | 0.0097 |
 | heptane + toluene | 0.076 | 0.0006 | 0.137 | 0.124 | 0.140 | 0.168 | 0.194 | 0.0163 |
 
 ## Pure densities
@@ -208,11 +190,8 @@ Each pure density is taken from the paper that supplies most of the mixture dens
 | `c1ccncc1` | 303.15 | 0.97298 | 0.00011 | thermoml:10.1021/je900874z | yes | 0.9819 @ 298 K | – |
 | `CN1CCCC1=O` | 298.15 | 1.02800 | 0.00015 | thermoml:10.1021/je7003758 | yes | 1.0230 @ 303 K | thermoml:10.1016/j.fluid.2008.02.023, rc2-validation:10.1016/j.fluid.2008.02.023 |
 | `ClCCCl` | 298.15 | 1.24550 | 0.00030 | thermoml:10.1021/je7003758 | yes | 1.2454 @ 303 K | – |
-| `CN(C)CCO` | 298.15 | 0.88334 | 0.00020 | thermoml:10.1016/j.tca.2014.03.038 | no | – | – |
 | `CC(C)=O` | 298.15 | 0.78532 | 0.00025 | thermoml:10.1021/je900874z | yes | 0.7845 @ 303 K | – |
 | `CNc1ccccc1` | 298.15 | 0.98207 | 0.00047 | thermoml:10.1021/je900874z | no | – | – |
-| `CCCCC(=O)OC` | 298.15 | 0.88484 | 0.00050 | thermoml:10.1021/acs.jced.5b00813 | no | – | – |
-| `CCCCCCCC` | 298.15 | 0.69858 | 0.00052 | thermoml:10.1021/acs.jced.5b00813 | no | – | – |
 | `CCCO` | 298.15 | 0.79969 | 0.00013 | thermoml:10.1021/je700254t | yes | 0.7997 @ 303 K | thermoml:10.1021/je900212d, rc2-validation:10.1021/je900212d |
 | `c1ccccc1` | 298.15 | 0.87358 | 0.00008 | thermoml:10.1021/je700254t | yes | 0.8765 @ 298 K | ml-peg |
 | `C1CCOCC1` | 298.15 | 0.87903 | 0.00004 | thermoml:10.1021/je201140q | no | – | – |
@@ -221,8 +200,6 @@ Each pure density is taken from the paper that supplies most of the mixture dens
 | `CN(C)C=O` | 298.15 | 0.94408 | 0.00113 | thermoml:10.1021/acs.jced.5b00802 | yes | 0.9445 @ 303 K | thermoml:10.1007/s10765-016-2096-3, rc2-validation:10.1007/s10765-016-2096-3 |
 | `CCC#N` | 298.15 | 0.77600 | 0.00015 | thermoml:10.1021/je301238f | no | – | – |
 | `CCOC(C)(C)CC` | 298.15 | 0.76100 | 0.00015 | thermoml:10.1021/je301238f | no | – | – |
-| `CCC(C)=O` | 298.15 | 0.80008 | 0.00009 | thermoml:10.1016/j.tca.2010.09.004 | yes | 0.7999 @ 303 K | – |
-| `CCCCNCCCC` | 298.15 | 0.75546 | 0.00010 | thermoml:10.1016/j.tca.2010.09.004 | no | – | thermoml:10.1021/je800026p, rc2-validation:10.1021/je800026p |
 | `CCCCCCC` | 298.15 | 0.67954 | 0.00013 | thermoml:10.1021/je400184t | no | – | – |
 | `Cc1ccccc1` | 298.15 | 0.86222 | 0.00011 | thermoml:10.1021/je400184t | yes | 0.8668 @ 298 K | ml-peg |
 
@@ -306,25 +283,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![nmp_dichloroethane](figures/nmp_dichloroethane.png)
 
-### 5. 2-(dimethylamino)ethanol + methanol (`CN(C)CCO` + `CO`)
-
-- **Interaction:** amino-alcohol with an alcohol (O-H···N and O-H···O)
-- **Rationale:** Exothermic cross-association between a bifunctional donor/acceptor and an alcohol.
-- **Miscibility:** Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-- **ΔHmix data:** 19 points from 10.1021/je800334m (19)
-- **Density data:** 9 points from 10.1016/j.tca.2014.03.038 (9)
-- **Single-phase evidence:** ΔHmix measured at 19 compositions spanning x = 0.05–0.95; straight-line fit reduced χ² = 291 (a two-phase region would give ≈ 1).
-- **V^E fit:** 9 points derived from densities; RMS residual 0.0121 cm³/mol, median σ 0.0162 cm³/mol.
-
-| x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
-|---|---|---|---|---|---|---|
-| 0.247 | 41 / 125 | 1447 | 25.0 | -0.804 ± 0.0087 | 0.8437 ± 0.00014 | -0.898 |
-| 0.500 | 65 / 65 | 1495 | 25.1 | -0.865 ± 0.0094 | 0.8684 ± 0.00015 | -1.048 |
-| 0.750 | 81 / 27 | 1539 | 25.0 | -0.533 ± 0.0059 | 0.8777 ± 0.00017 | -0.566 |
-
-![dmae_methanol](figures/dmae_methanol.png)
-
-### 6. acetone + N-methylaniline (`CC(C)=O` + `CNc1ccccc1`)
+### 5. acetone + N-methylaniline (`CC(C)=O` + `CNc1ccccc1`)
 
 - **Interaction:** aromatic N-H donor with a ketone acceptor
 - **Rationale:** Exothermic N-H···O=C association; adds an aromatic amine.
@@ -342,25 +301,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![acetone_nmethylaniline](figures/acetone_nmethylaniline.png)
 
-### 7. methyl pentanoate + octane (`CCCCC(=O)OC` + `CCCCCCCC`)
-
-- **Interaction:** dilution of ester dipoles in an alkane
-- **Rationale:** Endothermic dipole dilution, neither component in ml-peg.
-- **Miscibility:** Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below). Endothermic ester + alkane; check the demixing diagnostic in the pilot.
-- **ΔHmix data:** 19 points from 10.1021/acs.jced.5b00813 (19)
-- **Density data:** 19 points from 10.1021/acs.jced.5b00813 (19)
-- **Single-phase evidence:** ΔHmix measured at 19 compositions spanning x = 0.07–0.96; straight-line fit reduced χ² = 656 (a two-phase region would give ≈ 1).
-- **V^E fit:** 19 points derived from densities; RMS residual 0.0108 cm³/mol, median σ 0.0121 cm³/mol.
-
-| x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
-|---|---|---|---|---|---|---|
-| 0.230 | 23 / 77 | 2462 | 29.6 | 0.769 ± 0.0080 | 0.7323 ± 0.00051 | 0.499 |
-| 0.490 | 49 / 51 | 2306 | 29.1 | 1.053 ± 0.0115 | 0.7764 ± 0.00051 | 0.616 |
-| 0.730 | 73 / 27 | 2162 | 28.6 | 0.789 ± 0.0085 | 0.8234 ± 0.00051 | 0.466 |
-
-![methylpentanoate_octane](figures/methylpentanoate_octane.png)
-
-### 8. 1-propanol + benzene (`CCCO` + `c1ccccc1`)
+### 6. 1-propanol + benzene (`CCCO` + `c1ccccc1`)
 
 - **Interaction:** alcohol self-association broken by an aromatic (O-H···π)
 - **Rationale:** Alcohol dilution case that also probes O-H···π, replacing isooctane + 1-propanol. Both pure densities are already in [ml-peg](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/liquid_densities).
@@ -378,7 +319,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![propanol_benzene](figures/propanol_benzene.png)
 
-### 9. tetrahydropyran + ethanol (`C1CCOCC1` + `CCO`)
+### 7. tetrahydropyran + ethanol (`C1CCOCC1` + `CCO`)
 
 - **Interaction:** cyclic ether with an alcohol
 - **Rationale:** Endothermic; ether acceptor competes with alcohol self-association.
@@ -396,7 +337,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![tetrahydropyran_ethanol](figures/tetrahydropyran_ethanol.png)
 
-### 10. dipropylamine + N,N-dimethylformamide (`CCCNCCC` + `CN(C)C=O`)
+### 8. dipropylamine + N,N-dimethylformamide (`CCCNCCC` + `CN(C)C=O`)
 
 - **Interaction:** secondary amine with a tertiary amide
 - **Rationale:** Endothermic amine/amide pair; dipropylamine is new to ml-peg.
@@ -414,7 +355,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![dipropylamine_dmf](figures/dipropylamine_dmf.png)
 
-### 11. propionitrile + tert-amyl ethyl ether (`CCC#N` + `CCOC(C)(C)CC`)
+### 9. propionitrile + tert-amyl ethyl ether (`CCC#N` + `CCOC(C)(C)CC`)
 
 - **Interaction:** nitrile dipoles diluted in an ether
 - **Rationale:** Only nitrile system; both properties from one paper at identical compositions (data at 298.4 K). Neither component in ml-peg.
@@ -432,25 +373,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![propionitrile_taee](figures/propionitrile_taee.png)
 
-### 12. 2-butanone + dibutylamine (`CCC(C)=O` + `CCCCNCCCC`)
-
-- **Interaction:** ketone with a secondary amine
-- **Rationale:** Non-alcohol endothermic system, replacing methyl pentanoate + methanol.
-- **Miscibility:** Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-- **ΔHmix data:** 9 points from 10.1016/j.fluid.2013.01.011 (9)
-- **Density data:** 19 points from 10.1016/j.tca.2010.09.004 (19)
-- **Single-phase evidence:** ΔHmix measured at 9 compositions spanning x = 0.12–0.89; straight-line fit reduced χ² = 324 (a two-phase region would give ≈ 1).
-- **V^E fit:** 19 points derived from densities; RMS residual 0.0043 cm³/mol, median σ 0.0048 cm³/mol.
-
-| x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
-|---|---|---|---|---|---|---|
-| 0.220 | 22 / 78 | 2470 | 29.4 | 0.423 ± 0.0045 | 0.7604 ± 0.00010 | 0.172 |
-| 0.500 | 50 / 50 | 2050 | 27.9 | 0.619 ± 0.0065 | 0.7693 ± 0.00010 | 0.260 |
-| 0.790 | 79 / 21 | 1615 | 26.1 | 0.428 ± 0.0045 | 0.7837 ± 0.00010 | 0.197 |
-
-![butanone_dibutylamine](figures/butanone_dibutylamine.png)
-
-### 13. heptane + toluene (`CCCCCCC` + `Cc1ccccc1`)
+### 10. heptane + toluene (`CCCCCCC` + `Cc1ccccc1`)
 
 - **Interaction:** dispersion and π control (no polar groups)
 - **Rationale:** Non-polar control that separates dispersion/D3 errors from hydrogen-bond errors. Sage handles it well (MAE 0.14 kJ/mol).
@@ -479,11 +402,15 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
   The Sage 2.0 set drops their uncertainties and has enthalpies only at 308.15 K, but the ThermoML records carry full uncertainties (and the standard-InChI conversion would otherwise turn N-methylformamide into `CN=CO`; `thermoml.py` repairs amide tautomers). See reserves.
 - **No amide-water system.** 2-pyrrolidone + water was dropped (see below).
+- **No ester.** Methyl pentanoate + octane was dropped for cost (see below).
 - **Selection bias.** Every system comes from the Sage training/validation pools, so the set reflects ThermoML coverage and Sage's curation choices rather than a designed spread.
 - **Endothermic range is capped** at RT/2 by the two-phase screen.
 
 ## Dropped systems
 
+- **2-(dimethylamino)ethanol + methanol**: Dropped for cost on 2026-10-29 (13 to 10 systems). MLP runs would start from Sage's conformer populations, which could hide a model that favours the wrong O-C-C-N conformer; it had the largest gaps from the published 1000-molecule Sage runs (ΔHmix -0.35 kJ/mol, z = -3.6, at x = 0.75); and its O-H···N and O-H···O association partly overlaps methanol + water and 1-propanol + benzene.
+- **methyl pentanoate + octane**: Dropped for cost on 2026-10-29 (13 to 10 systems). The most expensive system (11 % of the atoms, with 2,000- and 2,600-atom pure boxes), and its dipole dilution is close to propionitrile + tert-amyl ethyl ether.
+- **2-butanone + dibutylamine**: Dropped for cost on 2026-10-29 (13 to 10 systems). The second most expensive system (10 % of the atoms, with a 2,800-atom dibutylamine box) and the weakest signal (+0.42 to +0.62 kJ/mol, near the 0.4 kJ/mol floor); dipropylamine + DMF still covers secondary amines.
 - **2-(dimethylamino)ethanol + water**: Sage repeat SD 0.126 kJ/mol (above the 0.10 limit).
 - **2-pyrrolidone + water**: Viscous lactam that melts at ~25 °C ([PubChem](https://pubchem.ncbi.nlm.nih.gov/compound/12025#section=Melting-Point)). The Sage data sets and benchmarks encode it as the imidic acid tautomer OC1=NCCC1 (e.g. [Sage 2.0 training set](https://github.com/openforcefield/openff-sage/blob/a6a061ba8ebc144e3fda46f5f7a9e7a352b9cd2f/data-set-curation/physical-property/optimizations/data-sets/sage-train-v1.csv?plain=1#L145), [rc2 training set](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/training-set.csv?plain=1#L769), [rc2 benchmark, openff-2.0.0](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1#L2843)), so the published Sage repeat SDs are for a different molecule. The rc2 enthalpy uncertainties are a flat 25 % placeholder (σ = 0.1695 for ΔHmix = -0.678 kJ/mol, [same rc2 row](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/01_download-data/physprop/final/output/training-set.csv?plain=1#L769)).
 - **piperidine + water**: Dropped after the Sage reference run (2026-10-20). Nitrogen inversion is frozen in Sage (no axial/equatorial N-H interconversion in 2.2 ns, or in a 500 K anneal), and the real barrier (ΔG‡ = 6.1 kcal/mol ≈ 25 kJ/mol, [Anet and Yavari 1977](https://doi.org/10.1021/ja00450a064)) suggests ns lifetimes for MLIPs too, so ΔHmix depended on the starting N-H orientation by ~0.3 kJ/mol. It also showed the largest box-size gap against the published 1000-molecule Sage run (-0.35 kJ/mol at x = 0.25; [published openff-2.2.1 value](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output/training/summary-benchmarks-EnthalpyOfMixing.csv?plain=1#L4806)) and is microheterogeneous for x between 0.08 and 0.5 ([arXiv:2203.01224](https://arxiv.org/abs/2203.01224)).

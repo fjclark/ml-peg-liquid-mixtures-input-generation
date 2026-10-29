@@ -94,16 +94,6 @@ systems:
     miscibility: >-
       Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
 
-  - id: dmae_methanol
-    a: CN(C)CCO
-    b: CO
-    names: [2-(dimethylamino)ethanol, methanol]
-    temperature: 298.15
-    interaction: amino-alcohol with an alcohol (O-H···N and O-H···O)
-    rationale: Exothermic cross-association between a bifunctional donor/acceptor and an alcohol.
-    miscibility: >-
-      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-
   - id: acetone_nmethylaniline
     a: CC(C)=O
     b: CNc1ccccc1
@@ -113,16 +103,6 @@ systems:
     rationale: Exothermic N-H···O=C association; adds an aromatic amine.
     miscibility: >-
       Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-
-  - id: methylpentanoate_octane
-    a: CCCCC(=O)OC
-    b: CCCCCCCC
-    names: [methyl pentanoate, octane]
-    temperature: 298.15
-    interaction: dilution of ester dipoles in an alkane
-    rationale: Endothermic dipole dilution, neither component in ml-peg.
-    miscibility: >-
-      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below). Endothermic ester + alkane; check the demixing diagnostic in the pilot.
 
   - id: propanol_benzene
     a: CCCO
@@ -168,16 +148,6 @@ systems:
     miscibility: >-
       Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
 
-  - id: butanone_dibutylamine
-    a: CCC(C)=O
-    b: CCCCNCCCC
-    names: [2-butanone, dibutylamine]
-    temperature: 298.15
-    interaction: ketone with a secondary amine
-    rationale: Non-alcohol endothermic system, replacing methyl pentanoate + methanol.
-    miscibility: >-
-      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-
   - id: heptane_toluene
     a: CCCCCCC
     b: Cc1ccccc1
@@ -210,6 +180,31 @@ pure_density_references:
 
 # Systems considered and dropped, for the report.
 dropped:
+  - system: 2-(dimethylamino)ethanol + methanol
+    a: CN(C)CCO
+    b: CO
+    reason: >-
+      Dropped for cost on 2026-10-29 (13 to 10 systems). MLP runs would start
+      from Sage's conformer populations, which could hide a model that favours
+      the wrong O-C-C-N conformer; it had the largest gaps from the published
+      1000-molecule Sage runs (ΔHmix -0.35 kJ/mol, z = -3.6, at x = 0.75); and
+      its O-H···N and O-H···O association partly overlaps methanol + water and
+      1-propanol + benzene.
+  - system: methyl pentanoate + octane
+    a: CCCCC(=O)OC
+    b: CCCCCCCC
+    reason: >-
+      Dropped for cost on 2026-10-29 (13 to 10 systems). The most expensive
+      system (11 % of the atoms, with 2,000- and 2,600-atom pure boxes), and
+      its dipole dilution is close to propionitrile + tert-amyl ethyl ether.
+  - system: 2-butanone + dibutylamine
+    a: CCC(C)=O
+    b: CCCCNCCCC
+    reason: >-
+      Dropped for cost on 2026-10-29 (13 to 10 systems). The second most
+      expensive system (10 % of the atoms, with a 2,800-atom dibutylamine
+      box) and the weakest signal (+0.42 to +0.62 kJ/mol, near the
+      0.4 kJ/mol floor); dipropylamine + DMF still covers secondary amines.
   - system: 2-(dimethylamino)ethanol + water
     a: CN(C)CCO
     b: O
