@@ -376,7 +376,9 @@ def write_summary(out: Path, tables: dict) -> None:
         f"experiment exactly, with one run per box, plus {GOOD_NOISE_SDS:g} SD of "
         "its noise, so such a model scores 'good' about 98 % of the time. **Bad** "
         f"is {BAD_SAGE_MULTIPLE:g}× Sage's score, as Sage was trained on these "
-        "properties.",
+        "properties. Mixture and pure densities share one set of thresholds for "
+        "simplicity, the larger of their two values, so both rules still hold "
+        "for each.",
         "",
         *threshold_rows(tables["thresholds"]),
         "",

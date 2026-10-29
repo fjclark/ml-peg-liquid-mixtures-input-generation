@@ -19,18 +19,18 @@ Blue: resolvable difference for a Sage-like error profile (band: 1 to 0 × Sage'
 
 ## Thresholds
 
-Every property is scored by MAZE (each error divided by a fixed σ_ref = sqrt(σ_Sage² + σ_exp²)), with the MAE shown at weight 0. Thresholds come from the error analysis: **good** is the score of a model that matches experiment exactly, with one run per box, plus 2 SD of its noise, so such a model scores 'good' about 98 % of the time. **Bad** is 5× Sage's score, as Sage was trained on these properties.
+Every property is scored by MAZE (each error divided by a fixed σ_ref = sqrt(σ_Sage² + σ_exp²)), with the MAE shown at weight 0. Thresholds come from the error analysis: **good** is the score of a model that matches experiment exactly, with one run per box, plus 2 SD of its noise, so such a model scores 'good' about 98 % of the time. **Bad** is 5× Sage's score, as Sage was trained on these properties. Mixture and pure densities share one set of thresholds for simplicity, the larger of their two values, so both rules still hold for each.
 
 | Metric | Perfect model (2 ns) | Sage | Good | Bad | Unit |
 |---|---|---|---|---|---|
 | ΔHmix MAE | 0.071 ± 0.010 | 0.546 | 0.092 | 2.7 | kJ/mol |
 | ΔHmix MAZE | 0.65 ± 0.09 | 5.37 | 0.84 | 27 |  |
-| Mixture density MAE | 0.00063 ± 0.00008 | 0.00861 | 0.0008 | 0.043 | g/mL |
-| Mixture density MAZE | 0.75 ± 0.10 | 10.7 | 0.94 | 54 |  |
+| Mixture density MAE | 0.00063 ± 0.00008 | 0.00861 | 0.00096 | 0.043 | g/mL |
+| Mixture density MAZE | 0.75 ± 0.10 | 10.7 | 1 | 54 |  |
 | V^E MAE | 0.091 ± 0.013 | 0.224 | 0.12 | 1.1 | cm³/mol |
 | V^E MAZE | 0.93 ± 0.14 | 2.38 | 1.2 | 12 |  |
-| Pure density MAE | 0.00065 ± 0.00015 | 0.00847 | 0.00096 | 0.042 | g/mL |
-| Pure density MAZE | 0.71 ± 0.17 | 8.43 | 1 | 42 |  |
+| Pure density MAE | 0.00065 ± 0.00015 | 0.00847 | 0.00096 | 0.043 | g/mL |
+| Pure density MAZE | 0.71 ± 0.17 | 8.43 | 1 | 54 |  |
 
 The perfect-model floor rises for shorter runs (ΔHmix MAZE 0.65 at 2 ns, 0.87 at 1 ns), so the thresholds must be recomputed if the protocol changes.
 

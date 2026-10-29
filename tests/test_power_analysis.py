@@ -189,3 +189,28 @@ def test_thresholds_follow_noise_and_sage():
     row = thresholds(metrics, bootstrap).iloc[0]
     assert row.good == 0.10  # 0.0812 + 2 × 0.0101 = 0.1014
     assert row.bad == 2.7  # 5 × 0.546 = 2.73
+
+
+def test_density_thresholds_are_shared():
+    """Mixture and pure density MAE share the larger good and bad values."""
+    metrics = pd.DataFrame(
+        {
+            "property": ["density", "pure_density"],
+            "metric": ["MAE", "MAE"],
+            "production_ps": [REFERENCE[1], REFERENCE[1]],
+            "profile": [0.0, 0.0],
+            "observed_mean": [0.0006, 0.0006],
+            "sd": [0.0001, 0.0002],
+        }
+    )
+    bootstrap = pd.DataFrame(
+        {
+            "property": ["density", "pure_density"],
+            "metric": ["MAE", "MAE"],
+            "sage": [0.0086, 0.0084],
+            "bootstrap_sd": [0.002, 0.002],
+        }
+    )
+    table = thresholds(metrics, bootstrap)
+    assert list(table.good) == [0.001, 0.001]  # max(0.0008, 0.001)
+    assert list(table.bad) == [0.043, 0.043]  # max(0.043, 0.042)

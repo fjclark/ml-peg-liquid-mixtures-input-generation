@@ -74,6 +74,10 @@ COLORS = ("#2a78d6", "#eb6834", "#1baf7a")
 # Sage was trained on these properties.
 GOOD_NOISE_SDS = 2.0
 BAD_SAGE_MULTIPLE = 5.0
+# Properties that share one set of thresholds (DECISIONS.md, metrics): mixture and
+# pure densities, for simplicity. The shared value is the larger of the two, so
+# the rules above still hold for each.
+THRESHOLD_GROUPS = {"pure_density": "density"}
 LABELS = {
     "hmix": "ΔHmix",
     "density": "Mixture density",
@@ -715,6 +719,7 @@ def thresholds(metrics: pd.DataFrame, bootstrap: pd.DataFrame) -> pd.DataFrame:
     good = perfect-model mean + ``GOOD_NOISE_SDS`` × its SD with one run per
     box of the benchmark protocol, so a model that matches experiment scores
     'good' about 98 % of the time. bad = ``BAD_SAGE_MULTIPLE`` × Sage's score.
+    Properties in ``THRESHOLD_GROUPS`` share the larger of the group's values.
 
     Parameters
     ----------
@@ -748,7 +753,11 @@ def thresholds(metrics: pd.DataFrame, bootstrap: pd.DataFrame) -> pd.DataFrame:
                 "bad": round_significant(BAD_SAGE_MULTIPLE * row.sage),
             }
         )
-    return pd.DataFrame(rows)
+    table = pd.DataFrame(rows)
+    group = table.property.replace(THRESHOLD_GROUPS)
+    for column in ("good", "bad"):
+        table[column] = table.groupby([group, "metric"])[column].transform("max")
+    return table
 
 
 # ml-peg metric names, units and what each point set holds.
