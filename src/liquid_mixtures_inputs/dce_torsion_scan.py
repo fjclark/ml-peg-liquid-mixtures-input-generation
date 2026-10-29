@@ -250,6 +250,47 @@ def torsion_summary(table, column: str) -> tuple[float, float]:
     return float(gauche), float(barrier)
 
 
+def dce_summary(out: Path) -> dict[str, float]:
+    """
+    Summarise the DCE torsion scans and flip statistics for the Sage report.
+
+    Parameters
+    ----------
+    out
+        Directory with ``dce_torsion_scan.csv`` and ``dce_flips.csv``.
+
+    Returns
+    -------
+    dict[str, float]
+        Gauche energies and barriers (kJ/mol) of Sage and MACE-OFF23(M), the
+        Arrhenius slowdown at 298 K from the barrier difference, the mean
+        fraction of molecules changing per frame (and its uncorrelated limit),
+        the median relaxation time in Sage and that time scaled to a
+        reference-like barrier (ps), and the fewest DCE molecules in a box.
+    """
+    import pandas as pd
+
+    table = pd.read_csv(out / "dce_torsion_scan.csv")
+    flips = pd.read_csv(out / "dce_flips.csv")
+    gauche_sage, barrier_sage = torsion_summary(table, "sage")
+    gauche_reference, barrier_reference = torsion_summary(table, "mace_off_m")
+    # Equal Arrhenius prefactors: the rate ratio comes from the barriers alone.
+    slowdown = float(np.exp((barrier_sage - barrier_reference) / RT_KJ_PER_MOL))
+    tau_sage = float(flips.tau_ps.median())
+    return {
+        "gauche_sage": gauche_sage,
+        "gauche_reference": gauche_reference,
+        "barrier_sage": barrier_sage,
+        "barrier_reference": barrier_reference,
+        "slowdown": slowdown,
+        "changed_per_frame": float(flips.changed_per_frame.mean()),
+        "uncorrelated_limit": float(flips.uncorrelated_limit.mean()),
+        "tau_sage_ps": tau_sage,
+        "tau_reference_ps": tau_sage / slowdown,
+        "fewest_molecules": float(flips.n_dce.min()),
+    }
+
+
 def plot(out: Path) -> None:
     """
     Plot both scans and print the numbers used in the report.
@@ -280,29 +321,10 @@ def plot(out: Path) -> None:
     fig.savefig(out / "figures" / "dce_torsion_scan.png", dpi=110)
     plt.close(fig)
 
-    g_sage, b_sage = torsion_summary(table, "sage")
-    g_ref, b_ref = torsion_summary(table, "mace_off_m")
-    slowdown = np.exp((b_sage - b_ref) / RT_KJ_PER_MOL)
-    print(f"gauche - trans: Sage {g_sage:.1f}, MACE-OFF23(M) {g_ref:.1f} kJ/mol")
-    print(f"barrier above trans: Sage {b_sage:.1f}, MACE-OFF23(M) {b_ref:.1f} kJ/mol")
-    print(f"Arrhenius slowdown at 298 K: {slowdown:.1f}x")
+    for name, value in dce_summary(out).items():
+        print(f"{name}: {value:.3f}")
     max_dev = (table.sage_achieved - table.dihedral).abs()
     print(f"max |achieved - target| Sage dihedral: {max_dev.max():.3f} deg")
-    flips = pd.read_csv(out / "dce_flips.csv")
-    by_box = flips.groupby("box_id")[
-        [
-            "n_dce",
-            "gauche_fraction",
-            "changed_per_frame",
-            "uncorrelated_limit",
-            "tau_ps",
-        ]
-    ].mean()
-    print(by_box.round(3).to_string())
-    print(
-        f"tau median {flips.tau_ps.median():.0f} ps; reference-like barrier: "
-        f"{flips.tau_ps.median() / slowdown:.0f} ps"
-    )
 
 
 def main() -> None:

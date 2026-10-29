@@ -12,8 +12,9 @@ diagnostics, a comparison of within-run and between-run uncertainties, and a
 finite-size check against the published 1000-molecule openff-2.3.0 results.
 Per-run statistics use the same estimators as the benchmark analysis
 (``ml_peg/analysis/molecular_dynamics/binary_mixtures/mixing.py``).
-``systems.csv`` and ``boxes.csv`` in ``--data-dir`` are updated in place with
-the Sage reference columns.
+``systems.csv``, ``pure.csv`` and ``boxes.csv`` in ``--data-dir`` are updated
+in place with the Sage reference columns. The reports are written by
+``sage_report.py``.
 """
 
 from __future__ import annotations
@@ -41,7 +42,6 @@ from liquid_mixtures_inputs.constants import (  # noqa: E402
 )
 from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (  # noqa: E402
     MIN_N_EFF,
-    N_BLOCKS,
     box_result,
     frame_checks,
     holm,
@@ -965,7 +965,9 @@ def plot_sage_vs_exp(summary: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
-def inspection_items(runs, summary, finite, run_flags, start, wb, boxes) -> list[dict]:
+def inspection_items(
+    runs, summary, finite, run_flags, start, within, boxes
+) -> pd.DataFrame:
     """
     Collect boxes and systems worth inspecting, by rule.
 
@@ -981,19 +983,19 @@ def inspection_items(runs, summary, finite, run_flags, start, wb, boxes) -> list
         Holm-flagged drift and half-split tests as (box_id, text).
     start
         Start-dependence table.
-    wb
+    within
         Within/between table.
     boxes
         ``boxes.csv``.
 
     Returns
     -------
-    list[dict]
+    pd.DataFrame
         Items with ``category``, ``target``, ``evidence`` and ``box`` (the box
         to plot, or ``None`` for a system-level item).
     """
     items = []
-    mismatch = wb[(wb.flag != "") | (wb.p_high < FLAG_P)]
+    mismatch = within[(within.flag != "") | (within.p_high < FLAG_P)]
     # Holm-significant first, then by unadjusted p (many adjusted p tie at 1)
     mismatch = mismatch.assign(unflagged=mismatch.flag == "").sort_values(
         ["unflagged", "p_high"]
@@ -1105,385 +1107,7 @@ def inspection_items(runs, summary, finite, run_flags, start, wb, boxes) -> list
                     "box": None,
                 }
             )
-    return items
-
-
-CATEGORY_NOTES = {
-    "within/between mismatch": (
-        "Replicates (independently built boxes) scatter more than the within-run "
-        "standard errors allow. Likely a slow mode (conformers, local structure) "
-        "that one 2 ns run does not sample, so a single run's CI is too narrow "
-        "here. Check the replicate time series for offsets that persist all run. "
-        'Entries marked "unadjusted only" do not survive Holm correction.'
-    ),
-    "low sampling": (
-        "Long correlation times (viscous or slowly reorganising liquids). Check "
-        "that block means still wander in the convergence plot."
-    ),
-    "drift or half-split": "A trend within a run. Check the convergence plot.",
-    "start dependence": (
-        "The distributed box (replicate 0) differs from the rebuilt replicates; "
-        "the starting structure may bias MLIP runs."
-    ),
-    "early density shift": (
-        "Density still relaxing after the 0.2 ns discard, or a large "
-        "fluctuation. Compare the replicates' time series."
-    ),
-    "bonding changed": "Molecules changed during a classical run: a bug.",
-    "microheterogeneity": (
-        "Sage itself shows like-like clustering beyond random mixing; MLIP "
-        "demixing flags for this box compare against this Sage value."
-    ),
-    "published-Sage gap": (
-        "Our replicate mean minus the published openff-2.3.0 mean (3 "
-        "replicates, 1000 molecules) at our composition, beyond "
-        f"{SIZE_GAP['hmix']} kJ/mol or {SIZE_GAP['density']} g/mL. The "
-        "published runs are labelled "
-        f"[`{PUBLISHED_FF}`]({PUBLISHED_FF_URL}) (2.3.0rc2), whose bonded, vdW "
-        "and library-charge parameters are identical to the released "
-        "openff-2.3.0. Both use NAGL charges (published: model 0.1.0-rc.3 "
-        f"([line 487]({PUBLISHED_FF_URL}#L487)), ours: 1.0.0), so the gap comes "
-        "from box size, protocol (run length, equilibration, starting "
-        "conformers) or the NAGL model version. z is "
-        "the gap over the combined "
-        "standard error of the two means: it tests whether the gap exceeds "
-        "replicate noise, not what causes it. The plot shows every matched point "
-        "(± 2 se), with the thresholds dotted."
-    ),
-    "force-field miss (not a run problem)": (
-        "Sage is far from experiment; expected for some systems and useful "
-        "for discriminating models."
-    ),
-}
-
-
-def interpretation(
-    out: Path, runs, summary, wb, pooled, items, runs_dir: Path
-) -> list[str]:
-    """
-    Write the summary section and its figures for the top of the report.
-
-    Parameters
-    ----------
-    out
-        Output directory.
-    runs
-        Per-run statistics.
-    summary
-        Per-point summary.
-    wb
-        Within/between table.
-    pooled
-        Pooled within/between ratios.
-    items
-        Output of :func:`inspection_items`.
-    runs_dir
-        Output directory of ``run_sage_benchmark.py``.
-
-    Returns
-    -------
-    list[str]
-        Markdown lines.
-    """
-    (out / "figures" / "replicates").mkdir(parents=True, exist_ok=True)
-    plot_boxes = sorted({i["box"] for i in items if i["box"]})
-    for box_id in plot_boxes:
-        plot_replicates(
-            runs_dir, runs, box_id, out / "figures/replicates" / f"{box_id}.png"
-        )
-    pooled_box = pooled[pooled.level == "box"].set_index("observable")
-    complete = summary[summary.complete]
-    h_ratio = pooled_box.loc["h", "pooled_ratio"]
-    rho_ratio = pooled_box.loc["density", "pooled_ratio"]
-    n_targets = len({i["target"] for i in items})
-    passed = pooled[pooled.p * len(pooled) < FLAG_P]
-    bonferroni_pass = (
-        ", ".join(f"{r.level} {r.observable}" for r in passed.itertuples()) or "none"
-    )
-    lines = [
-        "# Sage (openff-2.3.0) reference run",
-        "",
-        "## Summary and systems to inspect",
-        "",
-        f"{len(runs)} runs ({runs.box_id.nunique()} boxes × "
-        f"{runs.replicate.nunique()} replicates) finished. Against experiment, "
-        "Sage's replicate-mean ΔHmix MAE is "
-        f"{np.mean(np.abs(complete.hmix_sage - complete.hmix_exp)):.3f} kJ/mol and "
-        "its mixture density MAE "
-        f"{np.nanmean(np.abs(complete.density_sage - complete.density_exp)):.4f} "
-        "g/mL.",
-        "",
-        "**Within-run vs between-run uncertainty.** Within-run standard errors "
-        "come from the autocorrelation (Chodera) estimator on every logged "
-        "sample. Pooled over all boxes, the SD of the replicate means is "
-        f"{h_ratio:.2f}× the within-run sem for h and {rho_ratio:.2f}× for density "
-        f"(1 expected; p = {pooled_box.loc['h', 'p']:.1g} and "
-        f"{pooled_box.loc['density', 'p']:.1g}). "
-        f"{pooled_box.loc['h', 'n_sig_high']} (h) and "
-        f"{pooled_box.loc['density', 'n_sig_high']} (density) of "
-        f"{pooled_box.loc['h', 'n_tests']} boxes have p_high < {FLAG_P}, against "
-        f"{FLAG_P * pooled_box.loc['h', 'n_tests']:.1f} expected by chance "
-        "in each; "
-        f"{pooled_box.loc['h', 'n_sig_low']} (h) and "
-        f"{pooled_box.loc['density', 'n_sig_low']} (density) have p_low < "
-        f"{FLAG_P}. "
-        "Tests still significant after Holm correction: "
-        f"{int((wb.flag != '').sum())}. The replicates start from independently "
-        "built boxes, so their spread includes slow modes a single run cannot "
-        "see. MLIP runs are single runs, so their confidence intervals will be "
-        "narrower than the true run-to-run spread by roughly this factor.",
-        "",
-        "![within vs between](figures/within_between.png)",
-        "",
-        "| Statistic | Observable | Tests | Median ratio | Pooled ratio | p | "
-        f"p_high < {FLAG_P} | p_low < {FLAG_P} |",
-        "|---|---|---|---|---|---|---|---|",
-        *[
-            f"| {r.level} | {r.observable} | {r.n_tests} | {r.median_ratio:.2f} | "
-            f"{r.pooled_ratio:.2f} | {r.p:.1g} | {r.n_sig_high} | {r.n_sig_low} |"
-            for r in pooled.itertuples()
-        ],
-        "",
-        "**Multiple testing.** The pooled ratios are one test per row of the "
-        f"table ({len(pooled)} tests, uncorrected). With a Bonferroni correction "
-        f"over the {len(pooled)}, {bonferroni_pass} stay significant at p < "
-        f"{FLAG_P}. The per-box and "
-        f"per-point tests are two-sided and Holm-corrected together ({len(wb)} "
-        f"tests, flagged at adjusted p < {FLAG_P}). The p_high < {FLAG_P} counts "
-        "above are unadjusted and should be read against the number expected by "
-        'chance. Boxes listed under "within/between mismatch" below as '
-        f'"p < {FLAG_P} unadjusted only" are places to look, not individually '
-        "significant results; the evidence that within-run sems are too small "
-        "comes from the pooled test.",
-        "",
-        f"**{n_targets} boxes or systems to inspect** ({len(items)} items). "
-        "Categories are in rough order of concern for the benchmark.",
-        "",
-    ]
-    for category, note in CATEGORY_NOTES.items():
-        group = [i for i in items if i["category"] == category]
-        if not group:
-            continue
-        lines += [f"### {category} ({len(group)})", "", note, ""]
-        lines += ["| Box / system | Evidence | Plots |", "|---|---|---|"]
-        for item in group:
-            if item["box"]:
-                plots = (
-                    f"[replicates](figures/replicates/{item['box']}.png), "
-                    f"[convergence](figures/convergence/{item['box']}.png)"
-                )
-            else:
-                system = item["target"].rsplit("_x", 1)[0]
-                plots = f"[system](figures/systems/{system}.png)"
-            lines.append(f"| {item['target']} | {item['evidence']} | {plots} |")
-        lines.append("")
-        if category == "early density shift":
-            by_rep = runs.groupby("replicate").density_first_block_shift
-            lines += [
-                "Mean first-block shift over all boxes, by replicate. A shift "
-                "common to most boxes of one replicate points at that "
-                "replicate's starting structures rather than at a system:",
-                "",
-                "| Replicate | Mean shift (g/mL) | Boxes with shift > 0 |",
-                "|---|---|---|",
-                *[
-                    f"| {rep} | {shift.mean():+.4f} | {(shift > 0).mean():.0%} |"
-                    for rep, shift in by_rep
-                ],
-                "",
-            ]
-        if category == "published-Sage gap":
-            lines += ["![finite size](figures/finite_size.png)", ""]
-        if category == "force-field miss (not a run problem)":
-            lines += ["![Sage vs experiment](figures/sage_vs_exp.png)", ""]
-    worst = [
-        b
-        for b in plot_boxes
-        if any(
-            i["box"] == b and i["category"] == "within/between mismatch" for i in items
-        )
-    ]
-    worst = sorted(
-        worst,
-        key=lambda b: -wb[(wb.box_id == b) & (wb.level == "box")].ratio.max(),
-    )[:3]
-    if worst:
-        lines += ["Largest within/between mismatches:", ""]
-        lines += [f"![{b}](figures/replicates/{b}.png)" for b in worst]
-        lines.append("")
-    return lines
-
-
-def write_report(out: Path, header, runs, summary, finite, flags, start) -> None:
-    """
-    Write a Markdown summary of the Sage reference run.
-
-    Parameters
-    ----------
-    out
-        Output directory.
-    header
-        Lines from :func:`interpretation`.
-    runs
-        Per-run statistics.
-    summary
-        Per-point summary with σ_Sage and σ_ref.
-    finite
-        Finite-size comparison.
-    flags
-        Flagged run tests after Holm correction.
-    start
-        Start-dependence table from ``start_dependence``.
-    """
-    complete = summary[summary.complete]
-    lines = [
-        *header,
-        "## Details",
-        "",
-        f"- Runs finished: {len(runs)} "
-        f"({runs.box_id.nunique()} boxes, "
-        f"up to {runs.replicate.nunique()} replicates).",
-        f"- Mixture points with all replicates: {len(complete)} of {len(summary)}.",
-        f"- Production per run: {runs.run_ps.min() - EQUILIBRATION_PS:.0f} ps "
-        f"after {EQUILIBRATION_PS:.0f} ps equilibration.",
-        "",
-        "## Replicate spread (MAZE denominator)",
-        "",
-        "MAZE (mean absolute z-score error) is the ml-peg metric for ΔHmix and "
-        "mixture density: |model − experiment| / σ_ref averaged over all "
-        f"{len(summary)} ΔHmix points ({int(summary.density_exp.notna().sum())} "
-        "density points), giving one number per model. The denominator is "
-        "σ_ref = sqrt(σ_Sage² + σ_exp²) (the σ_ref columns below, written to "
-        "`systems.csv` as `sigma_ref_hmix` and `sigma_ref_density`), fixed per "
-        "point and the same for every model. σ_Sage is one value per mixture: the "
-        "SD of the replicate means, pooled over its compositions (RMS) and floored "
-        "at the median over mixtures. σ_ref differs between a mixture's "
-        "compositions only through σ_exp. The floor is there because model errors "
-        "are mostly systematic and much larger than σ_ref, so σ_ref acts as a "
-        "per-mixture weight: without the floor, the mixtures where Sage happens to "
-        "sample most quietly would dominate MAZE, although an MLIP's noise there "
-        "need not be as small. With the floor, mixtures are weighted roughly "
-        "evenly and MAZE stays close to the MAE divided by a single σ. "
-        "Exception: σ_Sage of "
-        f"{', '.join(sorted(SIGMA_SAGE_AT_FLOOR))} is set to the floor, as its "
-        "Sage spread comes from a force-field artefact (see the last section).",
-        "",
-        "![replicate spread](figures/replicate_spread.png)",
-        "",
-        "| System | x | ΔHmix Sage | ΔHmix exp | SD | σ_Sage | σ_ref | ρ Sage | "
-        "ρ exp | ρ SD | σ_ref ρ |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
-    ]
-    for r in summary.itertuples():
-        lines.append(
-            f"| {r.system_id} | {r.x:.3f} | {r.hmix_sage:.3f} | {r.hmix_exp:.3f} | "
-            f"{r.hmix_sd:.3f} | {r.sigma_sage_hmix:.3f} | {r.sigma_ref_hmix:.3f} | "
-            f"{r.density_sage:.4f} | {r.density_exp:.4f} | {r.density_sd:.4f} | "
-            f"{r.sigma_ref_density:.4f} |"
-        )
-    lines += [
-        "",
-        "## Finite-size check (our boxes vs published 1000-molecule runs)",
-        "",
-        f"Matched points within |Δx| ≤ {PUBLISHED_X_TOLERANCE}: {len(finite)}. "
-        "The nearest published value is shifted to our composition along a curve "
-        "fitted to the published points (two-term Redlich-Kister for ΔHmix, "
-        "quadratic for density), as a composition offset alone can shift a "
-        "density by more than the gaps tested. "
-        f"|z| > 3: {int((finite.z.abs() > 3).sum()) if len(finite) else 0}. "
-        "z uses the standard errors of the two replicate means, which are small, "
-        "so small systematic offsets reach |z| > 3.",
-        "",
-        "| Box | Property | x ours | x published (nearest) | Ours | "
-        "Published (nearest) | Published (at our x) | Diff | z |",
-        "|---|---|---|---|---|---|---|---|---|",
-        *[
-            f"| {r.box_id} | {r.prop} | {r.x_ours:.4f} | {r.x_published:.4f} | "
-            f"{r.ours:.4f} | {r.published_nearest:.4f} | {r.published:.4f} | "
-            f"{r.diff:+.4f} | {r.z:+.1f} |"
-            for r in finite.itertuples()
-        ],
-        "",
-        "## Convergence",
-        "",
-        f"Each run discards {EQUILIBRATION_PS:.0f} ps of equilibration and keeps "
-        f"{PRODUCTION_PS:.0f} ps of production. h is the enthalpy per molecule, "
-        "(E_pot + pV) / N in kJ/mol. The block tests split production into "
-        f"{N_BLOCKS} blocks of {PRODUCTION_PS / N_BLOCKS:.0f} ps.",
-        "",
-        "- **Number of independent samples.** The autocorrelation estimator gives "
-        "n_eff, the number of effectively independent samples of h in a run; "
-        "production time / n_eff is the correlation time, how long h takes to "
-        f"decorrelate. Median n_eff {runs.h_n_eff.median():.0f} (correlation time "
-        f"{runs.h_tau_ps.median():.1f} ps), minimum {runs.h_n_eff.min():.0f}. "
-        f"{int((runs.h_n_eff < MIN_N_EFF).sum())} runs fall below the ml-peg minimum "
-        f"of {MIN_N_EFF}, where the standard error is less reliable.",
-        "- **Cross-check of the standard error.** A second, independent sem comes "
-        f"from the scatter of the {N_BLOCKS} block means (SD / √{N_BLOCKS}). Its "
-        "ratio to the autocorrelation sem should be about 1; well above 1 would mean "
-        "slow correlations the autocorrelation estimator missed, so the reported sem "
-        f"is too small. Median ratio {runs.h_block_ratio.median():.2f} (h), "
-        f"{runs.density_block_ratio.median():.2f} (density). With only {N_BLOCKS} "
-        "blocks, single-run ratios scatter by about "
-        f"±{1 / np.sqrt(2 * (N_BLOCKS - 1)):.0%}, so only the median is meaningful.",
-        "- **Equilibration length.** If equilibration were too short, the density "
-        "would still be relaxing in the first production block "
-        f"({EQUILIBRATION_PS:.0f}–{EQUILIBRATION_PS + PRODUCTION_PS / N_BLOCKS:.0f} "
-        "ps). Mean density of that block minus the mean of the rest of the run: "
-        f"median |shift| {runs.density_first_block_shift.abs().median():.4f} g/mL, "
-        f"max {runs.density_first_block_shift.abs().max():.4f} g/mL. "
-        f"{int((runs.density_first_block_shift.abs() > EARLY_SHIFT).sum())} runs "
-        f"exceed {EARLY_SHIFT} g/mL (listed under systems to inspect).",
-        "- **Trends within a run.** Two tests on the block means of h and density: "
-        "drift (linear fit of block mean against time, testing for a nonzero slope) "
-        f"and half-split (t-test of the first {N_BLOCKS // 2} blocks against the "
-        f"last {N_BLOCKS // 2}). Over {4 * len(runs)} tests (runs × 2 observables "
-        f"× 2 tests), about {4 * len(runs) * FLAG_P:.0f} would reach p < {FLAG_P} "
-        "by chance, so p-values are Holm-corrected, which keeps the chance of any "
-        f"false flag at {FLAG_P}. Tests flagged after correction: {len(flags)}.",
-        "",
-        *[f"  - {f}" for _, f in flags],
-        "",
-        "### Start dependence (replicate 0 vs re-packed replicates)",
-        "",
-        f"Boxes with |t| > {START_T} (prediction interval from replicates 1+). "
-        "This is a screen, not a flag: about "
-        f"{len(start) * 2 * stats.t.sf(START_T, runs.replicate.max() - 1):.1f} "
-        f"of the {len(start)} tests are expected above the threshold by chance.",
-        "",
-        *[
-            f"- {r.box_id} {r.observable}: offset {r.offset:+.4f}, t = {r.t:+.1f}"
-            for r in start.itertuples()
-            if abs(r.t) > START_T
-        ],
-        "",
-        "Plots: `figures/convergence/<box>.png`, `figures/systems/<system>.png` and "
-        "`figures/replicates/<box>.png` (flagged boxes only).",
-        "",
-        "## Why NMP + 1,2-dichloroethane was kept",
-        "",
-        "In Sage the Cl-C-C-Cl torsion of 1,2-dichloroethane (DCE) relaxes "
-        "slowly. In every DCE box (the three mixtures and pure DCE), only about "
-        "4 % of DCE molecules switch between trans and gauche from one 100 ps "
-        "frame to the next (49 % if uncorrelated), a relaxation time of about "
-        "1.1 ns (`dce_flips.csv`). With 20 DCE molecules in the DCE-poor box "
-        "(x = 0.804), a 2 ns run samples this poorly, so the replicates scatter "
-        "more than their within-run errors. The cause is Sage's barrier. In "
-        "relaxed gas-phase scans (below; energies relative to trans, "
-        "`dce_torsion_scan.csv`), the gauche/trans energy gap agrees with "
-        "MACE-OFF23(M) (5.4 vs 5.2 kJ/mol), but the trans→gauche barrier is "
-        "about 8 kJ/mol higher (25.4 vs 17.3 kJ/mol). At 298 K that makes "
-        "Sage's isomerisation roughly 25× too slow (Arrhenius estimate with "
-        "equal prefactors). A model with a reference-like barrier should relax "
-        "in about 40 ps, inside the "
-        f"{EQUILIBRATION_PS:.0f} ps equilibration, and sample many flips per run, "
-        "so the system is a fair test for MLIPs and was kept. Its σ_Sage is set to "
-        "the floor (see the MAZE denominator section) so that Sage's slow sampling "
-        "does not loosen the MAZE denominator.",
-        "",
-        "![DCE torsion scan](figures/dce_torsion_scan.png)",
-    ]
-    (out / "sage_report.md").write_text("\n".join(lines) + "\n")
+    return pd.DataFrame(items)
 
 
 def main() -> None:
@@ -1517,9 +1141,9 @@ def main() -> None:
     pure_summary.to_csv(out / "pure_points.csv", index=False)
     finite = finite_size_check(summary, systems, published_sage(args.cache_dir))
     finite.to_csv(out / "finite_size.csv", index=False)
-    wb = within_between(runs, points)
-    wb.to_csv(out / "within_between.csv", index=False)
-    pooled = pooled_ratio(wb)
+    within = within_between(runs, points)
+    within.to_csv(out / "within_between.csv", index=False)
+    pooled = pooled_ratio(within)
 
     tests = [
         (
@@ -1547,15 +1171,34 @@ def main() -> None:
             summary[summary.system_id == system_id],
             out / "figures/systems" / f"{system_id}.png",
         )
-    plot_within_between(wb, out / "figures" / "within_between.png")
+    plot_within_between(within, out / "figures" / "within_between.png")
     plot_finite_size(finite, out / "figures" / "finite_size.png")
     plot_sage_vs_exp(summary, out / "figures" / "sage_vs_exp.png")
     plot_replicate_spread(summary, out / "figures" / "replicate_spread.png")
     start = start_dependence(runs)
     start.to_csv(out / "start_dependence.csv", index=False)
-    items = inspection_items(runs, summary, finite, flags, start, wb, boxes)
-    header = interpretation(out, runs, summary, wb, pooled, items, args.runs_dir)
-    write_report(out, header, runs, summary, finite, flags, start)
+    items = inspection_items(runs, summary, finite, flags, start, within, boxes)
+    (out / "figures" / "replicates").mkdir(exist_ok=True)
+    for box_id in sorted(items.box.dropna().unique()):
+        plot_replicates(
+            args.runs_dir, runs, box_id, out / "figures/replicates" / f"{box_id}.png"
+        )
+    from liquid_mixtures_inputs.sage_report import write_reports
+
+    write_reports(
+        out,
+        {
+            "runs": runs,
+            "summary": summary,
+            "pure_summary": pure_summary,
+            "finite": finite,
+            "within": within,
+            "pooled": pooled,
+            "start": start,
+            "flags": flags,
+            "items": items,
+        },
+    )
 
     if not (summary.complete.all() and len(summary) == len(systems)):
         return

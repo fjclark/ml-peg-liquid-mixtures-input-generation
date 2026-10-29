@@ -4,7 +4,7 @@ A record of the decisions behind the 13 systems (64 boxes) in the ml-peg
 `binary_mixtures` benchmark, with dates, who made each one, and why. It was
 compiled on 2026-10-22 from the planning conversations (Claude Code sessions,
 11 to 22 October 2026), `src/liquid_mixtures_inputs/selection.yml`,
-`selection/report.md` and `data/sage_summary/sage_report.md`.
+`selection/report.md` and `data/sage_summary/report.md`.
 
 "User" means a decision stated or chosen by the benchmark author.
 "Recommended" means a recommendation from Claude that the user accepted.

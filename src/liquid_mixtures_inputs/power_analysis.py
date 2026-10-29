@@ -19,7 +19,11 @@ correlated across points) to give, per run length:
 - the spread of the metric over the choice of systems (cluster bootstrap), for
   comparison;
 - a GPU-time allocation across boxes that keeps the metric noise of uniform
-  2 ns runs at a lower cost.
+  2 ns runs at a lower cost;
+- ml-peg's 'good' and 'bad' thresholds (``thresholds.csv`` and
+  ``metrics_snippet.yml``).
+
+The reports are written by ``power_report.py``.
 """
 
 from __future__ import annotations
@@ -64,9 +68,6 @@ N_BOOTSTRAP = 20000
 MIN_ALLOCATION_PS = 500.0
 # Categorical slots 1-3 of the dataviz reference palette (pass all-pairs CVD checks)
 COLORS = ("#2a78d6", "#eb6834", "#1baf7a")
-# MACE-OFF23(M) on one A100 via OpenMM: 1.1e6 steps/day for ~600-atom liquid boxes
-# (arXiv:2312.15211, section III.3.2). Used only for an order-of-magnitude cost.
-MACE_OFF_M_ATOM_STEPS_PER_DAY = 1.1e6 * 600
 # ml-peg thresholds (DECISIONS.md, metrics): 'good' is what a model that matches
 # experiment exactly scores with one run per box, plus GOOD_NOISE_SDS standard
 # deviations of that score; 'bad' is BAD_SAGE_MULTIPLE times Sage's score, as
@@ -209,6 +210,32 @@ def box_noise(truncated: pd.DataFrame) -> pd.DataFrame:
     return noise
 
 
+def early_shifts(truncated: pd.DataFrame) -> pd.Series:
+    """
+    Compute each run's 100 to 200 ps window mean minus its production mean.
+
+    Parameters
+    ----------
+    truncated
+        Output of :func:`load_truncated`.
+
+    Returns
+    -------
+    pd.Series
+        Shift indexed by box, replicate and observable.
+    """
+    index = ["box_id", "replicate", "observable"]
+    early = truncated[
+        (truncated.equilibration_ps == EARLY_WINDOW[0])
+        & (truncated.production_ps == EARLY_WINDOW[1])
+    ].set_index(index)
+    full = truncated[
+        (truncated.equilibration_ps == REFERENCE[0])
+        & (truncated.production_ps == REFERENCE[1])
+    ].set_index(index)
+    return (early["mean"] - full["mean"]).dropna()
+
+
 def equilibration_shift(truncated: pd.DataFrame) -> pd.DataFrame:
     """
     Test whether the 100 to 200 ps window differs from the production after it.
@@ -229,16 +256,7 @@ def equilibration_shift(truncated: pd.DataFrame) -> pd.DataFrame:
         One row per observable: number of runs, mean and RMS shift, and the
         two-sided p-value of the mean shift.
     """
-    index = ["box_id", "replicate", "observable"]
-    early = truncated[
-        (truncated.equilibration_ps == EARLY_WINDOW[0])
-        & (truncated.production_ps == EARLY_WINDOW[1])
-    ].set_index(index)
-    full = truncated[
-        (truncated.equilibration_ps == REFERENCE[0])
-        & (truncated.production_ps == REFERENCE[1])
-    ].set_index(index)
-    shift = (early["mean"] - full["mean"]).dropna()
+    shift = early_shifts(truncated)
     rows = []
     for observable, values in shift.groupby(level="observable"):
         rows.append(
@@ -1087,632 +1105,6 @@ def plot_point_mde(points: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
-def md_table(frame: pd.DataFrame) -> str:
-    """
-    Format a data frame as a Markdown table.
-
-    Parameters
-    ----------
-    frame
-        Table with already formatted cells.
-
-    Returns
-    -------
-    str
-        Markdown table.
-    """
-    lines = [
-        "| " + " | ".join(frame.columns) + " |",
-        "|" + "---|" * len(frame.columns),
-    ]
-    lines += ["| " + " | ".join(str(v) for v in row) + " |" for row in frame.to_numpy()]
-    return "\n".join(lines)
-
-
-def gpu_days(atom_ps: float) -> float:
-    """
-    Convert atom·ps at a 1 fs time step into MACE-OFF23(M) A100 GPU-days.
-
-    Parameters
-    ----------
-    atom_ps
-        Sum over boxes of atoms × simulated ps.
-
-    Returns
-    -------
-    float
-        GPU-days, assuming cost linear in the number of atoms.
-    """
-    return atom_ps * 1000 / MACE_OFF_M_ATOM_STEPS_PER_DAY
-
-
-def write_report(
-    out: Path, noise, equilibration, results, n_atoms, threshold_table
-) -> None:
-    """
-    Write ``report.md`` from the computed tables.
-
-    Parameters
-    ----------
-    out
-        Output directory (figures are in ``out / "figures"``).
-    noise
-        Output of :func:`box_noise`.
-    equilibration
-        Output of :func:`equilibration_shift`.
-    results
-        Output of :func:`analyse`.
-    n_atoms
-        Atoms per box.
-    threshold_table
-        Output of :func:`thresholds`.
-    """
-    good = threshold_table.set_index(["property", "metric"]).good
-    metrics, points = results["metrics"], results["points"]
-    boot = results["bootstrap"].set_index(["property", "metric"])
-    allocation = results["allocation"]
-
-    def m(prop, label, prod, profile, col):
-        """
-        Look up one value of the metrics table.
-
-        Parameters
-        ----------
-        prop
-            Property.
-        label
-            Metric name.
-        prod
-            Production length in ps.
-        profile
-            Error profile.
-        col
-            Column.
-
-        Returns
-        -------
-        float
-            The value.
-        """
-        row = metrics[
-            (metrics.property == prop)
-            & (metrics.metric == label)
-            & (metrics.production_ps == prod)
-            & (metrics.profile == profile)
-        ]
-        return float(row[col].iloc[0])
-
-    def res_range(prop, label, prod):
-        """
-        Range of the resolvable difference over error profiles.
-
-        Parameters
-        ----------
-        prop
-            Property.
-        label
-            Metric name.
-        prod
-            Production length in ps.
-
-        Returns
-        -------
-        tuple[float, float]
-            Smallest and largest resolvable difference.
-        """
-        rows = metrics[
-            (metrics.property == prop)
-            & (metrics.metric == label)
-            & (metrics.production_ps == prod)
-        ].resolvable
-        return float(rows.min()), float(rows.max())
-
-    def pt(prop, prod):
-        """
-        Select the per-point rows of one property and run length.
-
-        Parameters
-        ----------
-        prop
-            Property.
-        prod
-            Production length in ps.
-
-        Returns
-        -------
-        pd.DataFrame
-            Matching rows of the points table.
-        """
-        return points[(points.property == prop) & (points.production_ps == prod)]
-
-    ref = REFERENCE[1]
-    h_sd = m("hmix", "MAE", ref, 1.0, "sd")
-    h_boot = float(boot.loc[("hmix", "MAE"), "bootstrap_sd"])
-    d_sd = m("density", "MAE", ref, 1.0, "sd")
-    d_boot = float(boot.loc[("density", "MAE"), "bootstrap_sd"])
-    total_atoms = float(n_atoms.sum())
-    cost = {p: total_atoms * (REFERENCE[0] + p) for p in PRODUCTION_LENGTHS_PS}
-    alloc_cost = float(
-        np.nansum(allocation.n_atoms * (REFERENCE[0] + allocation.production_ps))
-    )
-    eq = equilibration.set_index("observable")
-    k = (
-        noise[(noise.equilibration_ps == REFERENCE[0])]
-        .groupby(["production_ps", "observable"])
-        .k.first()
-    )
-
-    lines = [
-        "# Can one run per box rank MLPs? (power analysis)",
-        "",
-        "ml-peg runs every MLP once per box: 0.2 ns of NPT equilibration and 2 ns of "
-        "production at a 1 fs time step. This report asks whether that is enough to "
-        "tell MLPs apart from each other and from experiment, given the simulation "
-        "and experimental error bars, and whether shorter runs would do.",
-        "",
-        "The 320 Sage runs (64 boxes × 5 replicates, `data/sage_summary/`) stand in "
-        "for MLP simulation noise. This assumes an MLP's fluctuations and correlation "
-        "times are similar to Sage's, which no MLP run has checked yet.",
-        "",
-        "## Summary",
-        "",
-        "- **Simulation noise is small next to the choice of systems.** At 2 ns, the "
-        f"ΔHmix MAE of one model moves by {h_sd:.3f} kJ/mol (SD) between repeat "
-        "benchmark runs. Which 13 systems were chosen moves Sage's MAE by "
-        f"{h_boot:.2f} kJ/mol (cluster bootstrap), {h_boot / h_sd:.0f}× more. For "
-        f"mixture density the factor is {d_boot / d_sd:.0f}× ({d_sd:.5f} vs "
-        f"{d_boot:.4f} g/mL). How much the choice of systems matters for a *ranking* "
-        "depends on how alike two models' errors are (section 3).",
-        "- **Two models can be told apart** (95 % test, 80 % power) when their ΔHmix "
-        "MAE "
-        f"differs by {res_range('hmix', 'MAE', ref)[0]:.2f} to "
-        f"{res_range('hmix', 'MAE', ref)[1]:.3f} kJ/mol, or their mixture density MAE "
-        "by "
-        f"{res_range('density', 'MAE', ref)[1]:.4f} g/mL. Published MLPs differ in "
-        "pure-liquid density MAE by about 0.05 to 0.25 g/mL (section 6), 100 to 500× "
-        "more.",
-        "- **Against experiment, per point,** one run per box detects a ΔHmix error "
-        "above "
-        f"{pt('hmix', ref).mde.median():.2f} kJ/mol (median over points; "
-        f"{(pt('hmix', ref).sage_error.abs() > pt('hmix', ref).mde).mean():.0%} of "
-        "Sage's "
-        "errors are larger) and a density error above "
-        f"{pt('density', ref).mde.median():.4f} "
-        "g/mL. Experimental errors are 5 to 12× smaller than simulation noise (median "
-        "σ_exp vs σ_sim) and barely change these limits.",
-        "- **Noise floors of the metrics.** A perfect model "
-        "scores "
-        f"{m('vex', 'MAE', ref, 0.0, 'observed_mean'):.3f} cm³/mol on V^E MAE "
-        "(ml-peg "
-        f"'good' is {good[('vex', 'MAE')]}) and "
-        f"{m('hmix', 'MAZE', ref, 0.0, 'observed_mean'):.2f} "
-        f"on ΔHmix MAZE ('good' is {good[('hmix', 'MAZE')]}). V^E MAE 'good' was "
-        "raised from 0.05, which no model could reach. See section 5.",
-        f"- **Run length.** Production of 1 ns costs {cost[1000.0] / cost[ref]:.0%} of "
-        "the "
-        f"current protocol and widens the resolvable ΔHmix MAE difference from "
-        f"{m('hmix', 'MAE', ref, 1.0, 'resolvable'):.3f} to "
-        f"{m('hmix', 'MAE', 1000.0, 1.0, 'resolvable'):.3f} kJ/mol. Noise falls a "
-        "little "
-        "more slowly than 1/sqrt(t), because longer runs sample slow modes that short "
-        "runs miss. Per-box run lengths optimised for cost save only "
-        f"{1 - alloc_cost / cost[ref]:.0%}. Equilibration should stay at 0.2 ns.",
-        "",
-        "## Recommendation",
-        "",
-        "- Keep 0.2 + 2 ns as the default. At that length a rerun reproduces any "
-        "ranking whose gap exceeds the resolvable difference, and simulation noise is "
-        "a small part of each metric's uncertainty except for V^E MAE.",
-        f"- 0.2 + 1 ns is a reasonable cheaper option (about "
-        f"{gpu_days(cost[ref]) - gpu_days(cost[1000.0]):.0f} MACE-OFF23(M) A100 "
-        "GPU-days "
-        f"saved per model, of {gpu_days(cost[ref]):.0f}; see section 4). Decide once "
-        "MLP "
-        "pilot runs show whether MLP correlation times match Sage's.",
-        "- Do not shorten equilibration: the 100 to 200 ps window is still shifted "
-        "for Sage "
-        "(section 4), and an MLP must also relax from Sage's structure to its own "
-        "density.",
-        "- Keep the 'good' thresholds just above the noise floors (section 5). If "
-        "the protocol changes, recompute the floors: at 1 ns the V^E MAE floor "
-        f"({m('vex', 'MAE', 1000.0, 0.0, 'observed_mean'):.3f}) reaches its 'good' "
-        "threshold.",
-        "",
-        "## Method",
-        "",
-        "1. **Run length.** Every Sage run is re-analysed with the benchmark's "
-        "estimator "
-        "(`mixing.observables` and `timeseries.estimate_mean`, as in `summarise-sage`) "
-        "keeping "
-        f"{', '.join(f'{p / 1000:g}' for p in PRODUCTION_LENGTHS_PS)} ns of production "
-        "after "
-        "0.2 ns of equilibration. The 2 ns analysis reproduces `runs.csv` exactly "
-        "(tested).",
-        "2. **Single-run noise per box.** σ = k·sem, with sem the RMS within-run "
-        "standard "
-        "error over the 5 replicates and k the pooled ratio of replicate SD to "
-        "within-run "
-        "sem over all boxes at that length (k ≈ 1.2 for h, 1.0 to 1.2 for density). "
-        "This "
-        "is smoother than the 5-replicate SD of each box and corrects the within-run "
-        "sem "
-        "for the slow modes it misses.",
-        "3. **Points.** ΔHmix and V^E are linear in the box means (ml-peg's "
-        "`mixing_matrix`). Each pure box feeds all three compositions of its system, "
-        "so "
-        "noise is drawn per box and propagated, which keeps the correlation between "
-        "points. The propagated ΔHmix noise at 2 ns (RMS over points "
-        f"{float(np.sqrt((pt('hmix', ref).sigma_sim ** 2).mean())):.3f} kJ/mol) "
-        "matches "
-        "the observed SD of Sage's replicate ΔHmix "
-        "(RMS 0.095 kJ/mol, `data/sage_summary/points.csv`).",
-        f"4. **Metrics.** For each run length, {N_DRAWS} draws of one run per box give "
-        "the "
-        "noise of every benchmark metric for a model whose true errors are 1, 0.5, "
-        "0.25 "
-        "or 0 × Sage's (replicate-mean minus experiment). Two models run "
-        "independently, "
-        "so their metrics differ by noise with SD sqrt(2)·SD(metric). The **resolvable "
-        f"difference** is {Z_DETECT:.2f}·sqrt(2)·SD(metric): a true difference that "
-        "size "
-        "is detected at the two-sided 5 % level 80 % of the time. For MAE, a closed "
-        "form "
-        "sqrt(sᵀCs)/N (s the signs of the errors, C the point covariance) is given as "
-        "a "
-        "check; it applies when errors are well above the noise.",
-        f"5. **System choice.** A cluster bootstrap over systems ({N_BOOTSTRAP} "
-        "resamples of "
-        "the 13 mixtures, or of the 11 scored pure liquids) of Sage's noiseless metric "
-        "measures how much the metric depends on which systems were picked.",
-        "",
-        "## 1. Noise against run length",
-        "",
-        "![noise scaling](figures/noise_scaling.png)",
-        "",
-        "Single-run noise × sqrt(t / 2 ns), RMS over boxes and relative to 2 ns. A "
-        "flat "
-        "line would mean σ ∝ 1/sqrt(t). For h the scaled noise grows by about 15 % "
-        "from 0.5 to 2 ns: short runs miss some slow fluctuations, so cutting the run "
-        "length costs a little less precision than 1/sqrt(t) predicts. The density "
-        "line wanders by a similar amount without a trend, which is within the "
-        "uncertainty of k from 5 replicates.",
-        "",
-    ]
-    rows = []
-    for p in PRODUCTION_LENGTHS_PS:
-        rows.append(
-            [
-                f"{p / 1000:g}",
-                f"{pt('hmix', p).sigma_sim.median():.3f}",
-                f"{pt('density', p).sigma_sim.median():.5f}",
-                f"{pt('vex', p).sigma_sim.median():.3f}",
-                f"{pt('pure_density', p).sigma_sim.median():.5f}",
-                f"{k.loc[(p, 'h')]:.2f}",
-                f"{k.loc[(p, 'density')]:.2f}",
-            ]
-        )
-    lines += [
-        md_table(
-            pd.DataFrame(
-                rows,
-                columns=[
-                    "Production (ns)",
-                    "σ ΔHmix (kJ/mol)",
-                    "σ density (g/mL)",
-                    "σ V^E (cm³/mol)",
-                    "σ pure density (g/mL)",
-                    "k (h)",
-                    "k (density)",
-                ],
-            )
-        ),
-        "",
-        "Median single-run noise per point. k is the replicate SD / within-run sem "
-        "ratio "
-        "(1 if the within-run sem were right).",
-        "",
-        "## 2. A model against experiment, per point",
-        "",
-        "Minimum detectable error MDE = "
-        f"{Z_DETECT:.2f}·sqrt(σ_sim² + σ_exp²): an error that size is significant at "
-        "the 5 % level 80 % of the time. The fraction column shows how many of Sage's "
-        "errors (a realistic model) exceed the MDE.",
-        "",
-    ]
-    rows = []
-    for prop in ("hmix", "density", "vex", "pure_density"):
-        for p in (500.0, 1000.0, 2000.0):
-            q = pt(prop, p)
-            rows.append(
-                [
-                    LABELS[prop],
-                    f"{p / 1000:g}",
-                    f"{q.mde.median():.4g}",
-                    f"{q.mde.max():.4g}",
-                    f"{(q.sage_error.abs() > q.mde).mean():.0%}",
-                    f"{q.sigma_exp.median():.2g}",
-                ]
-            )
-    lines += [
-        md_table(
-            pd.DataFrame(
-                rows,
-                columns=[
-                    "Property",
-                    "Production (ns)",
-                    "Median MDE",
-                    "Max MDE",
-                    "Sage errors above MDE",
-                    "Median σ_exp",
-                ],
-            )
-        ),
-        "",
-        "Units: kJ/mol (ΔHmix), g/mL (densities), cm³/mol (V^E).",
-        "",
-        "![per-point detection](figures/point_mde.png)",
-        "",
-        "ΔHmix points above the diagonal have a Sage error that one run per box "
-        "detects.",
-        "",
-        "## 3. Ranking two models",
-        "",
-        "![resolvable difference](figures/resolvable.png)",
-        "",
-        "Blue: resolvable difference for a Sage-like error profile (band: all "
-        "profiles, "
-        "1 to 0 × Sage's errors). Orange: SD of Sage's metric over the choice of "
-        "systems. "
-        "Green: the score a perfect model gets from noise alone. Grey: ml-peg's 'good' "
-        "threshold.",
-        "",
-    ]
-    rows = []
-    for prop, label in (
-        ("hmix", "MAE"),
-        ("hmix", "MAZE"),
-        ("density", "MAE"),
-        ("density", "MAZE"),
-        ("vex", "MAE"),
-        ("pure_density", "MAE"),
-    ):
-        lo2, hi2 = res_range(prop, label, ref)
-        lo1, hi1 = res_range(prop, label, 1000.0)
-        rows.append(
-            [
-                f"{LABELS[prop]} {label}",
-                f"{m(prop, label, ref, 1.0, 'true'):.4g}",
-                f"{m(prop, label, ref, 1.0, 'sd'):.2g}",
-                f"{m(prop, label, ref, 1.0, 'sd_closed_form'):.2g}",
-                f"{lo2:.2g} to {hi2:.2g}",
-                f"{lo1:.2g} to {hi1:.2g}",
-                f"{float(boot.loc[(prop, label), 'bootstrap_sd']):.2g}",
-                f"{m(prop, label, ref, 0.0, 'observed_mean'):.3g}",
-                f"{good[(prop, label)]}",
-            ]
-        )
-    lines += [
-        md_table(
-            pd.DataFrame(
-                rows,
-                columns=[
-                    "Metric",
-                    "Sage",
-                    "SD (sim, 2 ns)",
-                    "SD closed form",
-                    "Resolvable (2 ns)",
-                    "Resolvable (1 ns)",
-                    "SD over systems",
-                    "Perfect-model score (2 ns)",
-                    "ml-peg 'good'",
-                ],
-            )
-        ),
-        "",
-        "Noise also biases each score upwards, most for good models: a model whose "
-        "true "
-        f"ΔHmix MAE is {m('hmix', 'MAE', ref, 0.25, 'true'):.2f} kJ/mol scores "
-        f"{m('hmix', 'MAE', ref, 0.25, 'observed_mean'):.2f} on average at 2 ns, "
-        "against "
-        f"{m('hmix', 'MAE', ref, 1.0, 'observed_mean'):.2f} for a true "
-        f"{m('hmix', 'MAE', ref, 1.0, 'true'):.2f}. Differences between good models "
-        "are "
-        "therefore slightly compressed, but their order is kept.",
-        "",
-        "The two kinds of uncertainty answer different questions. The simulation noise "
-        "says whether rerunning the benchmark would give the same ranking on these 13 "
-        "systems; at 2 ns it would, for any gap above the resolvable difference. The "
-        "system spread says how far a model's score depends on this particular set of "
-        "systems, which no run length can reduce.",
-        "",
-        "For a ranking, what matters is the system spread of the *difference* "
-        "between two models, which depends on how alike their errors are. If model B's "
-        "errors are model A's scaled by (1 + s), the gap is s·MAE_A and its system SD "
-        f"is s·{h_boot:.2f}, i.e. {h_boot / m('hmix', 'MAE', ref, 1.0, 'true'):.2f}× "
-        "the gap at any size, so the choice of systems never threatens that ranking "
-        "and simulation noise is the only limit. If their errors are unrelated, the "
-        f"gap's system SD approaches sqrt(2)·{h_boot:.2f} = "
-        f"{np.sqrt(2) * h_boot:.2f} kJ/mol, and gaps below about twice that are "
-        "specific to this set of systems even though a rerun would reproduce them. "
-        "Real model pairs (e.g. two sizes of one model family) are likely to sit "
-        "between these cases.",
-        "",
-        "## 4. Shorter runs",
-        "",
-    ]
-    rows = []
-    for p in PRODUCTION_LENGTHS_PS:
-        rows.append(
-            [
-                f"0.2 + {p / 1000:g}",
-                f"{cost[p] / cost[ref]:.0%}",
-                f"{gpu_days(cost[p]):.0f}",
-                f"{m('hmix', 'MAE', p, 1.0, 'resolvable'):.3f}",
-                f"{m('density', 'MAE', p, 1.0, 'resolvable'):.4f}",
-                f"{m('hmix', 'MAZE', p, 0.0, 'observed_mean'):.2f}",
-                f"{m('vex', 'MAE', p, 0.0, 'observed_mean'):.3f}",
-            ]
-        )
-    lines += [
-        md_table(
-            pd.DataFrame(
-                rows,
-                columns=[
-                    "Protocol (ns)",
-                    "Cost",
-                    "MACE-OFF23(M) GPU-days",
-                    "Resolvable ΔHmix MAE",
-                    "Resolvable density MAE",
-                    "Perfect ΔHmix MAZE",
-                    "Perfect V^E MAE",
-                ],
-            )
-        ),
-        "",
-        f"Cost is Σ atoms × simulated time over the 64 boxes ({total_atoms:.0f} "
-        "atoms). "
-        "GPU-days are an order of magnitude only: MACE-OFF23(M) runs 1.1×10⁶ steps/day "
-        "for ~600-atom liquid boxes on one A100 "
-        "([arXiv:2312.15211](https://arxiv.org/abs/2312.15211), sec. III.3.2), scaled "
-        "linearly to our 950 to 2,800-atom boxes. Faster and slower models scale the "
-        "column, not the ratios.",
-        "",
-        "**Equilibration.** The mean over the 100 to 200 ps window minus the mean over "
-        "the 2 ns production, over all 320 Sage runs:",
-        "",
-        md_table(
-            pd.DataFrame(
-                [
-                    [
-                        o,
-                        f"{eq.loc[o, 'mean_shift']:+.4g}",
-                        f"{eq.loc[o, 'rms_shift']:.4g}",
-                        f"{eq.loc[o, 'p']:.1g}",
-                    ]
-                    for o in ("h", "density")
-                ],
-                columns=["Observable", "Mean shift", "RMS shift", "p (mean = 0)"],
-            )
-        ),
-        "",
-        "Units: kJ/mol per molecule (h), g/mL (density). Even for Sage, starting from "
-        "Sage-built boxes, the window is shifted on average, mostly in replicates 1 "
-        "to 3 "
-        "(re-packed boxes; density +0.0013 to +0.0016 g/mL) rather than replicate 0, "
-        "the "
-        "distributed box that MLP runs start from (-0.0004 g/mL). An MLP also has to "
-        "relax from Sage's density "
-        "to its own, which this test cannot see, so 0.2 ns stays.",
-        "",
-        "**Per-box run lengths.** For a fixed variance of ΔHmix MAE, mixture density "
-        "MAE "
-        "and pure density MAE (equally weighted, each relative to uniform 2 ns), the "
-        "cheapest allocation runs each box for t ∝ sqrt(A_b / n_b), where A_b is the "
-        "box's variance contribution and n_b its atom count, with at least "
-        f"{MIN_ALLOCATION_PS / 1000:g} ns. It ranges from "
-        f"{allocation.production_ps.min() / 1000:.1f} to "
-        f"{allocation.production_ps.max() / 1000:.1f} ns (`allocation.csv`): pure "
-        "water "
-        "and the small-weight pure boxes get less, slow pure liquids (N-methylaniline, "
-        "DMAE, pyrrole, THP) more. It saves "
-        f"{1 - alloc_cost / cost[ref]:.0%} of the cost. That assumes σ ∝ 1/sqrt(t), "
-        "which section 1 shows is optimistic for short runs, so the real saving is "
-        "smaller. Not worth the extra complexity.",
-        "",
-        "## 5. Thresholds and the noise floor",
-        "",
-        "- **V^E MAE.** A perfect model scores "
-        f"{m('vex', 'MAE', ref, 0.0, 'observed_mean'):.3f} "
-        "cm³/mol at 2 ns (median per-point σ "
-        f"{pt('vex', ref).sigma_sim.median():.3f}): "
-        "V^E is a small difference of molar volumes, and RMSE adds the noise in "
-        "quadrature. The original 'good' threshold of 0.05 could not be reached, "
-        f"so it was raised to {good[('vex', 'MAE')]}, about 1.7 SD of the "
-        "perfect-model score above it (2026-10-29). The alternative, a "
-        "bias-corrected sqrt(max(0, MSE − mean σ_i²)), was not used: it relies on "
-        "each run's own standard errors, which are about 1.2× too small "
-        "(within- vs between-run test), and is itself noisy for good models.",
-        "- **ΔHmix MAZE.** A perfect model scores "
-        f"{m('hmix', 'MAZE', ref, 0.0, 'observed_mean'):.2f} "
-        f"at 2 ns and {m('hmix', 'MAZE', 1000.0, 0.0, 'observed_mean'):.2f} at 1 ns, "
-        "because σ_ref "
-        "is close to the single-run noise. The 'good' threshold of "
-        f"{good[('hmix', 'MAZE')]} sits just above both, so it is kept.",
-        f"- ΔHmix MAE ('good' {good[('hmix', 'MAE')]} kJ/mol, floor "
-        f"{m('hmix', 'MAE', ref, 0.0, 'observed_mean'):.3f}), density MAE and MAZE, "
-        "and pure "
-        "density MAE are well above their floors.",
-        "",
-        "## 6. Literature: how far apart are current MLPs?",
-        "",
-        md_table(
-            pd.DataFrame(LITERATURE)[["model", "property", "result", "source"]].rename(
-                columns=str.capitalize
-            )
-        ),
-        "",
-        "No study computing ΔHmix or V^E of molecular liquids with an MLP was found "
-        "(searches of the web and of Consensus for MLP / neural network potential "
-        "enthalpy of mixing, excess enthalpy and excess volume, October 2026). The "
-        "closest work concerns metallic alloys "
-        "([arXiv:2406.17499](https://arxiv.org/abs/2406.17499)) or fits mixing data "
-        "without MD. For comparison, Sage's ΔHmix MAE on this set is "
-        f"{m('hmix', 'MAE', ref, 1.0, 'true'):.2f} kJ/mol "
-        "(`data/sage_summary/sage_report.md`).",
-        "",
-        "**What this means for the benchmark.**",
-        "",
-        "- **Density.** Published MLPs differ in pure-liquid density MAE by about "
-        "0.05 to "
-        "0.25 g/mL (MACE-OFF23 S vs M, ANI-2x vs MACE-OFF23(M), MPNICE variants). The "
-        f"benchmark resolves {res_range('density', 'MAE', ref)[1]:.4f} g/mL at 2 ns "
-        "and "
-        f"{res_range('density', 'MAE', 250.0)[1]:.4f} g/mL at 0.25 ns. Density alone "
-        "could be ranked from runs a tenth as long, but the runs serve ΔHmix too.",
-        "- **ΔHmix.** There is no MLP baseline. MLP ΔHvap errors are several kJ/mol "
-        "(MACE-OFF23 offset about 8 kJ/mol; Picha et al. find large ΔHvap deviations "
-        "for MACE-OFF23(M)). ΔHmix is a difference of such cohesive energies, so much "
-        "of that error may cancel, but whatever remains is compared with |ΔHmix| at "
-        "x ≈ 0.5 of 0.4 to 2.6 kJ/mol. If MLPs differ in ΔHmix MAE by even a fifth of "
-        "Sage's MAE "
-        f"(about {0.2 * m('hmix', 'MAE', ref, 1.0, 'true'):.2f} kJ/mol), 2 ns resolves "
-        "it. "
-        "This benchmark would be the first systematic MLP ΔHmix data, which is itself "
-        "an argument for it.",
-        "",
-        "## Caveats",
-        "",
-        "- **Sage stands in for MLP noise.** MLP fluctuations of h and volume should "
-        "be "
-        "similar (the same physical liquids at the same T and P), but correlation "
-        "times "
-        "may differ, especially for MLPs that change conformer barriers. One pilot "
-        "MLP run "
-        "per box, analysed with `mixing.box_result`, would check this: compare its sem "
-        "and n_eff with `runs.csv`.",
-        "- **Slow modes.** k ≈ 1.2 is pooled over boxes. Single boxes (e.g. NMP + DCE "
-        "at x = 0.74 for Sage) have larger run-to-run spreads, and an MLP may have "
-        "slow "
-        "modes of its own.",
-        "- **Systematic simulation errors** (finite size, starting structures) are not "
-        "noise and are not included. In the finite-size check in `sage_report.md` most "
-        "ΔHmix gaps to the published 1000-molecule runs are below 0.06 kJ/mol; the "
-        "largest are acetone + N-methylaniline (0.11) and butanone + dibutylamine (up "
-        "to "
-        "0.21 kJ/mol).",
-        "- **Error profiles.** The model pairs are built from Sage's errors. Real "
-        "MLPs may "
-        "spread their errors differently; the closed-form SD shows the result depends "
-        "mainly on the noise, not on the profile.",
-        "",
-        "Generated by `pixi run -e analysis power-analysis`. Tables: `box_noise.csv`, "
-        "`truncation.csv`, `points.csv`, `metrics.csv`, `bootstrap.csv`, "
-        "`allocation.csv`, `equilibration.csv`, `literature.csv`.",
-        "",
-    ]
-    (out / "report.md").write_text("\n".join(lines))
-
-
 def main() -> None:
     """Run the power analysis and write the tables, figures and report."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -1757,7 +1149,22 @@ def main() -> None:
         figures / "resolvable.png",
     )
     plot_point_mde(results["points"], figures / "point_mde.png")
-    write_report(out, noise, equilibration, results, n_atoms, threshold_table)
+
+    from liquid_mixtures_inputs.power_report import write_reports
+
+    write_reports(
+        out,
+        {
+            "noise": noise,
+            "equilibration": equilibration,
+            "shifts": early_shifts(truncated),
+            **results,
+            "thresholds": threshold_table,
+            "n_atoms": n_atoms,
+            "sage_points": pd.read_csv(args.summary_dir / "points.csv"),
+            "finite": pd.read_csv(args.summary_dir / "finite_size.csv"),
+        },
+    )
 
 
 if __name__ == "__main__":
