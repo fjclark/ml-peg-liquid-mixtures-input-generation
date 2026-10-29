@@ -67,10 +67,10 @@ pixi run -e analysis power-analysis --data-dir data/binary_mixtures \
 
 The ThermoML downloads are cached in `~/.cache/ml_peg/binary_mixtures_selection`. Both run scripts skip finished work, so they can be restarted. The DCE torsion scans behind the NMP + 1,2-dichloroethane decision are run with `dce-scan` (see `dce_torsion_scan.py`).
 
-To publish the inputs, zip `data/binary_mixtures` and upload it to the S3 key `inputs/molecular_dynamics/binary_mixtures/binary_mixtures_v3.zip`, with `binary_mixtures/` as the top-level directory. Bump the version whenever the columns change, so ml-peg does not use a stale cached copy.
+To publish the inputs, zip `data/binary_mixtures` and upload it to the S3 key `inputs/molecular_dynamics/binary_mixtures/binary_mixtures.zip`, with `binary_mixtures/` as the top-level directory.
 
 ```bash
-cd data && zip -r binary_mixtures_v3.zip binary_mixtures
+cd data && zip -r binary_mixtures.zip binary_mixtures
 ```
 
 Tests and linting:
