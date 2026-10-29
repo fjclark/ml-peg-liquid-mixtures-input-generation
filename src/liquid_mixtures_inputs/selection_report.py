@@ -261,7 +261,7 @@ def hard_filters_section() -> list[str]:
             "two-phase (H^E > RT/2)",
             f"ΔHmix(x≈0.5) ≤ RT/2 = {select_systems.UCST_LIMIT:.2f} kJ/mol.",
             "Regular-solution critical value: H^E = βx(1 − x) splits into two "
-            "phases below T_c = β/(2R) ([derivation]"
+            "phases below T_c = β/(2R) ([discussion]"
             "(https://scipython.com/blog/the-miscibility-of-a-regular-solution/)), "
             "and H^E(0.5) = β/4 = RT/2 at T_c. A conservative screen for an "
             "upper critical solution temperature above 298 K.",
