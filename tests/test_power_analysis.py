@@ -174,7 +174,7 @@ def test_allocation_reaches_target_at_lowest_cost():
 
 
 def test_thresholds_follow_noise_and_sage():
-    """Good = perfect-model mean + 2 SD at 2 ns; bad = 5 × Sage; 2 sig. figs."""
+    """Good = perfect-model mean + 2 SD at the protocol length; bad = 5 × Sage."""
     metrics = pd.DataFrame(
         {
             "property": ["hmix", "hmix", "hmix"],

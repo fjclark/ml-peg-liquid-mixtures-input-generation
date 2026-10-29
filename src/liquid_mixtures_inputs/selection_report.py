@@ -245,7 +245,7 @@ def hard_filters_section() -> list[str]:
             "viscous",
             "No diol, polyol, polyamine or bis-hydroxyethyl amine motifs "
             "(SMARTS in `VISCOUS_SMARTS`).",
-            "Slow dynamics would not converge in 2 ns.",
+            "Slow dynamics would not converge in 1 ns of production.",
         ),
         (
             "two-phase (linear H^E)",

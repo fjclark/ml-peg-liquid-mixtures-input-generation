@@ -16,14 +16,14 @@ The rules are implemented in `src/liquid_mixtures_inputs/` and listed in [select
 - **Full isotherms from the source paper.** Isotherms and pure densities come from each mixture's own paper through the NIST ThermoML archive, and every pure density is cross-checked against ml-peg, Sage 2.0 and DIPPR/NIST (differences above 0.002 g/mL are flagged). The rc2 sets keep only 3 points per isotherm and include wrong pure densities (DMF, 1-propanol, piperidine) that flip the sign of V^E ([data_issues.md, 2.3](docs/data_issues.md#23-pure-densities-that-disagree-with-other-sources-verified-against-two-or-more-independent-papers)).
 - **V^E uncertainties.** V^E is derived from the pure densities of the same paper. The density σ is treated as an error shared by every density in that paper (it cancels in V^E), and the paper's RMS residual about its Redlich-Kister fit gives the random part. Propagating the flat TRC σ as independent had made V^E error bars up to 40× the scatter (dipropylamine + DMF: 0.13 against 0.003 cm³/mol).
 - **Methanol + water** densities from 10.1016/j.jct.2007.05.004 only, so its pure methanol is used for both V^E and the mixture densities; water is IAPWS-95.
-- **Structure checks.** Every component must have zero formal charge, no enol or imidic acid motif, and match RDKit's canonical tautomer. The Sage data store 2-pyrrolidone as the wrong tautomer, and a wrong starting species cannot convert back in a 2 ns run (acetone's enol is ~10⁻⁸ of the equilibrium mixture, [Chiang et al. 1984](https://doi.org/10.1021/ja00314a055)).
+- **Structure checks.** Every component must have zero formal charge, no enol or imidic acid motif, and match RDKit's canonical tautomer. The Sage data store 2-pyrrolidone as the wrong tautomer, and a wrong starting species cannot convert back in a 1 ns run (acetone's enol is ~10⁻⁸ of the equilibrium mixture, [Chiang et al. 1984](https://doi.org/10.1021/ja00314a055)).
 
 ### Filters
 
 36 of the 248 systems with enough data pass every filter ([funnel](selection/report.md#screening-funnel)).
 
 - **Elements** H, C, N, O and Cl only. Cl is covered by MACE-OFF, AIMNet2 and AceFF.
-- **Size and dynamics.** ≤ 10 heavy atoms per molecule, and no viscous liquids (polyols, ethanolamines, polyamines), for cost and convergence in 2 ns.
+- **Size and dynamics.** ≤ 10 heavy atoms per molecule, and no viscous liquids (polyols, ethanolamines, polyamines), for cost and convergence in 1 ns of production.
 - **No likely two-phase systems.** In a small box a model can stay mixed where the real system separates, or the reverse. Screens: H^E linear in x (the lever-rule signature, tested only when the largest |H^E| ≥ 0.4 kJ/mol, as ideal mixtures are also linear), H^E(x = 0.5) ≤ RT/2, and a literature miscibility check for every endothermic system.
 - **Signal.** |ΔHmix(x ≈ 0.5)| ≥ 0.4 kJ/mol, well above the single-point detection limit.
 - **Sage convergence.** Published Sage 3-replicate SD ≤ 0.10 kJ/mol (ΔHmix) and ≤ 0.001 g/mL (density), as a large spread suggests slow equilibration.
