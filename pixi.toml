@@ -55,6 +55,7 @@ pymatgen-core = "<2026.7.24"
 [feature.analysis.tasks]
 select = "python -m liquid_mixtures_inputs.select_systems"
 summarise-sage = "python -m liquid_mixtures_inputs.summarise_sage"
+power-analysis = "python -m liquid_mixtures_inputs.power_analysis"
 test = "pytest"
 
 [environments]

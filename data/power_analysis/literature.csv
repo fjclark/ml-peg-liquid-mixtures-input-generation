@@ -1,0 +1,12 @@
+model,property,result,source
+MACE-OFF23(M),"pure density, 109 organic liquids",MAE 0.09 g/mL,"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
+MACE-OFF23(S),"pure density, 109 organic liquids",MAE 0.23 g/mL (systematically too dense),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
+MACE-OFF23(L),"pure density, 109 organic liquids",no significant improvement over (M),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
+ANI-2x,"pure density, 109 organic liquids",MAE and RMSE about twice MACE-OFF23(M),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
+MACE-OFF23,"ΔHvap, 109 organic liquids",systematic offset of about 2 kcal/mol (8 kJ/mol),"[Kovács et al. 2025](https://doi.org/10.1021/jacs.4c07099), sec. III.3.2"
+Organic_MPNICE,"pure density, 62 solvents",about 4 % mean error (4.9 % in Table 12),"[Weber et al. 2025](https://arxiv.org/abs/2505.06462), sec. 3.1.4"
+QRNN,"pure density, 62 solvents","about 16 % mean error, systematically high","[Weber et al. 2025](https://arxiv.org/abs/2505.06462), sec. 3.1.4"
+Hybrid / inorganic MPNICE,"pure density, 62 solvents",18 to 35 % mean absolute error,"[Weber et al. 2025](https://arxiv.org/abs/2505.06462), Table 12"
+"ANI-2x, MACE-OFF23(S, M) vs CGenFF","density and ΔHvap of 6 liquids (water, methanol, acetone, benzene, hexane, NMA)","the MLPs miss in both directions (e.g. MACE-OFF23(M) too dense for water, too light for acetone and hexane); CGenFF best overall",[Picha et al. 2025](https://doi.org/10.1021/acs.jcim.5c01355)
+BAMBOO,density of electrolyte solvent mixtures,"about 0.01 g/mL average error, after a density alignment step fitted to experiment",[Gong et al. 2025](https://doi.org/10.1038/s42256-025-01009-7) ([arXiv:2404.07181](https://arxiv.org/abs/2404.07181))
+"UMA-OMol vs SevenNet-OMat, Orb-OMat",density of ether and carbonate electrolytes,UMA-OMol much closer to experiment than models trained on inorganic data (qualitative in the abstract),[arXiv:2603.20183](https://arxiv.org/abs/2603.20183)

@@ -43,7 +43,9 @@ against ml-peg's PyPI dependencies:
 - `DECISIONS.md`: the selection decisions and their reasons.
 - `docs/data_issues.md`: potential data problems (to be verified) found during selection (ml-peg references, OpenFF training data, and this benchmark).
 - `selection/`: the committed selection outputs (`candidates.csv`, `systems.csv`, `pure.csv`, `isotherms.csv`, `report.md`, `figures/`), and `selection/inputs/dataset-fast-converging.csv`, the `--fast-set` input.
+  - `power_analysis.py`: whether one MLP run per box can rank models against experiment. Uses the Sage runs as a proxy for MLP noise, re-analysed at 0.25 to 2 ns of production, to give per-point detection limits, the smallest resolvable difference in each benchmark metric, the spread over the choice of systems, noise floors of the metric thresholds, and the cost of shorter runs, with a literature comparison of MLP liquid results.
 - `data/sage_summary/`: the committed Sage reference summary.
+- `data/power_analysis/`: the power analysis report (`report.md`), figures and tables.
 
 ## Usage
 
@@ -86,7 +88,18 @@ only when every replicate of every system is complete; otherwise it leaves
 the existing columns as they are. Both run scripts skip finished work, so they
 can be restarted.
 
-### 3. Upload to S3
+### 3. Power analysis (optional)
+
+```bash
+pixi run -e analysis power-analysis --data-dir data/binary_mixtures \
+    --runs-dir data/sage_runs --summary-dir data/sage_summary \
+    --output-dir data/power_analysis
+```
+
+Writes `report.md`, `figures/` and the tables behind them. The per-run
+re-analysis is cached in `truncation.csv`; delete it to recompute from the runs.
+
+### 4. Upload to S3
 
 ```bash
 cd data && zip -r binary_mixtures_v2.zip binary_mixtures
