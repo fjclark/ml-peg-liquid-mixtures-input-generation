@@ -71,6 +71,7 @@ PURE_SIGMA_SAGE_AT_FLOOR = {"ClCCCl"}  # pure 1,2-dichloroethane, same reason
 # Thresholds for the "systems to inspect" summary
 SIZE_GAP = {"hmix": 0.15, "density": 0.002}  # kJ/mol, g/mL
 EARLY_SHIFT = 0.005  # g/mL
+EARLY_WINDOW_PS = 200.0  # start of production tested for an early density shift
 DEMIX_EXCESS = 0.05  # like-neighbour fraction above random mixing
 FF_HMIX_ERROR = 0.4  # kJ/mol, system-mean |Sage - experiment|
 
@@ -96,6 +97,9 @@ def load_run(task: tuple) -> dict | None:
     )
     if production is None:
         return None
+    # The Sage runs are longer than the protocol; keep only its window.
+    end = EQUILIBRATION_PS + PRODUCTION_PS + 1e-6
+    production = production[production.time_ps <= end].reset_index(drop=True)
     reference = read(box_path)
     n_molecules = int(reference.info["n_molecules"])
     with warnings.catch_warnings():
@@ -121,12 +125,12 @@ def load_run(task: tuple) -> dict | None:
         row[f"{name}_p_drift"] = result.p_drift[name]
         row[f"{name}_p_half"] = result.p_half[name]
         row[f"{name}_block_ratio"] = result.block_ratio[name]
-    # First 200 ps block of production against the rest: a sign that the
-    # density was still relaxing after equilibration.
+    # First 200 ps of production against the rest: a sign that the density was
+    # still relaxing after equilibration.
     time = production.time_ps
-    first = production.density_g_cm3[time < EQUILIBRATION_PS + 200].mean()
-    rest = production.density_g_cm3[time >= EQUILIBRATION_PS + 200].mean()
-    row["density_first_block_shift"] = float(first - rest)
+    first = production.density_g_cm3[time < EQUILIBRATION_PS + EARLY_WINDOW_PS]
+    rest = production.density_g_cm3[time >= EQUILIBRATION_PS + EARLY_WINDOW_PS]
+    row["density_first_block_shift"] = float(first.mean() - rest.mean())
 
     frames_path = csv_path.with_name(f"{csv_path.stem}_frames.xyz")
     row["reacted"], row["like_fraction"] = np.nan, np.nan
@@ -134,7 +138,9 @@ def load_run(task: tuple) -> dict | None:
         frames = [
             frame
             for frame in read(frames_path, ":")
-            if frame.info["time_ps"] >= EQUILIBRATION_PS - 1e-6
+            if EQUILIBRATION_PS - 1e-6
+            <= frame.info["time_ps"]
+            <= EQUILIBRATION_PS + PRODUCTION_PS + 1e-6
         ]
         reacted, fraction = frame_checks(frames, reference, box["kind"] == "mixture")
         row["reacted"], row["like_fraction"] = reacted, fraction

@@ -19,6 +19,7 @@ from liquid_mixtures_inputs.constants import EQUILIBRATION_PS, PRODUCTION_PS
 from liquid_mixtures_inputs.dce_torsion_scan import dce_summary
 from liquid_mixtures_inputs.summarise_sage import (
     EARLY_SHIFT,
+    EARLY_WINDOW_PS,
     FLAG_P,
     PUBLISHED_FF,
     PUBLISHED_FF_URL,
@@ -37,7 +38,8 @@ CATEGORY_NOTES = {
     "within/between mismatch": (
         "Replicates (independently built boxes) scatter more than the within-run "
         "standard errors allow: likely a slow mode (conformers, local structure) "
-        "that one 2 ns run does not sample, so a single run's confidence interval "
+        f"that one {PRODUCTION_PS / 1000:g} ns run does not sample, so a single "
+        "run's confidence interval "
         "is too narrow there. Most entries are p < 0.05 before Holm correction "
         "only, so they are places to look, not individual results."
     ),
@@ -51,9 +53,10 @@ CATEGORY_NOTES = {
         "so the starting structure may bias MLP runs."
     ),
     "early density shift": (
-        f"The density of the first production block differs from the rest of "
-        f"the run by more than {EARLY_SHIFT} g/mL: still relaxing after the "
-        "0.2 ns discard, or a large fluctuation."
+        f"The density of the first {EARLY_WINDOW_PS:.0f} ps of production "
+        f"differs from the rest of the run by more than {EARLY_SHIFT} g/mL: still "
+        f"relaxing after the {EQUILIBRATION_PS / 1000:g} ns discard, or a large "
+        "fluctuation."
     ),
     "bonding changed": "Molecules changed during a classical run: a bug.",
     "microheterogeneity": (
@@ -157,6 +160,27 @@ def system_errors(summary: pd.DataFrame) -> pd.DataFrame:
         .sort_values("error", ascending=False)
         .reset_index()
     )
+
+
+def join_words(items: list[str]) -> str:
+    """
+    Join items as ``"a"``, ``"a and b"`` or ``"a, b and c"``.
+
+    Parameters
+    ----------
+    items
+        Texts to join.
+
+    Returns
+    -------
+    str
+        The joined text, or ``"none"`` if there are no items.
+    """
+    if not items:
+        return "none"
+    if len(items) == 1:
+        return items[0]
+    return ", ".join(items[:-1]) + " and " + items[-1]
 
 
 def miss_text(row) -> str:
@@ -320,9 +344,10 @@ def write_summary(out: Path, tables: dict) -> None:
         f"{h_ratio:.2f}× the within-run standard error for h and "
         f"{density_ratio:.2f}× for density (p = "
         f"{pooled.loc[('box', 'h'), 'p']:.0e} and "
-        f"{pooled.loc[('box', 'density'), 'p']:.0e}). A single 2 ns run's "
-        f"standard error is therefore about {(h_ratio - 1):.0%} (h) to "
-        f"{(density_ratio - 1):.0%} (density) too small, because independently "
+        f"{pooled.loc[('box', 'density'), 'p']:.0e}). A single "
+        f"{PRODUCTION_PS / 1000:g} ns run's "
+        f"standard error is therefore about {(h_ratio - 1):.0%} too small for h "
+        f"and {(density_ratio - 1):.0%} for density, because independently "
         "built boxes sample slow modes (conformers, local structure) that one run "
         "does not. This is why σ_Sage comes from the replicate spread rather than "
         "within-run errors. Per-box tests that survive Holm correction: "
@@ -350,7 +375,7 @@ def write_summary(out: Path, tables: dict) -> None:
         "- **NMP + 1,2-dichloroethane** has slow Sage torsion sampling (see "
         "below). It is kept, with σ_Sage set to the median floor.",
         "- **Start dependence**: "
-        + " and ".join(start_text(row) for row in start.itertuples())
+        + join_words([start_text(row) for row in start.itertuples()])
         + ". The distributed box (replicate 0) differs from the rebuilt "
         "replicates by more than their spread allows, so an MLP started from it "
         "may be slightly biased.",
@@ -365,13 +390,14 @@ def write_summary(out: Path, tables: dict) -> None:
         f"{int((finite.z.abs() > 3).sum())}. Points that differ by more than "
         f"{SIZE_GAP['hmix']} kJ/mol or "
         f"{SIZE_GAP['density']} g/mL: {len(gaps)}, "
-        + " and ".join(gap_text(row) for row in gaps.itertuples())
+        + join_words([gap_text(row) for row in gaps.itertuples()])
         + ". The median ΔHmix gap is "
         f"{finite[finite.prop == 'hmix']['diff'].abs().median():.3f} kJ/mol and "
         "the median density gap "
         f"{finite[finite.prop == 'density']['diff'].abs().median():.4f} g/mL, well "
-        "below Sage's errors against experiment, so the smaller boxes reproduce "
-        "the published reference.",
+        "below Sage's errors against experiment, so box size does not bias the "
+        "reference overall; the points above are in "
+        "[inspection.csv](inspection.csv).",
         "",
         "![finite size](figures/finite_size.png)",
         "",
@@ -573,8 +599,9 @@ def convergence_section(tables: dict) -> list[str]:
         f"{runs.density_block_ratio.median():.2f} (density). Single-run ratios "
         f"scatter by about ±{1 / np.sqrt(2 * (N_BLOCKS - 1)):.0%}, so only the "
         "median is meaningful.",
-        "- **Equilibration.** The first production block "
-        f"({EQUILIBRATION_PS:.0f} to {EQUILIBRATION_PS + block_ps:.0f} ps) minus the "
+        f"- **Equilibration.** The first {EARLY_WINDOW_PS:.0f} ps of production "
+        f"({EQUILIBRATION_PS:.0f} to {EQUILIBRATION_PS + EARLY_WINDOW_PS:.0f} ps) "
+        "minus the "
         f"rest of the run: median |shift| {shift.abs().median():.4f} g/mL, max "
         f"{shift.abs().max():.4f} g/mL. {int((shift.abs() > EARLY_SHIFT).sum())} "
         f"runs exceed {EARLY_SHIFT} g/mL. Mean shift by replicate (g/mL, with "
@@ -656,7 +683,8 @@ def dce_section(out: Path) -> list[str]:
         f"({dce['uncorrelated_limit']:.0%} if uncorrelated), a relaxation time of "
         f"about {dce['tau_sage_ps'] / 1000:.1f} ns ([dce_flips.csv](dce_flips.csv)). "
         f"With {dce['fewest_molecules']:.0f} DCE molecules in the DCE-poor box, a "
-        "2 ns run samples this poorly, so the replicates scatter more than their "
+        f"{PRODUCTION_PS / 1000:g} ns run samples this poorly, so the replicates "
+        "scatter more than their "
         "within-run errors. The cause is Sage's barrier. In relaxed gas-phase "
         "scans (below; energies relative to trans, "
         "[dce_torsion_scan.csv](dce_torsion_scan.csv)), the gauche/trans gap "

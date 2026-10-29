@@ -42,12 +42,12 @@ The rules are implemented in `src/liquid_mixtures_inputs/` and listed in [select
 
 - **Box size.** Edge ≥ 25 Å, ≥ 100 molecules and ≥ 20 of the minority component (952 to 2,800 atoms). Half of a 21.5 Å box is below the ~12 Å receptive field of a 2-layer, 6 Å MLP, precision per GPU-hour does not depend on box size, and 1000-molecule boxes would cost 10 to 15× more. Sage results in our boxes match the published 1000-molecule runs ([Sage report](data/sage_summary/report.md#box-size)).
 - **Box build.** Packed at the experimental density with Sage 2.3.0, each molecule starting from the lowest-MMFF of 10 ETKDG conformers, annealed (450 K cooled to T over 1.6 ns) and equilibrated for 500 ps NVT. The first Sage runs showed slow conformer equilibria (tetrahydropyran, DCE, DMAE) and dependence on the starting conformer.
-- **Protocol.** One run per model and box: 0.2 ns NPT equilibration and 2 ns production. 0.2 + 1 ns costs 55 % and is a cheaper option, to be decided once MLP pilot runs exist. Equilibration stays at 0.2 ns, as the 100 to 200 ps window is still shifted for Sage ([power analysis](data/power_analysis/report.md)).
+- **Protocol.** One run per model and box: 0.2 ns NPT equilibration and 1 ns production, for cost: 0.2 + 2 ns would cost 1.8× as much (about 190 against 350 MACE-OFF23(M) A100 GPU-days per model) and only narrow the resolvable ΔHmix MAE difference from 0.096 to 0.075 kJ/mol, small next to the spread over the choice of systems (0.13 kJ/mol). Equilibration stays at 0.2 ns, as the 100 to 200 ps window is still shifted for Sage ([power analysis](data/power_analysis/report.md)).
 - **One estimator** for Sage and the MLPs: ml-peg's `timeseries.py` (autocorrelation) on every logged sample, without binning.
 
 ### Sage reference
 
-- **Sage 2.3.0 throughout**, 5 replicates per box: replicate 0 is the distributed box, replicates 1 to 4 are independently re-packed. The replicate spread gives σ_Sage. Mixing versions would mix parameters: 2.3.0 liquids are 0.01 to 0.03 g/mL denser than 2.2.1.
+- **Sage 2.3.0 throughout**, 5 replicates per box: replicate 0 is the distributed box, replicates 1 to 4 are independently re-packed. Each run is 2.2 ns, so the power analysis can compare the protocol with 2 ns of production, but every Sage summary (σ_Sage, the reference values and Sage's scores) uses only the protocol's window, 0.2 to 1.2 ns. The replicate spread gives σ_Sage. Mixing versions would mix parameters: 2.3.0 liquids are 0.01 to 0.03 g/mL denser than 2.2.1.
 - **Finite-size check** against the published `fb-fit-v3-single-mean-k100` runs (2.3.0rc2, parameters identical to the released 2.3.0; only the NAGL model differs).
 - **Significance.** Family-wise 0.05 (`FLAG_P`), Holm-adjusted for per-box tests and Bonferroni over the pooled tests.
 
@@ -55,13 +55,13 @@ The rules are implemented in `src/liquid_mixtures_inputs/` and listed in [select
 
 - **MAZE for every property** (ΔHmix, mixture density, V^E and pure density), with the MAE shown at weight 0. V^E uses MAE, not RMSE.
 - **Denominator.** σ_ref = sqrt(σ_Sage² + σ_exp²). σ_Sage is the replicate SD pooled (RMS) over a system's compositions and floored at the median over systems, so that no system dominates MAZE because Sage happens to sample it quietly. NMP + DCE and pure DCE are set to the floor on all four properties, as their spread comes from Sage's slow torsion.
-- **Thresholds from the error analysis.** 'Good' is the score of a model that matches experiment exactly, with one 0.2 + 2 ns run per box, plus 2 SD of its noise. 'Bad' is 5× Sage's score, as Sage was trained on these properties. Mixture and pure densities share one set of thresholds for simplicity, the larger of their two values. Values in [thresholds.csv](data/power_analysis/thresholds.csv), ready to paste as [metrics_snippet.yml](data/power_analysis/metrics_snippet.yml). They must be recomputed if the protocol changes.
+- **Thresholds from the error analysis.** 'Good' is the score of a model that matches experiment exactly, with one 0.2 + 1 ns run per box, plus 2 SD of its noise. 'Bad' is 5× Sage's score, as Sage was trained on these properties. Mixture and pure densities share one set of thresholds for simplicity, the larger of their two values. Values in [thresholds.csv](data/power_analysis/thresholds.csv), ready to paste as [metrics_snippet.yml](data/power_analysis/metrics_snippet.yml). They must be recomputed if the protocol changes.
 
 ### Open questions
 
 - **DMAE + methanol.** Starting MLP runs from Sage-equilibrated conformer populations could hide a model that favours the wrong conformer, if that model also interconverts slowly. Options: keep it and add a conformer-population diagnostic, or drop it. (Tetrahydropyran + ethanol is unaffected; its equilibrium is essentially all chair.)
-- **0.2 + 1 ns protocol**, pending MLP pilot runs.
-- **Within-run standard errors** are 19 to 27 % too small on average; changing the estimator is not decided.
+- **MLP correlation times.** The power analysis uses Sage as a proxy for MLP noise; MLP pilot runs should check this.
+- **Within-run standard errors** of 1 ns runs are 19 % (h) and 11 % (density) too small on average; changing the estimator is not decided.
 - **Fluorinated systems** (2,2,2-trifluoroethanol mixtures, which flip the sign of ΔHmix against their analogues) were suggested but not adopted; no decision is recorded.
 - **Issue #936** (which asks for ~1000 molecules per box) is left to the benchmark author.
 
@@ -79,3 +79,4 @@ Superseded decisions are marked ~~struck through~~ with what replaced them.
 - 2026-10-23: Check every curated component's charge and tautomer. V^E from each paper's own pure densities, with shared-error propagation. Methanol + water densities from one paper. Drop the 1 ps binning (median raw / binned sem 1.00). Keep NMP + DCE; its ΔHmix from one paper at x = 0.2, 0.5 and 0.8, with new boxes; σ_Sage of NMP + DCE at the floor. `FLAG_P` raised from 0.01 to 0.05. Keep 0.2 + 2 ns and report 0.2 + 1 ns as an option. ~~Flag the V^E RMSE and ΔHmix MAZE thresholds as below their noise floors~~ (thresholds set from the error analysis on 2026-10-29). NMF candidates moved to the report's reserves.
 - 2026-10-28: Use Sage 2.3.0 throughout (boxes, reference runs and the finite-size comparison); remove every 2.2.1 run. Selection still uses published results from several Sage versions.
 - 2026-10-29: ~~Raise the V^E RMSE 'good' threshold from 0.05 to 0.15 cm³/mol and keep ΔHmix MAZE 'good' at 1.0~~ (superseded the same day). Score every property by MAZE with MAE at weight 0; V^E moves from RMSE to MAE; σ_Sage and σ_ref added for V^E and pure densities, with NMP + DCE and pure DCE at the floor; 'good' = perfect-model score + 2 SD, 'bad' = 5× Sage. Mixture and pure densities share their thresholds (the larger of the two values).
+- 2026-10-29: ~~Keep 0.2 + 2 ns~~: run 0.2 + 1 ns for cost. The Sage summaries, σ_Sage and the thresholds are recomputed from the first 0.2 + 1 ns of the existing 2.2 ns Sage runs.

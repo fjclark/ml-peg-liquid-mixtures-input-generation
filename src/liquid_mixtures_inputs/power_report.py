@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from liquid_mixtures_inputs.power_analysis import (
+    ALTERNATIVE_PS,
     BAD_SAGE_MULTIPLE,
     GOOD_NOISE_SDS,
     LABELS,
@@ -35,7 +36,6 @@ MACE_OFF_M_ATOM_STEPS_PER_DAY = 1.1e6 * 600
 # Spread of published MLP pure-density MAEs (LITERATURE: MACE-OFF23 S vs M,
 # ANI-2x vs MACE-OFF23(M), MPNICE variants), in g/mL.
 LITERATURE_DENSITY_SPREAD = (0.05, 0.25)
-ONE_NS = 1000.0  # the cheaper protocol considered, 0.2 + 1 ns
 METRIC_ORDER = [
     ("hmix", "MAE"),
     ("hmix", "MAZE"),
@@ -278,7 +278,14 @@ def threshold_rows(threshold_table: pd.DataFrame) -> list[str]:
         )
     frame = pd.DataFrame(
         rows,
-        columns=["Metric", "Perfect model (2 ns)", "Sage", "Good", "Bad", "Unit"],
+        columns=[
+            "Metric",
+            f"Perfect model ({REFERENCE[1] / 1000:g} ns)",
+            "Sage",
+            "Good",
+            "Bad",
+            "Unit",
+        ],
     )
     return [md_table(frame)]
 
@@ -307,8 +314,13 @@ def write_summary(out: Path, tables: dict) -> None:
     hmix_points = point_rows(points, "hmix", reference)
     density_points = point_rows(points, "density", reference)
     saved = 1 - allocation_cost(tables["allocation"]) / cost[reference]
-    floor_2ns = metric_value(metrics, "hmix", "MAZE", reference, 0.0, "observed_mean")
-    floor_1ns = metric_value(metrics, "hmix", "MAZE", ONE_NS, 0.0, "observed_mean")
+    floor = metric_value(metrics, "hmix", "MAZE", reference, 0.0, "observed_mean")
+    floor_longer = metric_value(
+        metrics, "hmix", "MAZE", ALTERNATIVE_PS, 0.0, "observed_mean"
+    )
+    reference_ns, longer_ns = reference / 1000, ALTERNATIVE_PS / 1000
+    protocol = f"{REFERENCE[0] / 1000:g} + {reference_ns:g} ns"
+    longer = f"{REFERENCE[0] / 1000:g} + {longer_ns:g} ns"
 
     lines = [
         "# Power analysis: can one run per box rank MLPs?",
@@ -350,16 +362,17 @@ def write_summary(out: Path, tables: dict) -> None:
         "reduce this.",
         f"- **Cost.** {tables['n_atoms'].sum():,.0f} atoms over 64 boxes, about "
         f"{gpu_days(cost[reference]):.0f} MACE-OFF23(M) A100 GPU-days per model "
-        "(order of magnitude). 0.2 + 1 ns costs "
-        f"{cost[ONE_NS] / cost[reference]:.0%} (saving about "
-        f"{gpu_days(cost[reference] - cost[ONE_NS]):.0f} GPU-days) and widens the "
-        f"resolvable ΔHmix MAE difference from {hmix_high:.3f} to "
-        f"{resolvable_range(metrics, 'hmix', 'MAE', ONE_NS)[1]:.3f} kJ/mol. "
-        f"Per-box run lengths would save only {saved:.0%}.",
+        f"(order of magnitude). {longer} would cost "
+        f"{cost[ALTERNATIVE_PS] / cost[reference]:.1f}× as much (about "
+        f"{gpu_days(cost[ALTERNATIVE_PS] - cost[reference]):.0f} GPU-days more) "
+        "and narrow the resolvable ΔHmix MAE difference from "
+        f"{hmix_high:.3f} to "
+        f"{resolvable_range(metrics, 'hmix', 'MAE', ALTERNATIVE_PS)[1]:.3f} "
+        f"kJ/mol. Per-box run lengths would save only {saved:.0%}.",
         "",
-        "We keep 0.2 + 2 ns, and will decide on 0.2 + 1 ns once MLP pilot runs "
-        "show whether MLP correlation times match Sage's. Equilibration stays at "
-        "0.2 ns ([details](details.md#4-shorter-runs)).",
+        f"We run {protocol} for cost. The extra precision of {longer} is small "
+        "next to the spread over the choice of systems. Equilibration stays at "
+        f"{REFERENCE[0] / 1000:g} ns ([details](details.md#4-run-length-and-cost)).",
         "",
         "![resolvable difference](figures/resolvable.png)",
         "",
@@ -382,9 +395,9 @@ def write_summary(out: Path, tables: dict) -> None:
         "",
         *threshold_rows(tables["thresholds"]),
         "",
-        "The perfect-model floor rises for shorter runs (ΔHmix MAZE "
-        f"{floor_2ns:.2f} at 2 ns, {floor_1ns:.2f} at 1 ns), so the thresholds "
-        "must be recomputed if the protocol changes.",
+        "The perfect-model floor depends on the run length (ΔHmix MAZE "
+        f"{floor:.2f} at {reference_ns:g} ns, {floor_longer:.2f} at {longer_ns:g} "
+        "ns), so the thresholds must be recomputed if the protocol changes.",
         "",
         "## Main caveat",
         "",
@@ -427,8 +440,9 @@ def method_section(tables: dict) -> list[str]:
         "1. **Run length.** Every Sage run is re-analysed with the benchmark's "
         "estimator (`mixing.observables` and `timeseries.estimate_mean`, as in "
         f"`summarise-sage`), keeping {lengths} ns of production after 0.1 or "
-        "0.2 ns of equilibration. The 2 ns analysis reproduces the Sage "
-        "`runs.csv` exactly (tested).",
+        f"0.2 ns of equilibration. The analysis at the protocol length "
+        f"({reference / 1000:g} ns) reproduces the Sage `runs.csv` exactly "
+        "(tested).",
         "2. **Single-run noise per box.** σ = k·sem, with sem the RMS within-run "
         "standard error over the 5 replicates and k the pooled ratio of replicate "
         "SD to within-run sem over all boxes at that length (k = "
@@ -439,7 +453,8 @@ def method_section(tables: dict) -> list[str]:
         "3. **Points.** ΔHmix and V^E are linear in the box means (ml-peg's "
         "`mixing_matrix`). Each pure box feeds all three compositions of its "
         "system, so noise is drawn per box and propagated, which keeps the "
-        "correlation between points. The propagated ΔHmix noise at 2 ns (RMS over "
+        "correlation between points. The propagated ΔHmix noise at "
+        f"{reference / 1000:g} ns (RMS over "
         f"points {np.sqrt((propagated**2).mean()):.3f} kJ/mol) matches the "
         "observed SD of Sage's replicate ΔHmix (RMS "
         f"{np.sqrt((observed**2).mean()):.3f} kJ/mol, Sage `points.csv`).",
@@ -481,7 +496,8 @@ def noise_section(tables: dict) -> list[str]:
     h_noise = standard[standard.observable == "h"].groupby("production_ps").sigma
     h_rms = h_noise.apply(lambda sigma: float(np.sqrt(np.mean(sigma**2))))
     scaled = h_rms * np.sqrt(h_rms.index / REFERENCE[1])
-    growth = scaled[REFERENCE[1]] / scaled[500.0] - 1
+    growth = scaled[ALTERNATIVE_PS] / scaled[500.0] - 1
+    reference_ns, longer_ns = REFERENCE[1] / 1000, ALTERNATIVE_PS / 1000
     rows = []
     for production in PRODUCTION_LENGTHS_PS:
         median_sigma = {
@@ -513,9 +529,10 @@ def noise_section(tables: dict) -> list[str]:
         "",
         "![noise scaling](figures/noise_scaling.png)",
         "",
-        "Single-run noise × sqrt(t / 2 ns), RMS over boxes and relative to 2 ns. "
-        "A flat line would mean σ ∝ 1/sqrt(t). For h the scaled noise grows by "
-        f"{growth:.0%} from 0.5 to 2 ns: short runs miss some slow fluctuations, "
+        f"Single-run noise × sqrt(t / {reference_ns:g} ns), RMS over boxes and "
+        f"relative to {reference_ns:g} ns. A flat line would mean σ ∝ 1/sqrt(t). "
+        f"For h the scaled noise grows by {growth:.0%} from 0.5 to {longer_ns:g} "
+        "ns: short runs miss some slow fluctuations, "
         "so cutting the run length costs a little less precision than 1/sqrt(t) "
         "predicts.",
         "",
@@ -550,7 +567,7 @@ def point_section(tables: dict) -> list[str]:
     ]
     rows = []
     for property_name in ("hmix", "density", "vex", "pure_density"):
-        for production in (500.0, 1000.0, 2000.0):
+        for production in (500.0, REFERENCE[1], ALTERNATIVE_PS):
             selected = point_rows(points, property_name, production)
             rows.append(
                 [
@@ -612,8 +629,10 @@ def ranking_section(tables: dict) -> list[str]:
     reference = REFERENCE[1]
     rows = []
     for property_name, metric in METRIC_ORDER:
-        low_2, high_2 = resolvable_range(metrics, property_name, metric, reference)
-        low_1, high_1 = resolvable_range(metrics, property_name, metric, ONE_NS)
+        low, high = resolvable_range(metrics, property_name, metric, reference)
+        low_longer, high_longer = resolvable_range(
+            metrics, property_name, metric, ALTERNATIVE_PS
+        )
         sage_like = metrics[
             (metrics.property == property_name)
             & (metrics.metric == metric)
@@ -626,17 +645,17 @@ def ranking_section(tables: dict) -> list[str]:
                 f"{LABELS[property_name]} {metric}",
                 f"{sage_like.sd:.2g}",
                 f"{sage_like.sd_closed_form:.2g}",
-                f"{low_2:.2g} to {high_2:.2g}",
-                f"{low_1:.2g} to {high_1:.2g}",
+                f"{low:.2g} to {high:.2g}",
+                f"{low_longer:.2g} to {high_longer:.2g}",
                 f"{systems_sd:.2g}",
             ]
         )
     columns = [
         "Metric",
-        "SD (2 ns)",
+        f"SD ({reference / 1000:g} ns)",
         "SD closed form",
-        "Resolvable (2 ns)",
-        "Resolvable (1 ns)",
+        f"Resolvable ({reference / 1000:g} ns)",
+        f"Resolvable ({ALTERNATIVE_PS / 1000:g} ns)",
         "SD over systems",
     ]
     hmix_systems = float(bootstrap.loc[("hmix", "MAE"), "bootstrap_sd"])
@@ -660,13 +679,15 @@ def ranking_section(tables: dict) -> list[str]:
         "",
         "Noise also biases each score upwards, most for good models: a model whose "
         f"true ΔHmix MAE is {quarter_true:.2f} kJ/mol scores "
-        f"{quarter_observed:.2f} on average at 2 ns, against {full_observed:.2f} "
+        f"{quarter_observed:.2f} on average at {reference / 1000:g} ns, against "
+        f"{full_observed:.2f} "
         f"for a true {sage_mae:.2f}. Differences between good models are slightly "
         "compressed, but their order is kept.",
         "",
         "The two kinds of uncertainty answer different questions. The simulation "
         "noise says whether rerunning the benchmark would give the same ranking on "
-        "these 13 systems; at 2 ns it would, for any gap above the resolvable "
+        f"these 13 systems; at {reference / 1000:g} ns it would, for any gap "
+        "above the resolvable "
         "difference. The system spread says how far a model's score depends on "
         "this set of systems, which no run length can reduce.",
         "",
@@ -685,9 +706,9 @@ def ranking_section(tables: dict) -> list[str]:
     ]
 
 
-def shorter_runs_section(tables: dict) -> list[str]:
+def run_length_section(tables: dict) -> list[str]:
     """
-    Write the section on shorter runs and per-box run lengths for ``details.md``.
+    Write the section on run length, cost and per-box runs for ``details.md``.
 
     Parameters
     ----------
@@ -735,7 +756,7 @@ def shorter_runs_section(tables: dict) -> list[str]:
     longest = allocation.nlargest(4, "production_ps").box_id
     saved = 1 - allocation_cost(allocation) / cost[reference]
     return [
-        "## 4. Shorter runs",
+        "## 4. Run length and cost",
         "",
         md_table(pd.DataFrame(rows, columns=columns)),
         "",
@@ -747,7 +768,7 @@ def shorter_runs_section(tables: dict) -> list[str]:
         "boxes. Faster and slower models scale the column, not the ratios.",
         "",
         "**Equilibration.** The mean over the 100 to 200 ps window minus the mean "
-        "over the 2 ns production, over all 320 Sage runs, is "
+        f"over the {reference / 1000:g} ns production, over all 320 Sage runs, is "
         f"{equilibration.loc['h', 'mean_shift']:+.3f} kJ/mol for h (p = "
         f"{equilibration.loc['h', 'p']:.1g}) and "
         f"{equilibration.loc['density', 'mean_shift']:+.4f} g/mL for density "
@@ -763,7 +784,8 @@ def shorter_runs_section(tables: dict) -> list[str]:
         "",
         "**Per-box run lengths.** For a fixed variance of ΔHmix MAE, mixture "
         "density MAE and pure density MAE (equally weighted, each relative to "
-        "uniform 2 ns), the cheapest allocation runs each box for "
+        f"uniform {reference / 1000:g} ns), the cheapest allocation runs each box "
+        "for "
         "t ∝ sqrt(A_b / n_b), where A_b is the box's variance contribution and n_b "
         f"its atom count, with at least {MIN_ALLOCATION_PS / 1000:g} ns. It ranges "
         f"from {allocation.production_ps.min() / 1000:.1f} to "
@@ -797,7 +819,7 @@ def literature_section(tables: dict) -> list[str]:
     middle = sage_points.loc[
         (sage_points.x - 0.5).abs().groupby(sage_points.system_id).idxmin()
     ].hmix_exp.abs()
-    density_2ns = resolvable_range(metrics, "density", "MAE", reference)[1]
+    density_protocol = resolvable_range(metrics, "density", "MAE", reference)[1]
     density_short = resolvable_range(
         metrics, "density", "MAE", PRODUCTION_LENGTHS_PS[0]
     )[1]
@@ -816,7 +838,8 @@ def literature_section(tables: dict) -> list[str]:
         "",
         "- **Density.** Published MLPs differ in pure-liquid density MAE by about "
         f"{LITERATURE_DENSITY_SPREAD[0]} to {LITERATURE_DENSITY_SPREAD[1]} g/mL. "
-        f"The benchmark resolves {density_2ns:.4f} g/mL at 2 ns and "
+        f"The benchmark resolves {density_protocol:.4f} g/mL at "
+        f"{reference / 1000:g} ns and "
         f"{density_short:.4f} g/mL at {PRODUCTION_LENGTHS_PS[0] / 1000:g} ns. "
         "Density alone could be ranked from much shorter runs, but the runs serve "
         "ΔHmix too.",
@@ -826,7 +849,8 @@ def literature_section(tables: dict) -> list[str]:
         "energies, so much of that error may cancel, but whatever remains is "
         f"compared with |ΔHmix| near x = 0.5 of {middle.min():.1f} to "
         f"{middle.max():.1f} kJ/mol. If MLPs differ in ΔHmix MAE by even a fifth "
-        f"of Sage's MAE (about {0.2 * sage_mae:.2f} kJ/mol), 2 ns resolves it.",
+        f"of Sage's MAE (about {0.2 * sage_mae:.2f} kJ/mol), "
+        f"{reference / 1000:g} ns resolves it.",
         "",
     ]
 
@@ -861,7 +885,8 @@ def caveats_section(tables: dict) -> list[str]:
         "times may differ, especially for MLPs that change conformer barriers. One "
         "pilot MLP run per box, analysed with `mixing.box_result`, would check "
         "this: compare its sem and n_eff with the Sage `runs.csv`.",
-        f"- **Slow modes.** k = {k_h:.2f} (h, 2 ns) is pooled over boxes. Single "
+        f"- **Slow modes.** k = {k_h:.2f} (h, {REFERENCE[1] / 1000:g} ns) is "
+        "pooled over boxes. Single "
         "boxes have larger run-to-run spreads (for Sage, NMP + "
         "1,2-dichloroethane; see the [Sage report](../sage_summary/report.md)), "
         "and an MLP may have slow modes of its own.",
@@ -899,7 +924,7 @@ def write_details(out: Path, tables: dict) -> None:
         *noise_section(tables),
         *point_section(tables),
         *ranking_section(tables),
-        *shorter_runs_section(tables),
+        *run_length_section(tables),
         *literature_section(tables),
         *caveats_section(tables),
     ]

@@ -19,7 +19,7 @@ correlated across points) to give, per run length:
 - the spread of the metric over the choice of systems (cluster bootstrap), for
   comparison;
 - a GPU-time allocation across boxes that keeps the metric noise of uniform
-  2 ns runs at a lower cost;
+  runs of the protocol length at a lower cost;
 - ml-peg's 'good' and 'bad' thresholds (``thresholds.csv`` and
   ``metrics_snippet.yml``).
 
@@ -45,6 +45,7 @@ import yaml  # noqa: E402
 from liquid_mixtures_inputs.constants import (  # noqa: E402
     EQUILIBRATION_PS,
     PRODUCTION_PS,
+    SAGE_RUN_PS,
 )
 from ml_peg.analysis.molecular_dynamics.binary_mixtures.mixing import (  # noqa: E402
     mixing_matrix,
@@ -54,6 +55,7 @@ from ml_peg.analysis.utils.timeseries import estimate_mean  # noqa: E402
 
 REFERENCE = (EQUILIBRATION_PS, PRODUCTION_PS)  # the benchmark protocol
 TOTAL_PS = EQUILIBRATION_PS + PRODUCTION_PS
+ALTERNATIVE_PS = 2000.0  # the longer production compared with the protocol
 # Every Sage run is re-analysed for each pair of these lengths.
 EQUILIBRATION_LENGTHS_PS = (100.0, 200.0)
 PRODUCTION_LENGTHS_PS = (250.0, 500.0, 1000.0, 1500.0, 2000.0)
@@ -103,7 +105,7 @@ def truncated_estimates(task: tuple) -> list[dict]:
     """
     box_id, replicate, n_molecules, csv_path = task
     data = pd.read_csv(csv_path)
-    if data.time_ps.iloc[-1] < TOTAL_PS - 0.5:
+    if data.time_ps.iloc[-1] < SAGE_RUN_PS - 0.5:
         return []
     rows = []
     windows = [
@@ -642,11 +644,12 @@ def allocation_table(
     property_sets: dict, noise: pd.DataFrame, box_ids: list[str], n_atoms: np.ndarray
 ) -> pd.DataFrame:
     """
-    Choose per-box production lengths that keep the noise of uniform 2 ns runs.
+    Choose per-box production lengths that keep the noise of uniform runs.
 
     ΔHmix MAE, mixture density MAE and pure density MAE are weighted together,
-    each variance normalised by its value for uniform 2 ns runs. With random
-    error signs, E[(Σ_i s_i M_ib)²] = Σ_i M_ib², so A_b = Σ_i M_ib² c_b / N².
+    each variance normalised by its value for uniform runs of the protocol
+    length. With random error signs, E[(Σ_i s_i M_ib)²] = Σ_i M_ib², so
+    A_b = Σ_i M_ib² c_b / N².
 
     Parameters
     ----------
@@ -980,7 +983,8 @@ def plot_noise_scaling(noise: pd.DataFrame, path: Path) -> None:
     ax.axhline(1, color="0.5", lw=0.8, ls="--")
     ax.set_ylim(0, 1.2)
     ax.set_xlabel("Production length (ns)")
-    ax.set_ylabel("σ·sqrt(t / 2 ns) / σ(2 ns)")
+    reference_ns = REFERENCE[1] / 1000
+    ax.set_ylabel(f"σ·sqrt(t / {reference_ns:g} ns) / σ({reference_ns:g} ns)")
     ax.legend(frameon=False)
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
@@ -1090,7 +1094,7 @@ def plot_point_mde(points: pd.DataFrame, path: Path) -> None:
     """
     fig, ax = plt.subplots(figsize=(4.8, 4.2))
     hmix = points[points.property == "hmix"]
-    for color, prod in zip(COLORS, (2000.0, 500.0), strict=False):
+    for color, prod in zip(COLORS, (REFERENCE[1], 500.0), strict=False):
         rows = hmix[hmix.production_ps == prod]
         ax.scatter(
             rows.mde,

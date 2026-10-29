@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from liquid_mixtures_inputs.constants import SAGE_RUN_PS
 from liquid_mixtures_inputs.power_analysis import (
     REFERENCE,
     TOTAL_PS,
@@ -67,7 +68,7 @@ def scalar_log(tmp_path, request):
     """
     phi = getattr(request, "param", 0.9)
     rng = np.random.default_rng(0)
-    time = np.arange(1, int(TOTAL_PS * 10) + 1) * 0.1
+    time = np.arange(1, int(SAGE_RUN_PS * 10) + 1) * 0.1
     log = pd.DataFrame(
         {
             "step": np.arange(1, len(time) + 1) * 100,
@@ -85,12 +86,13 @@ def scalar_log(tmp_path, request):
 
 
 def test_reference_window_matches_benchmark(scalar_log):
-    """The 0.2 + 2 ns window gives the benchmark analysis's means and sems."""
+    """The protocol window gives the benchmark analysis's means and sems."""
     rows = pd.DataFrame(truncated_estimates(("box", 0, 120, scalar_log)))
     ours = rows[
         (rows.equilibration_ps == REFERENCE[0]) & (rows.production_ps == REFERENCE[1])
     ].set_index("observable")
     prod = read_production(scalar_log, REFERENCE[0], TOTAL_PS)
+    prod = prod[prod.time_ps <= TOTAL_PS + 1e-6]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
         bench = box_result(prod, 120)
@@ -177,7 +179,7 @@ def test_thresholds_follow_noise_and_sage():
         {
             "property": ["hmix", "hmix", "hmix"],
             "metric": ["MAE", "MAE", "MAE"],
-            "production_ps": [REFERENCE[1], REFERENCE[1], 1000.0],
+            "production_ps": [REFERENCE[1], REFERENCE[1], 2000.0],
             "profile": [0.0, 1.0, 0.0],
             "observed_mean": [0.0812, 0.55, 0.2],
             "sd": [0.0101, 0.02, 0.05],

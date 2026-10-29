@@ -6,11 +6,12 @@ Run in the ``openff`` pixi environment::
     pixi run -e openff run-sage --data-dir data/binary_mixtures \
         --output-dir data/sage_runs
 
-Every box is run as several independent replicates with the benchmark protocol
-(0.2 ns NPT equilibration followed by 2 ns NPT production, 298.15 K or the box's
-``exp_temperature``, 1 atm). Replicate 0 starts from the distributed box.
-Later replicates are re-packed with a new packmol seed and re-equilibrated
-(500 ps NVT), so their starting configurations are independent.
+Every box is run as several independent replicates of 2.2 ns NPT (298.15 K or
+the box's ``exp_temperature``, 1 atm): the benchmark protocol (0.2 ns
+equilibration, 1 ns production) plus a further 1 ns, so the power analysis can
+compare the protocol with 2 ns of production. Replicate 0 starts from the
+distributed box. Later replicates are re-packed with a new packmol seed and
+re-equilibrated (500 ps NVT), so their starting configurations are independent.
 
 Each run writes ``<box_id>/rep<r>.csv`` in the same scalar format as the MLIP
 calc (time in ps, energies in eV, volume in Angstrom^3, density in g/mL), plus
@@ -40,10 +41,9 @@ from liquid_mixtures_inputs.build_boxes import (
     prepare_molecule,
 )
 from liquid_mixtures_inputs.constants import (
-    EQUILIBRATION_PS,
     GAS_CONSTANT_KJ_PER_MOL_K,
     KJ_PER_MOL_PER_EV,
-    PRODUCTION_PS,
+    SAGE_RUN_PS,
 )
 
 LOGGER = logging.getLogger("run_sage_benchmark")
@@ -169,7 +169,7 @@ def run_replicate(
     replicate: int,
     out_dir: Path,
     platform: str,
-    run_ps: float = EQUILIBRATION_PS + PRODUCTION_PS,
+    run_ps: float = SAGE_RUN_PS,
 ):
     """
     Run one replicate of one box with the benchmark protocol.
@@ -278,7 +278,7 @@ def main() -> None:
     parser.add_argument(
         "--run-ps",
         type=float,
-        default=EQUILIBRATION_PS + PRODUCTION_PS,
+        default=SAGE_RUN_PS,
         help="Total NPT length (shorten only for testing)",
     )
     args = parser.parse_args()
