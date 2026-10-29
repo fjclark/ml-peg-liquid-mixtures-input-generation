@@ -16,8 +16,8 @@ correlated across points) to give, per run length:
 - the smallest error against experiment a single point can detect;
 - the noise in each benchmark metric (MAE, MAZE) and the smallest
   difference between two models it can resolve;
-- the spread of the metric over the choice of systems (cluster bootstrap), for
-  comparison;
+- the spread of Sage's metric over the choice of systems (cluster bootstrap),
+  which shows how far a score depends on this set of systems;
 - a GPU-time allocation across boxes that keeps the metric noise of uniform
   runs of the protocol length at a lower cost;
 - ml-peg's 'good' and 'bad' thresholds (``thresholds.csv`` and
@@ -994,7 +994,6 @@ def plot_noise_scaling(noise: pd.DataFrame, path: Path) -> None:
 
 def plot_resolvable(
     metrics: pd.DataFrame,
-    bootstrap: pd.DataFrame,
     threshold_table: pd.DataFrame,
     path: Path,
 ) -> None:
@@ -1002,15 +1001,12 @@ def plot_resolvable(
     Plot the resolvable metric difference against production length.
 
     One panel per metric. The line is the Sage-like error profile, the band
-    spans all profiles; dashed is the system-bootstrap SD of Sage's metric and
-    dotted the observed metric of a perfect model.
+    spans all profiles; dotted is the observed metric of a perfect model.
 
     Parameters
     ----------
     metrics
         ``metrics`` table from :func:`analyse`.
-    bootstrap
-        ``bootstrap`` table from :func:`analyse`.
     threshold_table
         Output of :func:`thresholds`.
     path
@@ -1038,14 +1034,6 @@ def plot_resolvable(
             lw=2,
             ms=6,
             label="resolvable difference",
-        )
-        boot = bootstrap[(bootstrap.property == prop) & (bootstrap.metric == label)]
-        ax.axhline(
-            float(boot.bootstrap_sd.iloc[0]),
-            color=COLORS[1],
-            lw=2,
-            ls="--",
-            label="SD over choice of systems",
         )
         floor = rows[rows.profile == 0.0].set_index("production_ps").observed_mean
         ax.plot(
@@ -1157,7 +1145,6 @@ def main() -> None:
     plot_noise_scaling(noise, figures / "noise_scaling.png")
     plot_resolvable(
         results["metrics"],
-        results["bootstrap"],
         threshold_table,
         figures / "resolvable.png",
     )

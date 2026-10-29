@@ -302,15 +302,10 @@ def write_summary(out: Path, tables: dict) -> None:
         The tables named in :func:`write_reports`.
     """
     metrics, points = tables["metrics"], tables["points"]
-    bootstrap = tables["bootstrap"].set_index(["property", "metric"])
     reference = REFERENCE[1]
     cost = costs(tables["n_atoms"])
     hmix_low, hmix_high = resolvable_range(metrics, "hmix", "MAE", reference)
     density_low, density_high = resolvable_range(metrics, "density", "MAE", reference)
-    hmix_sd = metric_value(metrics, "hmix", "MAE", reference, 1.0, "sd")
-    hmix_systems = float(bootstrap.loc[("hmix", "MAE"), "bootstrap_sd"])
-    density_sd = metric_value(metrics, "density", "MAE", reference, 1.0, "sd")
-    density_systems = float(bootstrap.loc[("density", "MAE"), "bootstrap_sd"])
     hmix_points = point_rows(points, "hmix", reference)
     density_points = point_rows(points, "density", reference)
     saved = 1 - allocation_cost(tables["allocation"]) / cost[reference]
@@ -354,12 +349,6 @@ def write_summary(out: Path, tables: dict) -> None:
         "points). "
         f"{(hmix_points.sage_error.abs() > hmix_points.mde).mean():.0%} of Sage's "
         "ΔHmix errors are larger.",
-        "- **The choice of systems matters more than noise.** Between repeat "
-        f"benchmark runs, a model's ΔHmix MAE moves by {hmix_sd:.3f} kJ/mol (SD). "
-        f"Picking a different 13 systems moves Sage's by {hmix_systems:.2f} "
-        f"kJ/mol, {hmix_systems / hmix_sd:.0f}× more "
-        f"({density_systems / density_sd:.0f}× for density). Longer runs cannot "
-        "reduce this.",
         f"- **Cost.** {tables['n_atoms'].sum():,.0f} atoms over 64 boxes, about "
         f"{gpu_days(cost[reference]):.0f} MACE-OFF23(M) A100 GPU-days per model "
         f"(order of magnitude). {longer} would cost "
@@ -370,15 +359,18 @@ def write_summary(out: Path, tables: dict) -> None:
         f"{resolvable_range(metrics, 'hmix', 'MAE', ALTERNATIVE_PS)[1]:.3f} "
         f"kJ/mol. Per-box run lengths would save only {saved:.0%}.",
         "",
-        f"We run {protocol} for cost. The extra precision of {longer} is small "
-        "next to the spread over the choice of systems. Equilibration stays at "
+        f"We run {protocol} for cost: it already resolves density gaps far "
+        f"smaller than those between published MLPs, and {longer} would narrow "
+        "the resolvable ΔHmix MAE difference by only "
+        f"{1 - resolvable_range(metrics, 'hmix', 'MAE', ALTERNATIVE_PS)[1] / hmix_high:.0%}"
+        f" for {cost[ALTERNATIVE_PS] / cost[reference]:.1f}× the cost. "
+        "Equilibration stays at "
         f"{REFERENCE[0] / 1000:g} ns ([details](details.md#4-run-length-and-cost)).",
         "",
         "![resolvable difference](figures/resolvable.png)",
         "",
         "Blue: resolvable difference for a Sage-like error profile (band: 1 to 0 "
-        "× Sage's errors). Orange: SD of Sage's metric over the choice of systems. "
-        "Green: the score a model that matches experiment exactly gets from noise "
+        "× Sage's errors). Green: the score a model that matches experiment exactly gets from noise "
         "alone. Grey: the 'good' threshold.",
         "",
         "## Thresholds",

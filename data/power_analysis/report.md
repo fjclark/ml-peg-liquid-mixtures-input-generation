@@ -8,14 +8,13 @@ ml-peg runs every MLP once per box: 0.2 ns of NPT equilibration and 1 ns of prod
 
 - **Between models.** Two models are told apart (two-sided 5 % test, 80 % power) when their ΔHmix MAE differs by 0.05 to 0.096 kJ/mol, or their mixture density MAE by 0.0004 to 0.0007 g/mL. Published MLPs differ in pure-liquid density MAE by about 0.05 to 0.25 g/mL, about 80 to 400× more.
 - **Against experiment.** One run per box detects an error at a single point above 0.31 kJ/mol for ΔHmix and 0.0028 g/mL for density (median over points). 62% of Sage's ΔHmix errors are larger.
-- **The choice of systems matters more than noise.** Between repeat benchmark runs, a model's ΔHmix MAE moves by 0.024 kJ/mol (SD). Picking a different 13 systems moves Sage's by 0.13 kJ/mol, 6× more (14× for density). Longer runs cannot reduce this.
 - **Cost.** 104,076 atoms over 64 boxes, about 189 MACE-OFF23(M) A100 GPU-days per model (order of magnitude). 0.2 + 2 ns would cost 1.8× as much (about 158 GPU-days more) and narrow the resolvable ΔHmix MAE difference from 0.096 to 0.075 kJ/mol. Per-box run lengths would save only 13%.
 
-We run 0.2 + 1 ns for cost. The extra precision of 0.2 + 2 ns is small next to the spread over the choice of systems. Equilibration stays at 0.2 ns ([details](details.md#4-run-length-and-cost)).
+We run 0.2 + 1 ns for cost: it already resolves density gaps far smaller than those between published MLPs, and 0.2 + 2 ns would narrow the resolvable ΔHmix MAE difference by only 22% for 1.8× the cost. Equilibration stays at 0.2 ns ([details](details.md#4-run-length-and-cost)).
 
 ![resolvable difference](figures/resolvable.png)
 
-Blue: resolvable difference for a Sage-like error profile (band: 1 to 0 × Sage's errors). Orange: SD of Sage's metric over the choice of systems. Green: the score a model that matches experiment exactly gets from noise alone. Grey: the 'good' threshold.
+Blue: resolvable difference for a Sage-like error profile (band: 1 to 0 × Sage's errors). Green: the score a model that matches experiment exactly gets from noise alone. Grey: the 'good' threshold.
 
 ## Thresholds
 
