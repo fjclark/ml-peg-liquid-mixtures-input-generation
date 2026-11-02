@@ -8,7 +8,9 @@ Select binary liquid mixtures for the binary_mixtures benchmark.
    TRC ThermoML archive, cross-check pure densities, fit Redlich-Kister curves
    and plan box sizes, writing ``systems.csv``, ``pure.csv`` and
    ``isotherms.csv``.
-4. Write the selection report (``selection_report.py``).
+4. Resolve the DOI of every data source and write ``dois.txt``,
+   ``sources.csv`` and ``sources.bib`` (``sources.py``).
+5. Write the selection report (``selection_report.py``).
 
 Run with::
 
@@ -37,6 +39,7 @@ from rdkit.Chem.MolStandardize import rdMolStandardize
 import yaml
 
 from liquid_mixtures_inputs.constants import AVOGADRO, GAS_CONSTANT_KJ_PER_MOL_K
+from liquid_mixtures_inputs.sources import write_sources
 from liquid_mixtures_inputs.thermoml import (
     Measurement,
     canonical_smiles,
@@ -1696,8 +1699,11 @@ def main() -> None:
     write_csv(
         out / "systems.csv", [row for system in systems for row in system["rows"]]
     )
-    write_csv(out / "pure.csv", pure_rows(systems, mlpeg))
-    write_csv(out / "isotherms.csv", isotherm_rows(systems))
+    pure = pure_rows(systems, mlpeg)
+    isotherms = isotherm_rows(systems)
+    write_csv(out / "pure.csv", pure)
+    write_csv(out / "isotherms.csv", isotherms)
+    write_sources(out, isotherms, pure, selection["systems"], args.cache_dir)
 
     # Imported here because the report imports this module.
     from liquid_mixtures_inputs.selection_report import write_report

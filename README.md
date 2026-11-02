@@ -86,7 +86,7 @@ pixi run -e analysis pre-commit run --all-files
 - `selection.yml`: the curated systems, with rationale, filter exceptions, pure-density references, dropped systems and reserves.
 - `mlpeg_liquids.yml`: SMILES of ml-peg's liquid_densities liquids, so their pure densities are not scored twice.
 - `thermoml.py`: fetches and parses NIST TRC ThermoML records by DOI.
-- `select_systems.py`: screens the Sage data sets, checks the curated systems, fits the ThermoML isotherms and plans box sizes. `selection_report.py` writes the selection report.
+- `select_systems.py`: screens the Sage data sets, checks the curated systems, fits the ThermoML isotherms and plans box sizes. `selection_report.py` writes the selection report, and `sources.py` the citations of every data source.
 - `build_boxes.py`: packs, parametrises (openff-2.3.0, NAGL charges, TIP3P water), anneals and equilibrates every box at the experimental density.
 - `run_sage_benchmark.py`: runs every box with Sage for 2.2 ns (5 replicates). The summaries use the protocol's first 0.2 + 1 ns; the rest lets the power analysis compare 2 ns.
 - `summarise_sage.py`: ΔHmix, densities and V^E per replicate, σ_Sage and σ_ref, convergence, within- vs between-run, finite-size and start-dependence checks. `sage_report.py` writes the Sage reports.
@@ -100,7 +100,7 @@ Outputs: `selection/` (selection tables, report and figures), `data/sage_summary
 
 - OpenFF Sage 2.0 training set: `openforcefield/openff-sage` (MIT), pinned commit in `select_systems.py`.
 - Sage 2.3 refit training and validation sets and published Sage benchmark results: `openforcefield/ash-sage-rc2`, pinned commit.
-- Experimental data: NIST TRC ThermoML archive, cited by DOI per point.
+- Experimental data: NIST TRC ThermoML archive, cited by DOI per point. The DOI of every paper behind the reference data is listed one per line in [selection/dois.txt](selection/dois.txt), with what each supplies in [selection/sources.csv](selection/sources.csv) and BibTeX in [selection/sources.bib](selection/sources.bib). `select` writes all three from doi.org metadata, and `build-boxes` copies them into `data/binary_mixtures`, so they ship with the inputs.
 
 ## AI use
 

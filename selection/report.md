@@ -1,6 +1,6 @@
 # Binary mixtures benchmark: system selection report
 
-Generated 2026-10-29 by `select_systems.py`.
+Generated 2026-11-02 by `select_systems.py`.
 
 ## Hard filters
 
@@ -185,8 +185,8 @@ Each pure density is taken from the paper that supplies most of the mixture dens
 | `c1cc[nH]c1` | 298.15 | 0.96554 | 0.00006 | thermoml:10.1016/j.fluid.2013.10.029 | no | – | – |
 | `c1ccncc1` | 298.15 | 0.97801 | 0.00006 | thermoml:10.1016/j.fluid.2013.10.029 | yes | 0.9819 @ 298 K | thermoml:10.1016/j.fluid.2015.04.031, sage-2.0-train:10.1016/j.fluid.2015.04.031, ml-peg |
 | `CO` | 298.15 | 0.78720 | 0.00023 | thermoml:10.1016/j.jct.2007.05.004 | yes | 0.7914 @ 298 K | ml-peg |
-| `O` | 298.15 | 0.99705 | 0.00000 | IAPWS-95 (Wagner and Pruss, J. Phys. Chem. Ref. Data 31, 387 (2002)) | yes | 0.9980 @ 298 K | – |
-| `O` | 303.15 | 0.99565 | 0.00000 | IAPWS-95 (Wagner and Pruss, J. Phys. Chem. Ref. Data 31, 387 (2002)) | yes | 0.9980 @ 298 K | – |
+| `O` | 298.15 | 0.99705 | 0.00000 | iapws-95:10.1063/1.1461829 | yes | 0.9980 @ 298 K | – |
+| `O` | 303.15 | 0.99565 | 0.00000 | iapws-95:10.1063/1.1461829 | yes | 0.9980 @ 298 K | – |
 | `c1ccncc1` | 303.15 | 0.97298 | 0.00011 | thermoml:10.1021/je900874z | yes | 0.9819 @ 298 K | – |
 | `CN1CCCC1=O` | 298.15 | 1.02800 | 0.00015 | thermoml:10.1021/je7003758 | yes | 1.0230 @ 303 K | thermoml:10.1016/j.fluid.2008.02.023, rc2-validation:10.1016/j.fluid.2008.02.023 |
 | `ClCCCl` | 298.15 | 1.24550 | 0.00030 | thermoml:10.1021/je7003758 | yes | 1.2454 @ 303 K | – |

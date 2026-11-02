@@ -106,7 +106,7 @@ def mol_from_inchi(inchi: str) -> Chem.Mol | None:
     return mol
 
 
-def download(url: str, path: Path) -> Path:
+def download(url: str, path: Path, headers: dict[str, str] | None = None) -> Path:
     """
     Download a file once and cache it.
 
@@ -116,6 +116,8 @@ def download(url: str, path: Path) -> Path:
         URL to download.
     path
         Local cache path.
+    headers
+        Extra request headers, e.g. ``Accept``.
 
     Returns
     -------
@@ -124,7 +126,9 @@ def download(url: str, path: Path) -> Path:
     """
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        request = urllib.request.Request(url, headers={"User-Agent": "ml-peg"})
+        request = urllib.request.Request(
+            url, headers={"User-Agent": "ml-peg", **(headers or {})}
+        )
         with urllib.request.urlopen(request, timeout=120) as response:
             path.write_bytes(response.read())
     return path

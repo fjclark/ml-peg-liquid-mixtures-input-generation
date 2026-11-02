@@ -166,12 +166,12 @@ pure_density_references:
     temperature: 298.15
     density: 0.997047
     sigma: 0.000001
-    source: IAPWS-95 (Wagner and Pruss, J. Phys. Chem. Ref. Data 31, 387 (2002))
+    source: "iapws-95:10.1063/1.1461829"
   - smiles: O
     temperature: 303.15
     density: 0.995649
     sigma: 0.000001
-    source: IAPWS-95 (Wagner and Pruss, J. Phys. Chem. Ref. Data 31, 387 (2002))
+    source: "iapws-95:10.1063/1.1461829"
   - smiles: c1ccncc1
     temperature: 303.15
     density: 0.97298
