@@ -3,9 +3,8 @@ Write citations for every experimental data source.
 
 Each DOI behind the reference data (the isotherm points of ``isotherms.csv``
 and the pure densities of ``pure.csv``) is resolved at doi.org as CSL-JSON
-(cached), and written to ``dois.txt`` (one DOI per line, to copy),
-``sources.csv`` (one row per paper, with what it supplies) and
-``sources.bib``.
+(cached), and written to ``dois.txt`` (one DOI per line, to copy) and
+``sources.csv`` (one row per paper, with what it supplies).
 """
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ import html
 import json
 from pathlib import Path
 import re
-import unicodedata
 
 from liquid_mixtures_inputs.thermoml import download
 
@@ -24,8 +22,6 @@ DOI_URL = "https://doi.org/{doi}"
 CSL_JSON = "application/vnd.citationstyles.csl+json"
 DOI_PATTERN = re.compile(r"10\.\d{4,9}/\S+")
 PROPERTY_LABELS = {"hmix": "ΔHmix", "density": "density", "vex": "V^E"}
-# Characters that BibTeX treats specially in field values.
-BIBTEX_ESCAPES = {"&": r"\&", "%": r"\%", "#": r"\#", "_": r"\_"}
 
 
 def fetch_metadata(doi: str, cache_dir: Path) -> dict:
@@ -66,23 +62,6 @@ def clean(text: str) -> str:
     return " ".join(html.unescape(re.sub(r"<[^>]+>", "", text)).split())
 
 
-def bibtex_value(text: str) -> str:
-    """
-    Escape the characters BibTeX treats specially.
-
-    Parameters
-    ----------
-    text
-        Plain text.
-
-    Returns
-    -------
-    str
-        Text safe inside a braced BibTeX field.
-    """
-    return "".join(BIBTEX_ESCAPES.get(char, char) for char in text)
-
-
 def year(metadata: dict) -> str:
     """
     Return the publication year of a CSL-JSON record.
@@ -105,26 +84,6 @@ def year(metadata: dict) -> str:
         if parts and parts[0]:
             return str(parts[0])
     return ""
-
-
-def citation_key(metadata: dict) -> str:
-    """
-    Build a citation key from the first author's family name and the year.
-
-    Parameters
-    ----------
-    metadata
-        CSL-JSON metadata.
-
-    Returns
-    -------
-    str
-        ASCII key, e.g. ``Alonso2010``.
-    """
-    authors = metadata.get("author") or [{"family": "Anon"}]
-    family = authors[0].get("family") or authors[0].get("literal", "Anon")
-    ascii_family = unicodedata.normalize("NFKD", family).encode("ascii", "ignore")
-    return re.sub(r"[^A-Za-z]", "", ascii_family.decode()) + year(metadata)
 
 
 def short_citation(metadata: dict) -> str:
@@ -153,44 +112,6 @@ def short_citation(metadata: dict) -> str:
     where = " ".join(part for part in (journal, metadata.get("volume", "")) if part)
     page = metadata.get("page", "")
     return f"{who} ({year(metadata)}), {where}" + (f", {page}" if page else "")
-
-
-def bibtex_entry(key: str, metadata: dict) -> str:
-    """
-    Format a CSL-JSON record as a BibTeX ``@article``.
-
-    Parameters
-    ----------
-    key
-        Citation key.
-    metadata
-        CSL-JSON metadata.
-
-    Returns
-    -------
-    str
-        BibTeX entry.
-    """
-    authors = " and ".join(
-        f"{a['family']}, {a['given']}" if a.get("given") else a.get("family", "")
-        for a in metadata.get("author", [])
-    )
-    fields = {
-        "author": authors,
-        "title": clean(metadata.get("title", "")),
-        "journal": clean(metadata.get("container-title", "")),
-        "year": year(metadata),
-        "volume": metadata.get("volume", ""),
-        "number": metadata.get("issue", ""),
-        "pages": metadata.get("page", "").replace("-", "--"),
-        "doi": metadata["DOI"],
-    }
-    lines = [
-        f"  {name} = {{{bibtex_value(value) if name != 'doi' else value}}},"
-        for name, value in fields.items()
-        if value
-    ]
-    return "\n".join([f"@article{{{key},", *lines, "}"])
 
 
 def source_uses(
@@ -254,7 +175,7 @@ def write_sources(
     cache_dir: Path,
 ) -> None:
     """
-    Write ``dois.txt``, ``sources.csv`` and ``sources.bib`` for every source.
+    Write ``dois.txt`` and ``sources.csv`` for every data source.
 
     Parameters
     ----------
@@ -271,28 +192,19 @@ def write_sources(
     """
     uses = source_uses(isotherms, pure, specs)
     metadata = {doi: fetch_metadata(doi, cache_dir) for doi in uses}
-    ordered = sorted(uses, key=lambda doi: (citation_key(metadata[doi]), doi))
-    keys = {}
-    for doi in ordered:
-        base = citation_key(metadata[doi])
-        same = [d for d in ordered if citation_key(metadata[d]) == base]
-        keys[doi] = base + ("abcdefghij"[same.index(doi)] if len(same) > 1 else "")
-
+    citations = {doi: short_citation(metadata[doi]) for doi in uses}
+    ordered = sorted(uses, key=lambda doi: (citations[doi], doi))
     with (out / "sources.csv").open("w", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["key", "doi", "url", "citation", "title", "uses"])
+        writer.writerow(["doi", "url", "citation", "title", "uses"])
         for doi in ordered:
             writer.writerow(
                 [
-                    keys[doi],
                     doi,
                     DOI_URL.format(doi=doi),
-                    short_citation(metadata[doi]),
+                    citations[doi],
                     clean(metadata[doi].get("title", "")),
                     "; ".join(uses[doi]),
                 ]
             )
     (out / "dois.txt").write_text("".join(f"{doi}\n" for doi in ordered))
-    (out / "sources.bib").write_text(
-        "\n\n".join(bibtex_entry(keys[doi], metadata[doi]) for doi in ordered) + "\n"
-    )

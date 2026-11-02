@@ -33,24 +33,8 @@ SPECS = [
 ]
 
 
-def test_citation_key_is_ascii_and_uses_the_print_year():
-    """Test keys drop accents and spaces and take the volume's year."""
-    assert sources.citation_key(METADATA) == "Alonso2010"
-    assert sources.citation_key({"author": [{"family": "Domańska"}]}) == "Domanska"
-
-
-def test_bibtex_entry_cleans_and_escapes_fields():
-    """Test HTML is stripped, & escaped and page ranges use an en dash."""
-    entry = sources.bibtex_entry("Alonso2010", METADATA)
-    assert "title = {Ketone + Amine Mixtures for N-Methylaniline}," in entry
-    assert r"journal = {Journal of Chemical \& Engineering Data}," in entry
-    assert "pages = {2505--2511}," in entry
-    assert "author = {Alonso, Iván and Alonso, Víctor and de la Fuente, " in entry
-    assert "doi = {10.1021/je900874z}," in entry
-
-
 def test_short_citation():
-    """Test the one-line citation uses et al. beyond two authors."""
+    """Test the one-line citation uses et al. and the print year."""
     assert (
         sources.short_citation(METADATA)
         == "Alonso et al. (2010), J. Chem. Eng. Data 55, 2505-2511"

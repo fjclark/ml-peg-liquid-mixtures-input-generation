@@ -8,8 +8,8 @@ Select binary liquid mixtures for the binary_mixtures benchmark.
    TRC ThermoML archive, cross-check pure densities, fit Redlich-Kister curves
    and plan box sizes, writing ``systems.csv``, ``pure.csv`` and
    ``isotherms.csv``.
-4. Resolve the DOI of every data source and write ``dois.txt``,
-   ``sources.csv`` and ``sources.bib`` (``sources.py``).
+4. Resolve the DOI of every data source and write ``dois.txt`` and
+   ``sources.csv`` (``sources.py``).
 5. Write the selection report (``selection_report.py``).
 
 Run with::

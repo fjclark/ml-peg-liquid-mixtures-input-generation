@@ -100,7 +100,7 @@ Outputs: `selection/` (selection tables, report and figures), `data/sage_summary
 
 - OpenFF Sage 2.0 training set: `openforcefield/openff-sage` (MIT), pinned commit in `select_systems.py`.
 - Sage 2.3 refit training and validation sets and published Sage benchmark results: `openforcefield/ash-sage-rc2`, pinned commit.
-- Experimental data: NIST TRC ThermoML archive, cited by DOI per point. The DOI of every paper behind the reference data is listed one per line in [selection/dois.txt](selection/dois.txt), with what each supplies in [selection/sources.csv](selection/sources.csv) and BibTeX in [selection/sources.bib](selection/sources.bib). `select` writes all three from doi.org metadata, and `build-boxes` copies them into `data/binary_mixtures`, so they ship with the inputs.
+- Experimental data: NIST TRC ThermoML archive, cited by DOI per point. The DOI of every paper behind the reference data is listed one per line in [selection/dois.txt](selection/dois.txt), with what each supplies in [selection/sources.csv](selection/sources.csv). `select` writes both from doi.org metadata, and `build-boxes` copies them into `data/binary_mixtures`, so they ship with the inputs.
 
 ## AI use
 

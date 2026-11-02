@@ -641,7 +641,7 @@ def main() -> None:
     specs = load_specs(args.selection_dir, args.selection_yml)
     box_dir = args.output_dir / "boxes"
     box_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("systems.csv", "pure.csv", "dois.txt", "sources.csv", "sources.bib"):
+    for name in ("systems.csv", "pure.csv", "dois.txt", "sources.csv"):
         shutil.copy(args.selection_dir / name, args.output_dir / name)
     pd.DataFrame(
         [
