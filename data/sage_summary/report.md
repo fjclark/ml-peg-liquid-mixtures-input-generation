@@ -11,7 +11,7 @@ Sage was run through the benchmark protocol (0.2 ns NPT equilibration, 1 ns prod
 | ΔHmix | 30 | 0.589 kJ/mol | 4.96 |
 | Density | 27 | 0.00937 g/mL | 10.1 |
 | V^E | 27 | 0.242 cm³/mol | 1.86 |
-| Pure density | 7 | 0.00799 g/mL | 7.36 |
+| Pure density | 20 | 0.0103 g/mL | 9.95 |
 
 The largest ΔHmix errors are for pyrrole_pyridine (1.90 kJ/mol) and water_pyridine (1.20 kJ/mol, wrong sign at 3 of 3 compositions). These are force-field misses, not run problems, and they are the systems most likely to separate models.
 

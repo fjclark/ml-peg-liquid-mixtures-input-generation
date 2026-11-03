@@ -87,7 +87,7 @@ def sage_scores(summary: pd.DataFrame, pure_summary: pd.DataFrame) -> pd.DataFra
     summary
         Per mixture point, with Sage means, experiment and σ_ref.
     pure_summary
-        Per pure box, with Sage mean, experiment, σ_ref and ``scored``.
+        Per pure box, with Sage mean, experiment and σ_ref.
 
     Returns
     -------
@@ -95,7 +95,6 @@ def sage_scores(summary: pd.DataFrame, pure_summary: pd.DataFrame) -> pd.DataFra
         One row per property: number of points, MAE (with unit) and MAZE.
     """
     with_density = summary[summary.density_exp.notna()]
-    scored_pure = pure_summary[pure_summary.scored.fillna(False).astype(bool)]
     sets = [
         ("ΔHmix", "kJ/mol", summary, "hmix_sage", "hmix_exp", "sigma_ref_hmix"),
         (
@@ -110,7 +109,7 @@ def sage_scores(summary: pd.DataFrame, pure_summary: pd.DataFrame) -> pd.DataFra
         (
             "Pure density",
             "g/mL",
-            scored_pure,
+            pure_summary,
             "density_sage",
             "density_exp",
             "sigma_ref_density",

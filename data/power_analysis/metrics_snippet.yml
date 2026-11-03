@@ -17,20 +17,21 @@ metrics:
       5 independent Sage runs
     level_of_theory: Experimental
   Density MAE:
-    good: 0.0012
-    bad: 0.047
+    good: 0.001
+    bad: 0.052
     unit: g cm^-3
     tooltip: Mean absolute error of the mixture densities (27 points)
     level_of_theory: Experimental
     weight: 0
   Density MAZE:
-    good: 1.2
+    good: 1.1
     bad: 51.0
     unit: null
     tooltip: Mean absolute z-score of the mixture densities (27 points), dividing
       each error by a fixed sqrt(σ_exp² + σ_Sage²), where σ_Sage is the spread of
       5 independent Sage runs
     level_of_theory: Experimental
+    weight: 0
   V^E MAE:
     good: 0.13
     bad: 1.2
@@ -47,18 +48,20 @@ metrics:
       5 independent Sage runs
     level_of_theory: Experimental
   Pure density MAE:
-    good: 0.0012
-    bad: 0.047
+    good: 0.001
+    bad: 0.052
     unit: g cm^-3
-    tooltip: Mean absolute error of the pure-liquid densities not already scored by
-      the liquid densities benchmark (7 points)
+    tooltip: Mean absolute error of the pure-liquid densities (weight 0, as the liquid
+      densities benchmark scores most of them) (20 points)
     level_of_theory: Experimental
     weight: 0
   Pure density MAZE:
-    good: 1.2
+    good: 1.1
     bad: 51.0
     unit: null
-    tooltip: Mean absolute z-score of the pure-liquid densities not already scored
-      by the liquid densities benchmark (7 points), dividing each error by a fixed
-      sqrt(σ_exp² + σ_Sage²), where σ_Sage is the spread of 5 independent Sage runs
+    tooltip: Mean absolute z-score of the pure-liquid densities (weight 0, as the
+      liquid densities benchmark scores most of them) (20 points), dividing each error
+      by a fixed sqrt(σ_exp² + σ_Sage²), where σ_Sage is the spread of 5 independent
+      Sage runs
     level_of_theory: Experimental
+    weight: 0

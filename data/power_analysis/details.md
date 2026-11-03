@@ -1,6 +1,6 @@
 # Power analysis: details
 
-Generated 2026-10-29 by `power_analysis.py`. Summary: [report.md](report.md). Tables: `box_noise.csv`, `truncation.csv`, `points.csv`, `metrics.csv`, `bootstrap.csv`, `allocation.csv`, `equilibration.csv`, `thresholds.csv`, `literature.csv`.
+Generated 2026-11-03 by `power_analysis.py`. Summary: [report.md](report.md). Tables: `box_noise.csv`, `truncation.csv`, `points.csv`, `metrics.csv`, `bootstrap.csv`, `allocation.csv`, `equilibration.csv`, `thresholds.csv`, `literature.csv`.
 
 ## Method
 
@@ -8,7 +8,7 @@ Generated 2026-10-29 by `power_analysis.py`. Summary: [report.md](report.md). Ta
 2. **Single-run noise per box.** σ = k·sem, with sem the RMS within-run standard error over the 5 replicates and k the pooled ratio of replicate SD to within-run sem over all boxes at that length (k = 1.11 to 1.24 for h, 1.00 to 1.21 for density). This is smoother than the 5-replicate SD of each box and corrects the within-run sem for the slow modes it misses.
 3. **Points.** ΔHmix and V^E are linear in the box means (ml-peg's `mixing_matrix`). Each pure box feeds all three compositions of its system, so noise is drawn per box and propagated, which keeps the correlation between points. The propagated ΔHmix noise at 1 ns (RMS over points 0.113 kJ/mol) matches the observed SD of Sage's replicate ΔHmix (RMS 0.130 kJ/mol, Sage `points.csv`).
 4. **Metrics.** For each run length, 20000 draws of one run per box give the noise of every metric for a model whose true errors are 1, 0.5, 0.25, 0 × Sage's (replicate mean minus experiment). Two models run independently, so their metrics differ by noise with SD sqrt(2)·SD(metric). The **resolvable difference** is 2.80·sqrt(2)·SD(metric): a true difference that size is detected at the two-sided 5 % level 80 % of the time. A closed form sqrt(sᵀCs)/N (s the signs of the errors over σ_ref for MAZE, C the point covariance) is given as a check; it holds when errors are well above the noise.
-5. **System choice.** A cluster bootstrap over systems (20000 resamples of the 10 mixtures, or of the 7 scored pure liquids) of Sage's noiseless metric measures how much the metric depends on which systems were picked.
+5. **System choice.** A cluster bootstrap over systems (20000 resamples of the 10 mixtures, or of the 20 pure liquids) of Sage's noiseless metric measures how much the metric depends on which systems were picked.
 
 ## 1. Noise against run length
 
@@ -18,11 +18,11 @@ Single-run noise × sqrt(t / 1 ns), RMS over boxes and relative to 1 ns. A flat 
 
 | Production (ns) | σ ΔHmix (kJ/mol) | σ density (g/mL) | σ V^E (cm³/mol) | σ pure density (g/mL) | k (h) | k (density) |
 |---|---|---|---|---|---|---|
-| 0.25 | 0.187 | 0.00185 | 0.241 | 0.00158 | 1.14 | 1.14 |
-| 0.5 | 0.148 | 0.00120 | 0.159 | 0.00114 | 1.24 | 1.00 |
-| 1 | 0.099 | 0.00088 | 0.125 | 0.00092 | 1.17 | 1.06 |
-| 1.5 | 0.078 | 0.00077 | 0.110 | 0.00078 | 1.11 | 1.11 |
-| 2 | 0.068 | 0.00074 | 0.104 | 0.00075 | 1.13 | 1.21 |
+| 0.25 | 0.187 | 0.00185 | 0.241 | 0.00166 | 1.14 | 1.14 |
+| 0.5 | 0.148 | 0.00120 | 0.159 | 0.00115 | 1.24 | 1.00 |
+| 1 | 0.099 | 0.00088 | 0.125 | 0.00091 | 1.17 | 1.06 |
+| 1.5 | 0.078 | 0.00077 | 0.110 | 0.00076 | 1.11 | 1.11 |
+| 2 | 0.068 | 0.00074 | 0.104 | 0.00072 | 1.13 | 1.21 |
 
 Median single-run noise per point. k is the replicate SD / within-run sem ratio (1 if the within-run sem were right).
 
@@ -41,9 +41,9 @@ Minimum detectable error MDE = 2.80·sqrt(σ_sim² + σ_exp²): an error that si
 | V^E | 0.5 | 0.447 | 0.803 | 22% | 0.0041 | cm³/mol |
 | V^E | 1 | 0.35 | 0.57 | 22% | 0.0041 | cm³/mol |
 | V^E | 2 | 0.292 | 0.478 | 30% | 0.0041 | cm³/mol |
-| Pure density | 0.5 | 0.00384 | 0.00396 | 57% | 0.00015 | g/mL |
-| Pure density | 1 | 0.00265 | 0.00393 | 57% | 0.00015 | g/mL |
-| Pure density | 2 | 0.00214 | 0.00379 | 57% | 0.00015 | g/mL |
+| Pure density | 0.5 | 0.0035 | 0.00628 | 80% | 0.00013 | g/mL |
+| Pure density | 1 | 0.00265 | 0.00505 | 85% | 0.00013 | g/mL |
+| Pure density | 2 | 0.00214 | 0.0041 | 85% | 0.00013 | g/mL |
 
 ![per-point detection](figures/point_mde.png)
 
@@ -61,8 +61,8 @@ Metric noise for a Sage-like model (SD of the score over repeat benchmark runs),
 | Mixture density MAZE | 0.19 | 0.2 | 0.48 to 0.77 | 0.39 to 0.62 | 2.9 |
 | V^E MAE | 0.025 | 0.03 | 0.066 to 0.1 | 0.054 to 0.084 | 0.078 |
 | V^E MAZE | 0.19 | 0.22 | 0.48 to 0.74 | 0.39 to 0.61 | 0.64 |
-| Pure density MAE | 0.00036 | 0.00037 | 0.00088 to 0.0014 | 0.00075 to 0.0012 | 0.0022 |
-| Pure density MAZE | 0.35 | 0.36 | 0.85 to 1.4 | 0.7 to 1.1 | 2.2 |
+| Pure density MAE | 0.00022 | 0.00023 | 0.00054 to 0.00089 | 0.00044 to 0.00073 | 0.0014 |
+| Pure density MAZE | 0.23 | 0.23 | 0.55 to 0.91 | 0.45 to 0.74 | 1.4 |
 
 Noise also biases each score upwards, most for good models: a model whose true ΔHmix MAE is 0.15 kJ/mol scores 0.18 on average at 1 ns, against 0.59 for a true 0.59. Differences between good models are slightly compressed, but their order is kept.
 
@@ -84,7 +84,7 @@ Cost is Σ atoms × simulated time over the 50 boxes (76,065 atoms). GPU-days ar
 
 **Equilibration.** The mean over the 100 to 200 ps window minus the mean over the 1 ns production, over all 250 Sage runs, is -0.044 kJ/mol for h (p = 0.004) and +0.0007 g/mL for density (p = 5e-04). Even for Sage, starting from Sage-built boxes, the window is shifted. By replicate, the density shift is -0.0009 (0), +0.0021 (1), +0.0019 (2), +0.0009 (3), -0.0007 (4) g/mL; replicate 0 is the distributed box that MLP runs start from. An MLP also has to relax from Sage's density to its own, which this test cannot see, so 0.2 ns stays. Table: [equilibration.csv](equilibration.csv).
 
-**Per-box run lengths.** For a fixed variance of ΔHmix MAE, mixture density MAE and pure density MAE (equally weighted, each relative to uniform 1 ns), the cheapest allocation runs each box for t ∝ sqrt(A_b / n_b), where A_b is the box's variance contribution and n_b its atom count, with at least 0.5 ns. It ranges from 0.5 to 2.0 ns ([allocation.csv](allocation.csv)); the longest runs go to pure_n_methylaniline_298, pure_tetrahydropyran_298, pure_pyrrole_298, acetone_nmethylaniline_x230. It saves 14% of the cost. That assumes σ ∝ 1/sqrt(t), which section 1 shows is optimistic for short runs, so the real saving is smaller. Not worth the extra complexity.
+**Per-box run lengths.** For a fixed variance of ΔHmix MAE, mixture density MAE and pure density MAE (equally weighted, each relative to uniform 1 ns), the cheapest allocation runs each box for t ∝ sqrt(A_b / n_b), where A_b is the box's variance contribution and n_b its atom count, with at least 0.5 ns. It ranges from 0.5 to 2.0 ns ([allocation.csv](allocation.csv)); the longest runs go to pure_1_2_dichloroethane_298, pure_n_methylaniline_298, acetone_nmethylaniline_x230, pure_1_propanol_298. It saves 7% of the cost. That assumes σ ∝ 1/sqrt(t), which section 1 shows is optimistic for short runs, so the real saving is smaller. Not worth the extra complexity.
 
 ## 5. Literature: how far apart are current MLPs?
 

@@ -13,7 +13,7 @@ Every decision, with its reason and history, is in [DECISIONS.md](DECISIONS.md).
 - **Systems.** 10 mixtures chosen to cover association, π interactions, amines, two aqueous systems and a non-polar control, without overlapping ml-peg's existing density benchmarks. ([systems](DECISIONS.md#systems))
 - **Boxes.** Edge ≥ 25 Å and ≥ 100 molecules (952 to 2,400 atoms), built from low-energy conformers and annealed with Sage 2.3.0, so runs start near equilibrium. ([boxes and protocol](DECISIONS.md#boxes-and-protocol))
 - **Protocol.** One run per model and box: 0.2 ns NPT equilibration and 1 ns production, chosen for cost (2 ns would cost 1.8× as much for a modest gain in precision). ([boxes and protocol](DECISIONS.md#boxes-and-protocol))
-- **Metrics.** Every property is scored by MAZE, dividing each error by σ_ref = sqrt(σ_Sage² + σ_exp²), with the MAE shown at weight 0. 'Good' is the score of a model that matches experiment exactly plus 2 SD of its noise; 'bad' is 5× Sage's score. ([metrics and thresholds](DECISIONS.md#metrics-and-thresholds))
+- **Metrics.** ΔHmix and V^E are scored by MAZE, dividing each error by σ_ref = sqrt(σ_Sage² + σ_exp²), with the MAE shown at weight 0. Mixture and pure densities (all 20 pure liquids) are shown at weight 0: mixture density errors are mostly pure-density errors, which the liquid densities benchmark already scores. 'Good' is the score of a model that matches experiment exactly plus 2 SD of its noise; 'bad' is 5× Sage's score. ([metrics and thresholds](DECISIONS.md#metrics-and-thresholds))
 
 ## Outcomes
 

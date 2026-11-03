@@ -299,7 +299,7 @@ def metric_sets(data_dir: Path, runs: pd.DataFrame) -> dict[str, dict]:
     """
     systems = pd.read_csv(data_dir / "systems.csv")
     boxes = pd.read_csv(data_dir / "boxes.csv").sort_values("box_id")
-    pure = pd.read_csv(data_dir / "pure.csv")
+    pure = pd.read_csv(data_dir / "pure.csv")  # every pure liquid, at weight 0
     box_ids = list(boxes.box_id)
     column = {box_id: i for i, box_id in enumerate(box_ids)}
     mixing = mixing_matrix(systems, boxes, box_ids)
@@ -314,14 +314,13 @@ def metric_sets(data_dir: Path, runs: pd.DataFrame) -> dict[str, dict]:
         .mean()
     )
     pure_ids = boxes[boxes.kind == "pure"].set_index(["smiles", "temperature"]).box_id
-    scored = pure[pure.scored].reset_index(drop=True)
-    pure_matrix = np.zeros((len(scored), len(box_ids)))
-    for i, row in enumerate(scored.itertuples()):
+    pure_matrix = np.zeros((len(pure), len(box_ids)))
+    for i, row in enumerate(pure.itertuples()):
         pure_matrix[i, column[pure_ids.loc[(row.smiles, row.temperature)]]] = 1
     pure_error = np.array(
         [
             sage_density.loc[(r.smiles, r.temperature)] - r.density
-            for r in scored.itertuples()
+            for r in pure.itertuples()
         ]
     )
     return {
@@ -357,9 +356,9 @@ def metric_sets(data_dir: Path, runs: pd.DataFrame) -> dict[str, dict]:
             "matrix": pure_matrix,
             "observable": "density",
             "error": pure_error,
-            "sigma_exp": scored.sigma.to_numpy(),
-            "sigma_ref": scored.sigma_ref_density.to_numpy(),
-            "system": scored.smiles.to_numpy(),
+            "sigma_exp": pure.sigma.to_numpy(),
+            "sigma_ref": pure.sigma_ref_density.to_numpy(),
+            "system": pure.smiles.to_numpy(),
             "unit": "g/mL",
         },
     }
@@ -771,7 +770,8 @@ MLPEG_NAMES = {
     "pure_density": (
         "Pure density",
         "g cm^-3",
-        "pure-liquid densities not already scored by the liquid densities benchmark",
+        "pure-liquid densities (weight 0, as the liquid densities benchmark scores "
+        "most of them)",
     ),
 }
 
@@ -781,7 +781,9 @@ def metrics_snippet(table: pd.DataFrame, sets: dict) -> str:
     Write the thresholds in the format of ml-peg's ``metrics.yml``.
 
     MAZE is scored; MAE is shown with weight 0, so each score keeps its
-    physical units without counting twice.
+    physical units without counting twice. The density metrics all have weight
+    0: mixture density errors are mostly pure-density errors, and the liquid
+    densities benchmark already scores most of the pure liquids.
 
     Parameters
     ----------
@@ -811,7 +813,7 @@ def metrics_snippet(table: pd.DataFrame, sets: dict) -> str:
         entry["unit"] = None if row.metric == "MAZE" else unit
         entry["tooltip"] = tooltip
         entry["level_of_theory"] = "Experimental"
-        if row.metric == "MAE":
+        if row.metric == "MAE" or row.property in ("density", "pure_density"):
             entry["weight"] = 0
         entries[f"{name} {row.metric}"] = entry
     header = (

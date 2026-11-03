@@ -466,7 +466,7 @@ def method_section(tables: dict) -> list[str]:
         "point covariance) is given as a check; it holds when errors are well "
         "above the noise.",
         f"5. **System choice.** A cluster bootstrap over systems ({N_BOOTSTRAP} "
-        f"resamples of the {n_mixtures} mixtures, or of the {n_pure} scored pure "
+        f"resamples of the {n_mixtures} mixtures, or of the {n_pure} pure "
         "liquids) of "
         "Sage's noiseless metric measures how much the metric depends on which "
         "systems were picked.",
