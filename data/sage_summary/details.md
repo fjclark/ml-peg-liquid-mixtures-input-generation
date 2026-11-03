@@ -1,6 +1,6 @@
 # Sage reference runs: details
 
-Generated 2026-10-29 by `summarise_sage.py`. Summary: [report.md](report.md).
+Generated 2026-11-03 by `summarise_sage.py`. Summary: [report.md](report.md).
 
 250 runs (50 boxes, 5 replicates), each 200 ps of equilibration and 1000 ps of production. 30 of 30 mixture points have all replicates. Per-run statistics: [runs.csv](runs.csv).
 
@@ -37,12 +37,11 @@ Our replicate means are compared with the published runs [`fb-fit-v3-single-mean
 
 ## Convergence
 
-h is the enthalpy per molecule, (E_pot + pV) / N in kJ/mol. The block tests split production into 10 blocks of 100 ps.
+h is the enthalpy per molecule, (E_pot + pV) / N in kJ/mol. The drift test splits production into 10 blocks of 100 ps.
 
 - **Independent samples.** Median n_eff 284 (correlation time 3.5 ps), minimum 34. 15 runs fall below ml-peg's minimum of 100.
-- **Cross-check of the standard error.** The scatter of the block means (SD / √10) over the autocorrelation sem has a median of 0.99 (h) and 0.94 (density). Single-run ratios scatter by about ±24%, so only the median is meaningful.
 - **Equilibration.** The first 200 ps of production (200 to 400 ps) minus the rest of the run: median |shift| 0.0013 g/mL, max 0.0098 g/mL. 8 runs exceed 0.005 g/mL. Mean shift by replicate (g/mL, with the share of boxes above 0): 0: -0.0010 (24%), 1: -0.0001 (44%), 2: +0.0000 (44%), 3: +0.0017 (80%), 4: +0.0013 (68%). A shift shared by most boxes of one replicate points at that replicate's starting structures rather than at a system.
-- **Trends within a run.** Drift (slope of the block means) and half-split (first 5 blocks against the last 5) tests on h and density: 1000 tests, Holm-corrected. Flagged: 0.
+- **Trends within a run.** Drift (slope of the block means) tests on h and density: 500 tests, Holm-corrected. Flagged: 0.
 - **Start dependence.** Replicate 0 (the distributed box) against a prediction interval from the rebuilt replicates; |t| > 4.0 is reported. About 2.8 of the 100 tests are expected above this by chance. All tests: [start_dependence.csv](start_dependence.csv).
 
 Every box has a convergence plot in `figures/convergence/` and every system a plot in `figures/systems/`.

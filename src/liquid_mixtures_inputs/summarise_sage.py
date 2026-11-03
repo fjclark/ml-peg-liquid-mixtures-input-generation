@@ -123,8 +123,6 @@ def load_run(task: tuple) -> dict | None:
         row[f"{name}_n_eff"] = estimate.n_eff
         row[f"{name}_tau_ps"] = PRODUCTION_PS / estimate.n_eff
         row[f"{name}_p_drift"] = result.p_drift[name]
-        row[f"{name}_p_half"] = result.p_half[name]
-        row[f"{name}_block_ratio"] = result.block_ratio[name]
     # First 200 ps of production against the rest: a sign that the density was
     # still relaxing after equilibration.
     time = production.time_ps
@@ -936,9 +934,7 @@ def plot_replicate_spread(summary: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
-def plot_sage_vs_exp(
-    summary: pd.DataFrame, prop: str, label: str, path: Path
-) -> None:
+def plot_sage_vs_exp(summary: pd.DataFrame, prop: str, label: str, path: Path) -> None:
     """
     Parity plot of a Sage replicate-mean property against experiment.
 
@@ -997,7 +993,7 @@ def inspection_items(
     finite
         Finite-size comparison.
     run_flags
-        Holm-flagged drift and half-split tests as (box_id, text).
+        Holm-flagged drift tests as (box_id, text).
     start
         Start-dependence table.
     within
@@ -1044,7 +1040,7 @@ def inspection_items(
     for box_id, text in run_flags:
         items.append(
             {
-                "category": "drift or half-split",
+                "category": "drift",
                 "target": box_id,
                 "evidence": text,
                 "box": box_id,
@@ -1165,12 +1161,11 @@ def main() -> None:
     tests = [
         (
             r.box_id,
-            f"{r.box_id} rep{r.replicate} {obs} {kind}",
-            getattr(r, f"{obs}_p_{kind}"),
+            f"{r.box_id} rep{r.replicate} {obs} drift",
+            getattr(r, f"{obs}_p_drift"),
         )
         for r in runs.itertuples()
         for obs in ("h", "density")
-        for kind in ("drift", "half")
     ]
     adjusted = holm(np.array([p for *_, p in tests]))
     flags = [

@@ -47,7 +47,7 @@ CATEGORY_NOTES = {
         f"A run with fewer than {MIN_N_EFF} independent samples (long correlation "
         "times, viscous or slowly reorganising liquids)."
     ),
-    "drift or half-split": "A trend within a run, significant after Holm correction.",
+    "drift": "A trend within a run, significant after Holm correction.",
     "start dependence": (
         "The distributed box (replicate 0) differs from the rebuilt replicates, "
         "so the starting structure may bias MLP runs."
@@ -582,25 +582,19 @@ def convergence_section(tables: dict) -> list[str]:
     runs, flags, start = tables["runs"], tables["flags"], tables["start"]
     shift = runs.density_first_block_shift
     block_ps = PRODUCTION_PS / N_BLOCKS
-    n_tests = 4 * len(runs)
+    n_tests = 2 * len(runs)
     expected_start = len(start) * 2 * stats.t.sf(START_T, runs.replicate.max() - 1)
     by_replicate = runs.groupby("replicate").density_first_block_shift
     return [
         "## Convergence",
         "",
-        f"h is the enthalpy per molecule, (E_pot + pV) / N in kJ/mol. The block "
-        f"tests split production into {N_BLOCKS} blocks of {block_ps:.0f} ps.",
+        f"h is the enthalpy per molecule, (E_pot + pV) / N in kJ/mol. The drift "
+        f"test splits production into {N_BLOCKS} blocks of {block_ps:.0f} ps.",
         "",
         f"- **Independent samples.** Median n_eff {runs.h_n_eff.median():.0f} "
         f"(correlation time {runs.h_tau_ps.median():.1f} ps), minimum "
         f"{runs.h_n_eff.min():.0f}. {int((runs.h_n_eff < MIN_N_EFF).sum())} runs "
         f"fall below ml-peg's minimum of {MIN_N_EFF}.",
-        "- **Cross-check of the standard error.** The scatter of the block means "
-        f"(SD / √{N_BLOCKS}) over the autocorrelation sem has a median of "
-        f"{runs.h_block_ratio.median():.2f} (h) and "
-        f"{runs.density_block_ratio.median():.2f} (density). Single-run ratios "
-        f"scatter by about ±{1 / np.sqrt(2 * (N_BLOCKS - 1)):.0%}, so only the "
-        "median is meaningful.",
         f"- **Equilibration.** The first {EARLY_WINDOW_PS:.0f} ps of production "
         f"({EQUILIBRATION_PS:.0f} to {EQUILIBRATION_PS + EARLY_WINDOW_PS:.0f} ps) "
         "minus the "
@@ -614,10 +608,8 @@ def convergence_section(tables: dict) -> list[str]:
         )
         + ". A shift shared by most boxes of one replicate points at that "
         "replicate's starting structures rather than at a system.",
-        "- **Trends within a run.** Drift (slope of the block means) and "
-        f"half-split (first {N_BLOCKS // 2} blocks against the last "
-        f"{N_BLOCKS // 2}) tests on h and density: {n_tests} tests, "
-        f"Holm-corrected. Flagged: {len(flags)}.",
+        "- **Trends within a run.** Drift (slope of the block means) tests on h "
+        f"and density: {n_tests} tests, Holm-corrected. Flagged: {len(flags)}.",
         *[f"  - {text}" for _, text in flags],
         f"- **Start dependence.** Replicate 0 (the distributed box) against a "
         f"prediction interval from the rebuilt replicates; |t| > {START_T} is "

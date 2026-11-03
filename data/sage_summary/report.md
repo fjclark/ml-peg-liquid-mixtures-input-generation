@@ -1,6 +1,6 @@
 # Sage (openff-2.3.0) reference runs
 
-Generated 2026-10-29 by `summarise_sage.py`. Methods and statistics: [details.md](details.md). Every flagged box: [inspection.csv](inspection.csv).
+Generated 2026-11-03 by `summarise_sage.py`. Methods and statistics: [details.md](details.md). Every flagged box: [inspection.csv](inspection.csv).
 
 Sage was run through the benchmark protocol (0.2 ns NPT equilibration, 1 ns production) on all 50 boxes, 5 independent replicates each (250 runs). The replicate spread gives σ_Sage, the MAZE denominator, and Sage's own score sets the 'bad' thresholds ([power analysis](../power_analysis/report.md)).
 
