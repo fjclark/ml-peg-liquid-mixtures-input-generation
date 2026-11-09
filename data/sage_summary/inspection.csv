@@ -1,6 +1,4 @@
 category,target,evidence,plots
-within/between mismatch,propanol_benzene_x246,"hmix: replicate SD 2.3× the within-run sem (p_high = 0.0002, p < 0.05 unadjusted only)",figures/replicates/propanol_benzene_x246.png; figures/convergence/propanol_benzene_x246.png
-within/between mismatch,propanol_benzene_x246,"h: replicate SD 2.3× the within-run sem (p_high = 0.0004, p < 0.05 unadjusted only)",figures/replicates/propanol_benzene_x246.png; figures/convergence/propanol_benzene_x246.png
 within/between mismatch,ethylacetate_ethanol_x250,"h: replicate SD 2.2× the within-run sem (p_high = 0.0005, p < 0.05 unadjusted only)",figures/replicates/ethylacetate_ethanol_x250.png; figures/convergence/ethylacetate_ethanol_x250.png
 within/between mismatch,nmp_dichloroethane_x500,"vex: replicate SD 2.0× the within-run sem (p_high = 0.004, p < 0.05 unadjusted only)",figures/replicates/nmp_dichloroethane_x500.png; figures/convergence/nmp_dichloroethane_x500.png
 within/between mismatch,nmp_dichloroethane_x804,"density: replicate SD 1.9× the within-run sem (p_high = 0.006, p < 0.05 unadjusted only)",figures/replicates/nmp_dichloroethane_x804.png; figures/convergence/nmp_dichloroethane_x804.png
@@ -18,40 +16,28 @@ within/between mismatch,nmp_dichloroethane_x804,"h: replicate SD 1.7× the withi
 within/between mismatch,pure_n_methyl_2_pyrrolidone_298,"density: replicate SD 1.7× the within-run sem (p_high = 0.02, p < 0.05 unadjusted only)",figures/replicates/pure_n_methyl_2_pyrrolidone_298.png; figures/convergence/pure_n_methyl_2_pyrrolidone_298.png
 within/between mismatch,ethylacetate_ethanol_x250,"hmix: replicate SD 1.7× the within-run sem (p_high = 0.02, p < 0.05 unadjusted only)",figures/replicates/ethylacetate_ethanol_x250.png; figures/convergence/ethylacetate_ethanol_x250.png
 within/between mismatch,pure_n_methylacetamide_323,"h: replicate SD 1.7× the within-run sem (p_high = 0.03, p < 0.05 unadjusted only)",figures/replicates/pure_n_methylacetamide_323.png; figures/convergence/pure_n_methylacetamide_323.png
-within/between mismatch,propanol_benzene_x500,"hmix: replicate SD 1.6× the within-run sem (p_high = 0.03, p < 0.05 unadjusted only)",figures/replicates/propanol_benzene_x500.png; figures/convergence/propanol_benzene_x500.png
 within/between mismatch,dipropylamine_dmf_x248,"h: replicate SD 1.6× the within-run sem (p_high = 0.03, p < 0.05 unadjusted only)",figures/replicates/dipropylamine_dmf_x248.png; figures/convergence/dipropylamine_dmf_x248.png
 within/between mismatch,pure_water_303,"h: replicate SD 1.6× the within-run sem (p_high = 0.03, p < 0.05 unadjusted only)",figures/replicates/pure_water_303.png; figures/convergence/pure_water_303.png
 within/between mismatch,methanol_water_x500,"density: replicate SD 1.6× the within-run sem (p_high = 0.03, p < 0.05 unadjusted only)",figures/replicates/methanol_water_x500.png; figures/convergence/methanol_water_x500.png
-within/between mismatch,propanol_benzene_x500,"h: replicate SD 1.6× the within-run sem (p_high = 0.03, p < 0.05 unadjusted only)",figures/replicates/propanol_benzene_x500.png; figures/convergence/propanol_benzene_x500.png
 within/between mismatch,nmp_dichloroethane_x200,"density: replicate SD 1.6× the within-run sem (p_high = 0.04, p < 0.05 unadjusted only)",figures/replicates/nmp_dichloroethane_x200.png; figures/convergence/nmp_dichloroethane_x200.png
-within/between mismatch,propionitrile_taee_x500,"hmix: replicate SD 1.6× the within-run sem (p_high = 0.05, p < 0.05 unadjusted only)",figures/replicates/propionitrile_taee_x500.png; figures/convergence/propionitrile_taee_x500.png
-within/between mismatch,propionitrile_taee_x700,"h: replicate SD 1.5× the within-run sem (p_high = 0.05, p < 0.05 unadjusted only)",figures/replicates/propionitrile_taee_x700.png; figures/convergence/propionitrile_taee_x700.png
 low sampling,acetone_nmethylaniline_x230,"4 replicate(s) with n_eff < 100 (minimum 45, τ up to 22 ps)",figures/replicates/acetone_nmethylaniline_x230.png; figures/convergence/acetone_nmethylaniline_x230.png
 low sampling,acetone_nmethylaniline_x505,"1 replicate(s) with n_eff < 100 (minimum 52, τ up to 19 ps)",figures/replicates/acetone_nmethylaniline_x505.png; figures/convergence/acetone_nmethylaniline_x505.png
 low sampling,dipropylamine_dmf_x750,"1 replicate(s) with n_eff < 100 (minimum 94, τ up to 11 ps)",figures/replicates/dipropylamine_dmf_x750.png; figures/convergence/dipropylamine_dmf_x750.png
 low sampling,methylimidazole_ethanol_x511,"1 replicate(s) with n_eff < 100 (minimum 84, τ up to 12 ps)",figures/replicates/methylimidazole_ethanol_x511.png; figures/convergence/methylimidazole_ethanol_x511.png
-low sampling,propanol_benzene_x246,"1 replicate(s) with n_eff < 100 (minimum 90, τ up to 11 ps)",figures/replicates/propanol_benzene_x246.png; figures/convergence/propanol_benzene_x246.png
-low sampling,propanol_benzene_x750,"2 replicate(s) with n_eff < 100 (minimum 41, τ up to 24 ps)",figures/replicates/propanol_benzene_x750.png; figures/convergence/propanol_benzene_x750.png
-low sampling,pure_1_propanol_298,"3 replicate(s) with n_eff < 100 (minimum 67, τ up to 15 ps)",figures/replicates/pure_1_propanol_298.png; figures/convergence/pure_1_propanol_298.png
 low sampling,pure_dipropylamine_298,"1 replicate(s) with n_eff < 100 (minimum 89, τ up to 11 ps)",figures/replicates/pure_dipropylamine_298.png; figures/convergence/pure_dipropylamine_298.png
 low sampling,pure_n_methyl_2_pyrrolidone_298,"1 replicate(s) with n_eff < 100 (minimum 63, τ up to 16 ps)",figures/replicates/pure_n_methyl_2_pyrrolidone_298.png; figures/convergence/pure_n_methyl_2_pyrrolidone_298.png
 low sampling,pure_n_methylaniline_298,"4 replicate(s) with n_eff < 100 (minimum 34, τ up to 30 ps)",figures/replicates/pure_n_methylaniline_298.png; figures/convergence/pure_n_methylaniline_298.png
-low sampling,pure_tert_amyl_ethyl_ether_298,"1 replicate(s) with n_eff < 100 (minimum 94, τ up to 11 ps)",figures/replicates/pure_tert_amyl_ethyl_ether_298.png; figures/convergence/pure_tert_amyl_ethyl_ether_298.png
 start dependence,pure_toluene_298,density_mean: replicate 0 offset +0.0016 (t = +4.0),figures/replicates/pure_toluene_298.png; figures/convergence/pure_toluene_298.png
 early density shift,methanol_water_x701,rep4: 200–400 ps density differs from the rest by +0.0073 g/mL,figures/replicates/methanol_water_x701.png; figures/convergence/methanol_water_x701.png
-early density shift,propanol_benzene_x246,rep0: 200–400 ps density differs from the rest by -0.0056 g/mL,figures/replicates/propanol_benzene_x246.png; figures/convergence/propanol_benzene_x246.png
-early density shift,propanol_benzene_x750,rep3: 200–400 ps density differs from the rest by +0.0062 g/mL,figures/replicates/propanol_benzene_x750.png; figures/convergence/propanol_benzene_x750.png
 early density shift,methylimidazole_ethanol_x511,rep4: 200–400 ps density differs from the rest by +0.0057 g/mL,figures/replicates/methylimidazole_ethanol_x511.png; figures/convergence/methylimidazole_ethanol_x511.png
 early density shift,pure_water_298,rep4: 200–400 ps density differs from the rest by +0.0053 g/mL,figures/replicates/pure_water_298.png; figures/convergence/pure_water_298.png
 early density shift,pure_1_2_dichloroethane_298,rep0: 200–400 ps density differs from the rest by -0.0070 g/mL,figures/replicates/pure_1_2_dichloroethane_298.png; figures/convergence/pure_1_2_dichloroethane_298.png
 early density shift,pure_1_2_dichloroethane_298,rep3: 200–400 ps density differs from the rest by +0.0064 g/mL,figures/replicates/pure_1_2_dichloroethane_298.png; figures/convergence/pure_1_2_dichloroethane_298.png
 early density shift,pure_1_2_dichloroethane_298,rep4: 200–400 ps density differs from the rest by +0.0098 g/mL,figures/replicates/pure_1_2_dichloroethane_298.png; figures/convergence/pure_1_2_dichloroethane_298.png
 early density shift,pure_ethanol_298,rep2: 200–400 ps density differs from the rest by +0.0051 g/mL,figures/replicates/pure_ethanol_298.png; figures/convergence/pure_ethanol_298.png
-microheterogeneity,propanol_benzene_x500,like-neighbour fraction 0.568 vs 0.496 for random mixing,figures/replicates/propanol_benzene_x500.png; figures/convergence/propanol_benzene_x500.png
 microheterogeneity,water_pyridine_x296,like-neighbour fraction 0.657 vs 0.580 for random mixing,figures/replicates/water_pyridine_x296.png; figures/convergence/water_pyridine_x296.png
 microheterogeneity,water_pyridine_x495,like-neighbour fraction 0.604 vs 0.497 for random mixing,figures/replicates/water_pyridine_x495.png; figures/convergence/water_pyridine_x495.png
 microheterogeneity,water_pyridine_x700,like-neighbour fraction 0.694 vs 0.579 for random mixing,figures/replicates/water_pyridine_x700.png; figures/convergence/water_pyridine_x700.png
-published-Sage gap,propanol_benzene_x246,hmix: ours − published +0.2164 (z = +1.7),figures/systems/propanol_benzene.png
 force-field miss (not a run problem),dipropylamine_dmf,mean |ΔHmix error| 0.40 kJ/mol,figures/systems/dipropylamine_dmf.png
 force-field miss (not a run problem),methanol_water,"mean |ΔHmix error| 0.71 kJ/mol, wrong sign at 1 of 3 x",figures/systems/methanol_water.png
 force-field miss (not a run problem),methylimidazole_ethanol,"mean |ΔHmix error| 0.98 kJ/mol, wrong sign at 3 of 3 x",figures/systems/methylimidazole_ethanol.png

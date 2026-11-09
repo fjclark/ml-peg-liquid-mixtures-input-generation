@@ -104,18 +104,6 @@ systems:
     miscibility: >-
       Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
 
-  - id: propanol_benzene
-    a: CCCO
-    b: c1ccccc1
-    names: [1-propanol, benzene]
-    temperature: 298.15
-    interaction: alcohol self-association broken by an aromatic (O-H···π)
-    rationale: >-
-      Alcohol dilution case that also probes O-H···π, replacing isooctane +
-      1-propanol. Both pure densities are already in [ml-peg](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/liquid_densities).
-    miscibility: >-
-      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-
   - id: methylimidazole_ethanol
     a: Cn1ccnc1
     b: CCO
@@ -206,18 +194,6 @@ systems:
     miscibility: >-
       Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
 
-  - id: propionitrile_taee
-    a: CCC#N
-    b: CCOC(C)(C)CC
-    names: [propionitrile, tert-amyl ethyl ether]
-    temperature: 298.15
-    interaction: nitrile dipoles diluted in an ether
-    rationale: >-
-      Only nitrile system; both properties from one paper at identical
-      compositions (data at 298.4 K). Neither component in ml-peg.
-    miscibility: >-
-      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-
   - id: heptane_toluene
     a: CCCCCCC
     b: Cc1ccccc1
@@ -263,6 +239,26 @@ pure_density_references:
 
 # Systems considered and dropped, for the report.
 dropped:
+  - system: 1-propanol + benzene
+    a: CCCO
+    b: c1ccccc1
+    reason: >-
+      Dropped on 2026-11-09 (12 to 10 systems) to have fewer alcohol systems.
+      Its alcohol dilution (+0.97 kJ/mol) repeats ethyl acetate + ethanol
+      (+1.21 kJ/mol), π systems are still covered by heptane + toluene and
+      the two pyridine systems, and only O-H···π is lost. It was also the
+      noisiest Sage reference (replicate SDs 0.17 to 0.27 kJ/mol) and the
+      most often flagged system in the Sage inspection.
+  - system: propionitrile + tert-amyl ethyl ether
+    a: CCC#N
+    b: CCOC(C)(C)CC
+    reason: >-
+      Dropped on 2026-11-09 (12 to 10 systems). Nitriles and branched ethers
+      are rare in biomolecules, its endothermic dipolar dilution (+0.70
+      kJ/mol) and Sage error (-0.14 to -0.40 kJ/mol) repeat dipropylamine +
+      DMF, and it was the second most expensive system (8,697 atoms with its
+      two pure boxes). It has no hydrogen-bond donor, so its ether was never
+      tested as an acceptor.
   - system: 2,2,2-trifluoroethanol + methanol
     a: OCC(F)(F)F
     b: CO
@@ -285,8 +281,7 @@ dropped:
     b: CCO
     reason: >-
       Replaced by 1-methylimidazole + ethanol on 2026-11-05 to cover the
-      imidazole group at about the same cost; its ether acceptor is still
-      covered by propionitrile + tert-amyl ethyl ether.
+      imidazole group at about the same cost.
   - system: 2-(dimethylamino)ethanol + methanol
     a: CN(C)CCO
     b: CO
@@ -390,6 +385,16 @@ reserves:
   - system: NMP + 1,4-dichlorobutane
   - system: isooctane + 1-propanol
   - system: propyl acetate + 1,2-dichloroethane
+  - system: THF + 2,2,2-trifluoroethanol
+    a: C1CCOC1
+    b: OCC(F)(F)F
+    note: >-
+      Would close both the ether and fluorine gaps: THF is the furanose ring
+      of nucleic-acid sugars, accepting TFE's O-H. -1.96 kJ/mol at x = 0.517
+      and 298.15 K, 11 ΔHmix and 10 density points from
+      [10.1021/je034076x](https://doi.org/10.1021/je034076x); passes every
+      filter (rc2 validation set). Needs 2 new pure boxes and our own Sage
+      replicates.
   # N-H amide systems found during stage 1. Reviewed 2026-10-23 and not
   # added yet; kept as reserves.
   - system: N-methylformamide + o-toluidine (308.15 K)
@@ -465,7 +470,16 @@ known_gaps:
     reason: >-
       Dropped for cost in favour of an ester. 2,2,2-Trifluoroethanol +
       methanol (-0.85 kJ/mol) and THF + TFE (-1.96 kJ/mol) pass but did not
-      fit the atom budget.
+      fit the atom budget; THF + TFE is the reserve, as it would also cover
+      the ether.
+  - group: ether
+    reason: >-
+      Lost when propionitrile + tert-amyl ethyl ether was dropped on
+      2026-11-09. That system had no hydrogen-bond donor, so it never tested
+      the ether as an acceptor, its role in sugars. Ethyl acetate's ester
+      oxygen is not counted. Water + pyridine was kept in preference to THF +
+      TFE (the reserve), as aromatic N hydration is more central to
+      biomolecular simulation than weak ether acceptors.
   - group: carboxylic acid
     reason: >-
       None in the Sage sets; the only acid system in the ThermoML archive

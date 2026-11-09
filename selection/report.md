@@ -1,6 +1,6 @@
 # Binary mixtures benchmark: system selection report
 
-Generated 2026-11-06 by `select_systems.py`.
+Generated 2026-11-09 by `select_systems.py`.
 
 ## Hard filters
 
@@ -88,15 +88,13 @@ The H^E-linearity test flags systems whose enthalpies are consistent with a stra
 | 3 | water + pyridine | 303.15 | -1.13 / -1.28 / -1.10 | – / – / – | exception. Fails: not in the screened pool. Not in the Sage training or validation sets; the data come from the recommended fast-converging list. Screened, it would fail the entry filter (3 ΔHmix points but no mixture densities) and both no Sage repeat SD filters (no pyridine + water rows in the [rc2 benchmark outputs](https://github.com/openforcefield/ash-sage-rc2/tree/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/phys-prop/output)). The ΔHmix data are also at 303.15 K, outside the 297.0–299.5 K window (the [ThermoML record](https://trc.nist.gov/ThermoML/10.1021/je2002495.json) stores 298.15 K, but the [paper's title](https://doi.org/10.1021/je2002495) gives 303.15 K). Kept because it is the only aromatic-water system available. It is scored on ΔHmix only (unless ThermoML provides a 303.15 K mixture density), and our own Sage replicates replace the missing repeat SDs for MAZE. | aromatic nitrogen-water hydrogen bonding |
 | 4 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 298.15 | -0.82 / -1.26 / -0.74 | -0.08 / -0.12 / -0.07 | exception. Fails: composition mismatch. The 3-point rc2 subsets miss the composition-match limit by a hair (\|Δx\| = 0.0503 vs 0.05). Kept because the full ThermoML isotherms remove the mismatch (largest box \|Δx\| = 0.006), and the system widens the exothermic range and is the only one with chlorine. | tertiary amide with a chloroalkane (C-H···O=C, dipolar) |
 | 5 | acetone + N-methylaniline | 298.15 | -0.50 / -0.67 / -0.53 | -0.45 / -0.73 / -0.67 | pass | aromatic N-H donor with a ketone acceptor |
-| 6 | 1-propanol + benzene | 298.15 | 1.04 / 0.97 / 0.55 | 0.14 / 0.09 / 0.02 | pass | alcohol self-association broken by an aromatic (O-H···π) |
-| 7 | 1-methylimidazole + ethanol | 298.15 | -0.63 / -1.00 / -0.64 | -0.41 / -0.54 / -0.42 | exception. Fails: not in the screened pool. Not in the Sage training or validation sets; found by the ThermoML archive screen (`archive_candidates.csv`), where it passes every filter that needs no Sage results. Our own Sage replicates replace the missing published repeat SDs. | alcohol O-H donor with an imidazole N acceptor |
-| 8 | N-methylacetamide + water | 323.15 | -1.60 / -1.61 / -0.66 | -0.89 / -1.09 / -0.51 | exception. Fails: not in the screened pool. Not in the Sage training or validation sets, and outside the 297–315 K screening window: N-methylacetamide melts near 301 K, and the only ΔHmix isotherm with matching densities is at 323.15 K. The ΔHmix paper predates ThermoML, so its 50 °C table is entered by hand (`manual_points.csv`, checked against the paper's Redlich-Kister fit), with the stated 1 % uncertainty as σ. Our own Sage replicates replace the missing published repeat SDs. Every N-methylacetamide starts trans. | peptide-bond model (trans secondary amide) hydrated by water |
-| 9 | ethyl acetate + ethanol | 298.15 | 0.86 / 1.21 / 1.04 | 0.11 / 0.15 / 0.13 | exception. Fails: Sage repeat SD (hmix). The largest published Sage repeat SD is 0.12 kJ/mol (limit 0.10). Kept because it is the only ester system within the atom budget with a strong signal. Our own 5 Sage replicates have SDs of 0.13, 0.04 and 0.07 kJ/mol; pooled, 0.088 kJ/mol, below the median floor of σ_Sage, so it is no noisier than the other systems in our smaller boxes. | alcohol O-H donor with an ester C=O acceptor |
-| 10 | dipropylamine + N,N-dimethylformamide | 298.15 | 0.61 / 0.75 / 0.53 | -0.25 / -0.29 / -0.21 | pass | secondary amine with a tertiary amide |
-| 11 | propionitrile + tert-amyl ethyl ether | 298.15 | 0.50 / 0.70 / 0.59 | -0.22 / -0.37 / -0.33 | pass | nitrile dipoles diluted in an ether |
-| 12 | heptane + toluene | 298.15 | 0.45 / 0.56 / 0.39 | 0.11 / 0.15 / 0.11 | pass | dispersion and π control (no polar groups) |
+| 6 | 1-methylimidazole + ethanol | 298.15 | -0.63 / -1.00 / -0.64 | -0.41 / -0.54 / -0.42 | exception. Fails: not in the screened pool. Not in the Sage training or validation sets; found by the ThermoML archive screen (`archive_candidates.csv`), where it passes every filter that needs no Sage results. Our own Sage replicates replace the missing published repeat SDs. | alcohol O-H donor with an imidazole N acceptor |
+| 7 | N-methylacetamide + water | 323.15 | -1.60 / -1.61 / -0.66 | -0.89 / -1.09 / -0.51 | exception. Fails: not in the screened pool. Not in the Sage training or validation sets, and outside the 297–315 K screening window: N-methylacetamide melts near 301 K, and the only ΔHmix isotherm with matching densities is at 323.15 K. The ΔHmix paper predates ThermoML, so its 50 °C table is entered by hand (`manual_points.csv`, checked against the paper's Redlich-Kister fit), with the stated 1 % uncertainty as σ. Our own Sage replicates replace the missing published repeat SDs. Every N-methylacetamide starts trans. | peptide-bond model (trans secondary amide) hydrated by water |
+| 8 | ethyl acetate + ethanol | 298.15 | 0.86 / 1.21 / 1.04 | 0.11 / 0.15 / 0.13 | exception. Fails: Sage repeat SD (hmix). The largest published Sage repeat SD is 0.12 kJ/mol (limit 0.10). Kept because it is the only ester system within the atom budget with a strong signal. Our own 5 Sage replicates have SDs of 0.13, 0.04 and 0.07 kJ/mol; pooled, 0.088 kJ/mol, below the median floor of σ_Sage, so it is no noisier than the other systems in our smaller boxes. | alcohol O-H donor with an ester C=O acceptor |
+| 9 | dipropylamine + N,N-dimethylformamide | 298.15 | 0.61 / 0.75 / 0.53 | -0.25 / -0.29 / -0.21 | pass | secondary amine with a tertiary amide |
+| 10 | heptane + toluene | 298.15 | 0.45 / 0.56 / 0.39 | 0.11 / 0.15 / 0.11 | pass | dispersion and π control (no polar groups) |
 
-12 systems, 36 mixture boxes and 23 pure boxes (59 in total).
+10 systems, 30 mixture boxes and 19 pure boxes (49 in total).
 
 ### Structures
 
@@ -109,20 +107,18 @@ Component a is the one whose mole fraction x is quoted.
 | 3 | ![water](figures/structures/water_pyridine_a.png)<br>water<br>`O` | ![pyridine](figures/structures/water_pyridine_b.png)<br>pyridine<br>`c1ccncc1` |
 | 4 | ![N-methyl-2-pyrrolidone](figures/structures/nmp_dichloroethane_a.png)<br>N-methyl-2-pyrrolidone<br>`CN1CCCC1=O` | ![1,2-dichloroethane](figures/structures/nmp_dichloroethane_b.png)<br>1,2-dichloroethane<br>`ClCCCl` |
 | 5 | ![acetone](figures/structures/acetone_nmethylaniline_a.png)<br>acetone<br>`CC(C)=O` | ![N-methylaniline](figures/structures/acetone_nmethylaniline_b.png)<br>N-methylaniline<br>`CNc1ccccc1` |
-| 6 | ![1-propanol](figures/structures/propanol_benzene_a.png)<br>1-propanol<br>`CCCO` | ![benzene](figures/structures/propanol_benzene_b.png)<br>benzene<br>`c1ccccc1` |
-| 7 | ![1-methylimidazole](figures/structures/methylimidazole_ethanol_a.png)<br>1-methylimidazole<br>`Cn1ccnc1` | ![ethanol](figures/structures/methylimidazole_ethanol_b.png)<br>ethanol<br>`CCO` |
-| 8 | ![N-methylacetamide](figures/structures/nma_water_a.png)<br>N-methylacetamide<br>`CNC(C)=O` | ![water](figures/structures/nma_water_b.png)<br>water<br>`O` |
-| 9 | ![ethyl acetate](figures/structures/ethylacetate_ethanol_a.png)<br>ethyl acetate<br>`CCOC(C)=O` | ![ethanol](figures/structures/ethylacetate_ethanol_b.png)<br>ethanol<br>`CCO` |
-| 10 | ![dipropylamine](figures/structures/dipropylamine_dmf_a.png)<br>dipropylamine<br>`CCCNCCC` | ![N,N-dimethylformamide](figures/structures/dipropylamine_dmf_b.png)<br>N,N-dimethylformamide<br>`CN(C)C=O` |
-| 11 | ![propionitrile](figures/structures/propionitrile_taee_a.png)<br>propionitrile<br>`CCC#N` | ![tert-amyl ethyl ether](figures/structures/propionitrile_taee_b.png)<br>tert-amyl ethyl ether<br>`CCOC(C)(C)CC` |
-| 12 | ![heptane](figures/structures/heptane_toluene_a.png)<br>heptane<br>`CCCCCCC` | ![toluene](figures/structures/heptane_toluene_b.png)<br>toluene<br>`Cc1ccccc1` |
+| 6 | ![1-methylimidazole](figures/structures/methylimidazole_ethanol_a.png)<br>1-methylimidazole<br>`Cn1ccnc1` | ![ethanol](figures/structures/methylimidazole_ethanol_b.png)<br>ethanol<br>`CCO` |
+| 7 | ![N-methylacetamide](figures/structures/nma_water_a.png)<br>N-methylacetamide<br>`CNC(C)=O` | ![water](figures/structures/nma_water_b.png)<br>water<br>`O` |
+| 8 | ![ethyl acetate](figures/structures/ethylacetate_ethanol_a.png)<br>ethyl acetate<br>`CCOC(C)=O` | ![ethanol](figures/structures/ethylacetate_ethanol_b.png)<br>ethanol<br>`CCO` |
+| 9 | ![dipropylamine](figures/structures/dipropylamine_dmf_a.png)<br>dipropylamine<br>`CCCNCCC` | ![N,N-dimethylformamide](figures/structures/dipropylamine_dmf_b.png)<br>N,N-dimethylformamide<br>`CN(C)C=O` |
+| 10 | ![heptane](figures/structures/heptane_toluene_a.png)<br>heptane<br>`CCCCCCC` | ![toluene](figures/structures/heptane_toluene_b.png)<br>toluene<br>`Cc1ccccc1` |
 
 ### V^E coverage
 
 V^E diversity was not a selection criterion. Sign at the three box compositions:
 
-- negative: 7
-- positive: 3
+- negative: 6
+- positive: 2
 - sign change: 1
 - no density data: 1
 
@@ -130,7 +126,7 @@ V^E diversity was not a selection criterion. Sign at the three box compositions:
 
 Boxes have edge ≥ 25.0 Å, ≥ 100 molecules and ≥ 20 minority molecules, with x within 0.01 of the measured composition. Evaluator, by comparison, uses a fixed total (1000 molecules for Sage), rounds x·N per component and only requires at least one molecule of each, so at the compositions used here its minority counts are about 200 or more.
 
-Mixture boxes: 1104–2100 atoms (median 1413); total 53542 atoms across 36 boxes. Constraint that sets the size: edge 28, total 8.
+Mixture boxes: 1104–2100 atoms (median 1413); total 44314 atoms across 30 boxes. Constraint that sets the size: edge 24, total 6.
 
 | System | x (box) | Molecules a / b | Total | Atoms | Edge (Å) | Set by |
 |---|---|---|---|---|---|---|
@@ -149,9 +145,6 @@ Mixture boxes: 1104–2100 atoms (median 1413); total 53542 atoms across 36 boxe
 | acetone + N-methylaniline | 0.230 | 23 / 77 | 100 | 1539 | 25.6 | total |
 | acetone + N-methylaniline | 0.505 | 51 / 50 | 101 | 1360 | 25.1 | edge |
 | acetone + N-methylaniline | 0.709 | 78 / 32 | 110 | 1324 | 25.0 | edge |
-| 1-propanol + benzene | 0.245 | 27 / 83 | 110 | 1320 | 25.1 | edge |
-| 1-propanol + benzene | 0.500 | 57 / 57 | 114 | 1368 | 25.1 | edge |
-| 1-propanol + benzene | 0.750 | 90 / 30 | 120 | 1440 | 25.0 | edge |
 | 1-methylimidazole + ethanol | 0.203 | 30 / 118 | 148 | 1422 | 25.0 | edge |
 | 1-methylimidazole + ethanol | 0.511 | 68 / 65 | 133 | 1401 | 25.0 | edge |
 | 1-methylimidazole + ethanol | 0.714 | 90 / 36 | 126 | 1404 | 25.0 | edge |
@@ -164,9 +157,6 @@ Mixture boxes: 1104–2100 atoms (median 1413); total 53542 atoms across 36 boxe
 | dipropylamine + N,N-dimethylformamide | 0.248 | 26 / 79 | 105 | 1520 | 25.1 | edge |
 | dipropylamine + N,N-dimethylformamide | 0.500 | 50 / 50 | 100 | 1700 | 26.1 | total |
 | dipropylamine + N,N-dimethylformamide | 0.750 | 75 / 25 | 100 | 1950 | 27.3 | total |
-| propionitrile + tert-amyl ethyl ether | 0.200 | 20 / 80 | 100 | 2100 | 28.3 | total |
-| propionitrile + tert-amyl ethyl ether | 0.500 | 50 / 50 | 100 | 1650 | 26.4 | total |
-| propionitrile + tert-amyl ethyl ether | 0.700 | 70 / 30 | 100 | 1350 | 25.1 | edge |
 | heptane + toluene | 0.250 | 25 / 75 | 100 | 1700 | 26.9 | total |
 | heptane + toluene | 0.500 | 50 / 50 | 100 | 1900 | 27.6 | total |
 | heptane + toluene | 0.750 | 75 / 25 | 100 | 2100 | 28.4 | total |
@@ -180,12 +170,10 @@ Mixture boxes: 1104–2100 atoms (median 1413); total 53542 atoms across 36 boxe
 | water + pyridine | – | – | – | – | – | – | – | – |
 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | 0.062 | 0.0008 | 0.520 | 0.520 | 0.454 | 0.577 | 0.556 | 0.0216 |
 | acetone + N-methylaniline | 0.091 | 0.0004 | 0.024 | 0.126 | 0.172 | 0.088 | 0.091 | 0.0055 |
-| 1-propanol + benzene | 0.075 | 0.0004 | 0.212 | 0.195 | 0.227 | 0.292 | 0.310 | 0.0131 |
 | 1-methylimidazole + ethanol | – | – | – | – | – | – | – | – |
 | N-methylacetamide + water | – | – | – | – | – | – | – | – |
 | ethyl acetate + ethanol | 0.120 | 0.0004 | 0.077 | 0.036 | 0.061 | 0.076 | 0.058 | 0.0014 |
 | dipropylamine + N,N-dimethylformamide | 0.069 | 0.0004 | 0.375 | 0.483 | 0.473 | 0.407 | 0.481 | 0.0087 |
-| propionitrile + tert-amyl ethyl ether | 0.061 | 0.0003 | 0.286 | 0.355 | 0.347 | 0.382 | 0.370 | 0.0003 |
 | heptane + toluene | 0.076 | 0.0006 | 0.137 | 0.124 | 0.140 | 0.168 | 0.194 | 0.0163 |
 
 ## Pure densities
@@ -204,8 +192,6 @@ Each pure density is taken from the paper that supplies most of the mixture dens
 | `ClCCCl` | 298.15 | 1.24550 | 0.00030 | thermoml:10.1021/je7003758 | yes | 1.2454 @ 303 K | – |
 | `CC(C)=O` | 298.15 | 0.78532 | 0.00025 | thermoml:10.1021/je900874z | yes | 0.7845 @ 303 K | – |
 | `CNc1ccccc1` | 298.15 | 0.98207 | 0.00047 | thermoml:10.1021/je900874z | no | – | – |
-| `CCCO` | 298.15 | 0.79969 | 0.00013 | thermoml:10.1021/je700254t | yes | 0.7997 @ 303 K | thermoml:10.1021/je900212d, rc2-validation:10.1021/je900212d |
-| `c1ccccc1` | 298.15 | 0.87358 | 0.00008 | thermoml:10.1021/je700254t | yes | 0.8765 @ 298 K | ml-peg |
 | `Cn1ccnc1` | 298.15 | 1.03052 | 0.00042 | thermoml:10.1016/j.jct.2018.12.019 | no | – | thermoml:10.1016/j.fluid.2009.02.011, sage-2.0-train:10.1016/j.fluid.2009.02.011, rc2-validation:10.1016/j.fluid.2009.02.011 |
 | `CCO` | 298.15 | 0.78514 | 0.00041 | thermoml:10.1016/j.jct.2018.12.019 | yes | 0.7893 @ 298 K | ml-peg |
 | `CNC(C)=O` | 323.15 | 0.93310 | 0.00020 | thermoml:10.1016/j.jct.2020.106233 | no | – | – |
@@ -213,8 +199,6 @@ Each pure density is taken from the paper that supplies most of the mixture dens
 | `CCOC(C)=O` | 298.15 | 0.89443 | 0.00015 | thermoml:10.1016/j.jct.2007.05.004 | yes | 0.9003 @ 298 K | thermoml:10.1021/acs.jced.7b01107, rc2-validation:10.1021/acs.jced.7b01107, ml-peg |
 | `CCCNCCC` | 298.15 | 0.73362 | 0.00089 | thermoml:10.1021/acs.jced.5b00802 | no | – | – |
 | `CN(C)C=O` | 298.15 | 0.94408 | 0.00113 | thermoml:10.1021/acs.jced.5b00802 | yes | 0.9445 @ 303 K | thermoml:10.1007/s10765-016-2096-3, rc2-validation:10.1007/s10765-016-2096-3 |
-| `CCC#N` | 298.15 | 0.77600 | 0.00015 | thermoml:10.1021/je301238f | no | – | – |
-| `CCOC(C)(C)CC` | 298.15 | 0.76100 | 0.00015 | thermoml:10.1021/je301238f | no | – | – |
 | `CCCCCCC` | 298.15 | 0.67954 | 0.00013 | thermoml:10.1021/je400184t | no | – | – |
 | `Cc1ccccc1` | 298.15 | 0.86222 | 0.00011 | thermoml:10.1021/je400184t | yes | 0.8668 @ 298 K | ml-peg |
 
@@ -316,25 +300,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![acetone_nmethylaniline](figures/acetone_nmethylaniline.png)
 
-### 6. 1-propanol + benzene (`CCCO` + `c1ccccc1`)
-
-- **Interaction:** alcohol self-association broken by an aromatic (O-H···π)
-- **Rationale:** Alcohol dilution case that also probes O-H···π, replacing isooctane + 1-propanol. Both pure densities are already in [ml-peg](https://github.com/ddmms/ml-peg/tree/8e52132f661fb3d46d5a245aa52b1d940ba22504/ml_peg/calcs/molecular_dynamics/liquid_densities).
-- **Miscibility:** Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-- **ΔHmix data:** 19 points from 10.1016/j.jct.2015.01.003 (19)
-- **Density data:** 18 points from 10.1021/je700254t (18)
-- **Single-phase evidence:** ΔHmix measured at 19 compositions spanning x = 0.05–0.95; straight-line fit reduced χ² = 142 (a two-phase region would give ≈ 1).
-- **V^E fit:** 18 points derived from densities; RMS residual 0.0030 cm³/mol, median σ 0.0034 cm³/mol.
-
-| x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
-|---|---|---|---|---|---|---|
-| 0.245 | 27 / 83 | 1320 | 25.1 | 1.039 ± 0.0065 | 0.8563 ± 0.00009 | 0.138 |
-| 0.500 | 57 / 57 | 1368 | 25.1 | 0.968 ± 0.0065 | 0.8389 ± 0.00010 | 0.091 |
-| 0.750 | 90 / 30 | 1440 | 25.0 | 0.551 ± 0.0060 | 0.8205 ± 0.00011 | 0.016 |
-
-![propanol_benzene](figures/propanol_benzene.png)
-
-### 7. 1-methylimidazole + ethanol (`Cn1ccnc1` + `CCO`)
+### 6. 1-methylimidazole + ethanol (`Cn1ccnc1` + `CCO`)
 
 - **Interaction:** alcohol O-H donor with an imidazole N acceptor
 - **Rationale:** Only imidazole system (the histidine side-chain ring), replacing tetrahydropyran + ethanol at about the same cost. 1-Methylimidazole has no N-H, so this tests the imidazole N acceptor, not histidine's N-H tautomerism. ΔHmix and densities from one paper.
@@ -353,7 +319,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![methylimidazole_ethanol](figures/methylimidazole_ethanol.png)
 
-### 8. N-methylacetamide + water (`CNC(C)=O` + `O`)
+### 7. N-methylacetamide + water (`CNC(C)=O` + `O`)
 
 - **Interaction:** peptide-bond model (trans secondary amide) hydrated by water
 - **Rationale:** N-methylacetamide is the standard model of the peptide bond, and its hydration is the backbone's: the largest exothermic signal after pyrrole + pyridine (-1.71 kJ/mol). It is predominantly trans, and amide rotation is far slower than a run, so every molecule starts and stays trans (a small, documented bias from the missing cis minority).
@@ -372,7 +338,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![nma_water](figures/nma_water.png)
 
-### 9. ethyl acetate + ethanol (`CCOC(C)=O` + `CCO`)
+### 8. ethyl acetate + ethanol (`CCOC(C)=O` + `CCO`)
 
 - **Interaction:** alcohol O-H donor with an ester C=O acceptor
 - **Rationale:** Only ester system, with the most common ester (as in lipid esters and acetylcholine): ethyl acetate's C=O and ether O accept ethanol's O-H, breaking alcohol self-association (+1.21 kJ/mol). Ethyl acetate + water would be more biological but is only partially miscible. Both pure densities are already in ml-peg and are not re-scored; the ethanol box is shared with 1-methylimidazole + ethanol.
@@ -392,7 +358,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![ethylacetate_ethanol](figures/ethylacetate_ethanol.png)
 
-### 10. dipropylamine + N,N-dimethylformamide (`CCCNCCC` + `CN(C)C=O`)
+### 9. dipropylamine + N,N-dimethylformamide (`CCCNCCC` + `CN(C)C=O`)
 
 - **Interaction:** secondary amine with a tertiary amide
 - **Rationale:** Endothermic amine/amide pair; dipropylamine is new to ml-peg.
@@ -410,25 +376,7 @@ Many ml-peg liquid_densities references appear to be measured about 5 K below th
 
 ![dipropylamine_dmf](figures/dipropylamine_dmf.png)
 
-### 11. propionitrile + tert-amyl ethyl ether (`CCC#N` + `CCOC(C)(C)CC`)
-
-- **Interaction:** nitrile dipoles diluted in an ether
-- **Rationale:** Only nitrile system; both properties from one paper at identical compositions (data at 298.4 K). Neither component in ml-peg.
-- **Miscibility:** Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
-- **ΔHmix data:** 9 points from 10.1021/je301238f (9)
-- **Density data:** 9 points from 10.1021/je301238f (9)
-- **Single-phase evidence:** ΔHmix measured at 9 compositions spanning x = 0.10–0.90; straight-line fit reduced χ² = 398 (a two-phase region would give ≈ 1).
-- **V^E fit:** 9 points derived from densities; RMS residual 0.0081 cm³/mol, median σ 0.0108 cm³/mol.
-
-| x box | n_a / n_b | atoms | edge (Å) | ΔHmix ± σ (kJ/mol) | ρ ± σ (g/mL) | V^E (cm³/mol) |
-|---|---|---|---|---|---|---|
-| 0.200 | 20 / 80 | 2100 | 28.3 | 0.501 ± 0.0069 | 0.7638 ± 0.00025 | -0.218 |
-| 0.500 | 50 / 50 | 1650 | 26.4 | 0.703 ± 0.0095 | 0.7683 ± 0.00035 | -0.369 |
-| 0.700 | 70 / 30 | 1350 | 25.1 | 0.588 ± 0.0080 | 0.7715 ± 0.00040 | -0.330 |
-
-![propionitrile_taee](figures/propionitrile_taee.png)
-
-### 12. heptane + toluene (`CCCCCCC` + `Cc1ccccc1`)
+### 10. heptane + toluene (`CCCCCCC` + `Cc1ccccc1`)
 
 - **Interaction:** dispersion and π control (no polar groups)
 - **Rationale:** Non-polar control that separates dispersion/D3 errors from hydrogen-bond errors. Sage handles it well (MAE 0.14 kJ/mol).
@@ -458,12 +406,10 @@ Groups are SMARTS matches from `selection.yml`; `select_systems.py` fails if a r
 | water + pyridine | aromatic N acceptor, aromatic ring, water |
 | N-methyl-2-pyrrolidone + 1,2-dichloroethane | chloroalkane, tertiary amide |
 | acetone + N-methylaniline | amine, aromatic ring, ketone |
-| 1-propanol + benzene | alcohol, aromatic ring |
 | 1-methylimidazole + ethanol | alcohol, aromatic N acceptor, aromatic ring, imidazole |
 | N-methylacetamide + water | N-H amide, secondary amide (peptide-like), water |
 | ethyl acetate + ethanol | alcohol, ester |
 | dipropylamine + N,N-dimethylformamide | amine, tertiary amide |
-| propionitrile + tert-amyl ethyl ether | ether, nitrile |
 | heptane + toluene | aromatic ring |
 
 Cheapest passing candidates for each uncovered group, from the Sage sets and the ThermoML archive screen (`archive_candidates.csv`), ranked by new pure boxes and then |ΔHmix|:
@@ -475,7 +421,8 @@ Cheapest passing candidates for each uncovered group, from the Sage sets and the
 
 ## Known gaps
 
-- **No fluorine.** Dropped for cost in favour of an ester. 2,2,2-Trifluoroethanol + methanol (-0.85 kJ/mol) and THF + TFE (-1.96 kJ/mol) pass but did not fit the atom budget.
+- **No fluorine.** Dropped for cost in favour of an ester. 2,2,2-Trifluoroethanol + methanol (-0.85 kJ/mol) and THF + TFE (-1.96 kJ/mol) pass but did not fit the atom budget; THF + TFE is the reserve, as it would also cover the ether.
+- **No ether.** Lost when propionitrile + tert-amyl ethyl ether was dropped on 2026-11-09. That system had no hydrogen-bond donor, so it never tested the ether as an acceptor, its role in sugars. Ethyl acetate's ester oxygen is not counted. Water + pyridine was kept in preference to THF + TFE (the reserve), as aromatic N hydration is more central to biomolecular simulation than weak ether acceptors.
 - **No carboxylic acid.** None in the Sage sets; the only acid system in the ThermoML archive screen (acetic acid + acetic anhydride) fails the signal floor.
 - **No carbamate.** No carbamate system in the Sage sets or the ThermoML archive screen.
 - **No sulfur.** Dropped for cost. 1-Propanol + DMSO (+0.81 kJ/mol) passes the ThermoML archive screen but did not fit the atom budget.
@@ -491,9 +438,11 @@ Cheapest passing candidates for each uncovered group, from the Sage sets and the
 
 ## Dropped systems
 
+- **1-propanol + benzene**: Dropped on 2026-11-09 (12 to 10 systems) to have fewer alcohol systems. Its alcohol dilution (+0.97 kJ/mol) repeats ethyl acetate + ethanol (+1.21 kJ/mol), π systems are still covered by heptane + toluene and the two pyridine systems, and only O-H···π is lost. It was also the noisiest Sage reference (replicate SDs 0.17 to 0.27 kJ/mol) and the most often flagged system in the Sage inspection.
+- **propionitrile + tert-amyl ethyl ether**: Dropped on 2026-11-09 (12 to 10 systems). Nitriles and branched ethers are rare in biomolecules, its endothermic dipolar dilution (+0.70 kJ/mol) and Sage error (-0.14 to -0.40 kJ/mol) repeat dipropylamine + DMF, and it was the second most expensive system (8,697 atoms with its two pure boxes). It has no hydrogen-bond donor, so its ether was never tested as an acceptor.
 - **2,2,2-trifluoroethanol + methanol**: Added on 2026-11-05 for fluorine and replaced the same day by ethyl acetate + ethanol, as an ester was judged more important and both did not fit the atom budget. Kept as a reserve (-0.85 kJ/mol, 10.1016/j.tca.2007.04.012; fails only the rc2 composition-match check).
 - **formamide + 1-propanol**: Added on 2026-11-05 for the amide N-H and replaced the same day by N-methylacetamide + water, which models the peptide bond itself, to stay within the atom budget. Kept as a reserve (+0.74 kJ/mol; ΔHmix from 10.1016/j.tca.2013.02.010, densities from 10.1016/j.jct.2006.07.021); a primary amide like the asparagine and glutamine side chains.
-- **tetrahydropyran + ethanol**: Replaced by 1-methylimidazole + ethanol on 2026-11-05 to cover the imidazole group at about the same cost; its ether acceptor is still covered by propionitrile + tert-amyl ethyl ether.
+- **tetrahydropyran + ethanol**: Replaced by 1-methylimidazole + ethanol on 2026-11-05 to cover the imidazole group at about the same cost.
 - **2-(dimethylamino)ethanol + methanol**: Dropped for cost on 2026-10-29 (13 to 10 systems). MLP runs would start from Sage's conformer populations, which could hide a model that favours the wrong O-C-C-N conformer; it had the largest gaps from the published 1000-molecule Sage runs (ΔHmix -0.35 kJ/mol, z = -3.6, at x = 0.75); and its O-H···N and O-H···O association partly overlaps methanol + water and 1-propanol + benzene.
 - **methyl pentanoate + octane**: Dropped for cost on 2026-10-29 (13 to 10 systems). The most expensive system (11 % of the atoms, with 2,000- and 2,600-atom pure boxes), and its dipole dilution is close to propionitrile + tert-amyl ethyl ether.
 - **2-butanone + dibutylamine**: Dropped for cost on 2026-10-29 (13 to 10 systems). The second most expensive system (10 % of the atoms, with a 2,800-atom dibutylamine box) and the weakest signal (+0.42 to +0.62 kJ/mol, near the 0.4 kJ/mol floor); dipropylamine + DMF still covers secondary amines.
@@ -516,6 +465,7 @@ Cheapest passing candidates for each uncovered group, from the Sage sets and the
 - NMP + 1,4-dichlorobutane
 - isooctane + 1-propanol
 - propyl acetate + 1,2-dichloroethane
+- **THF + 2,2,2-trifluoroethanol**: Would close both the ether and fluorine gaps: THF is the furanose ring of nucleic-acid sugars, accepting TFE's O-H. -1.96 kJ/mol at x = 0.517 and 298.15 K, 11 ΔHmix and 10 density points from [10.1021/je034076x](https://doi.org/10.1021/je034076x); passes every filter (rc2 validation set). Needs 2 new pure boxes and our own Sage replicates.
 - **N-methylformamide + o-toluidine (308.15 K)**: Closes the N-H amide gap. ThermoML ([10.1016/j.tca.2011.06.020](https://trc.nist.gov/ThermoML/10.1016/j.tca.2011.06.020.json)) has 18 enthalpy points (-0.41 / -0.76 / -0.61 kJ/mol at x = 0.22 / 0.52 / 0.77) and 18 densities at 308.15 K, all with uncertainties, plus same-paper pure densities; strongly single-phase. Costs 5 extra boxes at 308.15 K (3 mixtures plus N-methylformamide and o-toluidine pure boxes) and needs our own Sage replicates, as there are no published Sage errors. Single research group; worth a cross-check against an independent source.
 - **N-methylformamide + tetrahydropyran (308.15 K)**: Same paper, +0.32 kJ/mol at equimolar: below the 0.4 kJ/mol signal floor.
 - **N-methylformamide + 2-chlorotoluene (308.15 K)**: ThermoML [10.1016/j.jct.2013.12.006](https://trc.nist.gov/ThermoML/10.1016/j.jct.2013.12.006.json), +0.49 kJ/mol at equimolar, 18 points of each property with uncertainties. Same research group.

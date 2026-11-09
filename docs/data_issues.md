@@ -249,8 +249,8 @@ protocol (200 ps equilibration, then 2 ns). Not checked:
     not negligible.
 - **Pyridine + water:** has no mixture density data, so it is scored on ΔHmix only, and
   it has no published Sage errors (σ_Sage comes from our own replicates).
-- **Propionitrile + tert-amyl ethyl ether:** ΔHmix and densities are at 298.4 K
-  (benchmark runs at 298.15 K). All data come from one paper.
+- **Propionitrile + tert-amyl ethyl ether** (dropped on 2026-11-09): ΔHmix and densities
+  are at 298.4 K (benchmark runs at 298.15 K). All data come from one paper.
 - **Unverified literature values used only to explain exclusions:**
   - the ethyl acetoacetate aqueous solubility;
   - the organic-rich solubility limit for acetophenone + water.
