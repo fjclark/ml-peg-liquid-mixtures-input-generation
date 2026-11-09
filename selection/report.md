@@ -178,29 +178,29 @@ Mixture boxes: 1104–2100 atoms (median 1413); total 44314 atoms across 30 boxe
 
 ## Pure densities
 
-Each pure density is taken from the paper that supplies most of the mixture densities, so V^E is self-consistent, unless an explicit reference is given (water from [IAPWS-95](https://doi.org/10.1063/1.1461829)). Other sources disagreeing by more than 0.002 g/mL are listed.
+Each pure density is taken from the paper that supplies most of the mixture densities, so V^E is self-consistent, unless an explicit reference is given (water from [IAPWS-95](https://doi.org/10.1063/1.1461829)). Other sources disagreeing by more than 0.002 g/mL are listed with their value and difference from the chosen one, and each is checked against every ThermoML archive paper for that liquid (`pure_density_notes` in `selection.yml`). Every chosen value is within 0.0007 g/mL of the archive median. Density metrics carry weight 0 in the score ([DECISIONS.md](../DECISIONS.md)), and V^E uses each paper's own pure densities, so a wrong reference pure density cannot shift the weighted score.
 
-| Component | T (K) | ρ (g/mL) | σ | Source | In ml-peg | ml-peg value | Disagreeing sources |
-|---|---|---|---|---|---|---|---|
-| `c1cc[nH]c1` | 298.15 | 0.96554 | 0.00006 | thermoml:10.1016/j.fluid.2013.10.029 | no | – | – |
-| `c1ccncc1` | 298.15 | 0.97801 | 0.00006 | thermoml:10.1016/j.fluid.2013.10.029 | yes | 0.9819 @ 298 K | thermoml:10.1016/j.fluid.2015.04.031, sage-2.0-train:10.1016/j.fluid.2015.04.031, ml-peg |
-| `CO` | 298.15 | 0.78720 | 0.00023 | thermoml:10.1016/j.jct.2007.05.004 | yes | 0.7914 @ 298 K | ml-peg |
-| `O` | 298.15 | 0.99705 | 0.00000 | iapws-95:10.1063/1.1461829 | yes | 0.9980 @ 298 K | – |
-| `O` | 303.15 | 0.99565 | 0.00000 | iapws-95:10.1063/1.1461829 | yes | 0.9980 @ 298 K | – |
-| `c1ccncc1` | 303.15 | 0.97298 | 0.00011 | thermoml:10.1021/je900874z | yes | 0.9819 @ 298 K | – |
-| `CN1CCCC1=O` | 298.15 | 1.02800 | 0.00015 | thermoml:10.1021/je7003758 | yes | 1.0230 @ 303 K | thermoml:10.1016/j.fluid.2008.02.023, rc2-validation:10.1016/j.fluid.2008.02.023 |
-| `ClCCCl` | 298.15 | 1.24550 | 0.00030 | thermoml:10.1021/je7003758 | yes | 1.2454 @ 303 K | – |
-| `CC(C)=O` | 298.15 | 0.78532 | 0.00025 | thermoml:10.1021/je900874z | yes | 0.7845 @ 303 K | – |
-| `CNc1ccccc1` | 298.15 | 0.98207 | 0.00047 | thermoml:10.1021/je900874z | no | – | – |
-| `Cn1ccnc1` | 298.15 | 1.03052 | 0.00042 | thermoml:10.1016/j.jct.2018.12.019 | no | – | thermoml:10.1016/j.fluid.2009.02.011, sage-2.0-train:10.1016/j.fluid.2009.02.011, rc2-validation:10.1016/j.fluid.2009.02.011 |
-| `CCO` | 298.15 | 0.78514 | 0.00041 | thermoml:10.1016/j.jct.2018.12.019 | yes | 0.7893 @ 298 K | ml-peg |
-| `CNC(C)=O` | 323.15 | 0.93310 | 0.00020 | thermoml:10.1016/j.jct.2020.106233 | no | – | – |
-| `O` | 323.15 | 0.98804 | 0.00000 | iapws-95:10.1063/1.1461829 | yes | 0.9980 @ 298 K | – |
-| `CCOC(C)=O` | 298.15 | 0.89443 | 0.00015 | thermoml:10.1016/j.jct.2007.05.004 | yes | 0.9003 @ 298 K | thermoml:10.1021/acs.jced.7b01107, rc2-validation:10.1021/acs.jced.7b01107, ml-peg |
-| `CCCNCCC` | 298.15 | 0.73362 | 0.00089 | thermoml:10.1021/acs.jced.5b00802 | no | – | – |
-| `CN(C)C=O` | 298.15 | 0.94408 | 0.00113 | thermoml:10.1021/acs.jced.5b00802 | yes | 0.9445 @ 303 K | thermoml:10.1007/s10765-016-2096-3, rc2-validation:10.1007/s10765-016-2096-3 |
-| `CCCCCCC` | 298.15 | 0.67954 | 0.00013 | thermoml:10.1021/je400184t | no | – | – |
-| `Cc1ccccc1` | 298.15 | 0.86222 | 0.00011 | thermoml:10.1021/je400184t | yes | 0.8668 @ 298 K | ml-peg |
+| Component | T (K) | ρ (g/mL) | σ | Source | In ml-peg | ml-peg value | Disagreeing sources (ρ, Δ) | Why not a concern |
+|---|---|---|---|---|---|---|---|---|
+| `c1cc[nH]c1` | 298.15 | 0.96554 | 0.00006 | thermoml:10.1016/j.fluid.2013.10.029 | no | – | – | – |
+| `c1ccncc1` | 298.15 | 0.97801 | 0.00006 | thermoml:10.1016/j.fluid.2013.10.029 | yes | 0.9819 @ 298 K | 10.1016/j.fluid.2015.04.031 (ThermoML, Sage 2.0 train): 0.98285 (+0.0048); ml-peg: 0.98190 (+0.0039) | Chosen value is 0.0002 below the median of 23 archive papers (0.97825; interquartile range 0.97812 to 0.97825). 10.1016/j.fluid.2015.04.031 (and 10.1016/j.fluid.2015.03.027, same value) is 0.0046 above that median. ml-peg's value is 0.0037 above it, between the 293.15 K median (0.98316, 7 papers) and the 298.15 K one, as expected from its temperature offset (data_issues.md 1.1). |
+| `CO` | 298.15 | 0.78720 | 0.00023 | thermoml:10.1016/j.jct.2007.05.004 | yes | 0.7914 @ 298 K | ml-peg: 0.79140 (+0.0042) | Chosen value is 0.0006 above the median of 202 archive papers (0.78660). ml-peg's value equals the 293.15 K median (0.79135, 79 papers), i.e. a 20 °C density (data_issues.md 1.1). |
+| `O` | 298.15 | 0.99705 | 0.00000 | iapws-95:10.1063/1.1461829 | yes | 0.9980 @ 298 K | – | – |
+| `O` | 303.15 | 0.99565 | 0.00000 | iapws-95:10.1063/1.1461829 | yes | 0.9980 @ 298 K | – | – |
+| `c1ccncc1` | 303.15 | 0.97298 | 0.00011 | thermoml:10.1021/je900874z | yes | 0.9819 @ 298 K | – | – |
+| `CN1CCCC1=O` | 298.15 | 1.02800 | 0.00015 | thermoml:10.1021/je7003758 | yes | 1.0230 @ 303 K | 10.1016/j.fluid.2008.02.023 (ThermoML, rc2 validation): 1.02580 (-0.0022) | Chosen value is 0.0002 below the median of 34 archive papers (1.02823). 10.1016/j.fluid.2008.02.023 is 0.0024 below that median (data_issues.md 2.3). |
+| `ClCCCl` | 298.15 | 1.24550 | 0.00030 | thermoml:10.1021/je7003758 | yes | 1.2454 @ 303 K | – | – |
+| `CC(C)=O` | 298.15 | 0.78532 | 0.00025 | thermoml:10.1021/je900874z | yes | 0.7845 @ 303 K | – | – |
+| `CNc1ccccc1` | 298.15 | 0.98207 | 0.00047 | thermoml:10.1021/je900874z | no | – | – | – |
+| `Cn1ccnc1` | 298.15 | 1.03052 | 0.00042 | thermoml:10.1016/j.jct.2018.12.019 | no | – | 10.1016/j.fluid.2009.02.011 (ThermoML, Sage 2.0 train, rc2 validation): 1.03320 (+0.0027) | Unresolved: the archive has only three papers, 1.03052 (chosen), 1.03114 (10.1021/je200093f) and 1.03320. Chosen because it is the mixture-density paper, so V^E is self-consistent, and its ethanol (0.78514) matches the median of 278 archive papers (0.78520), so its calibration is sound. If 1.03320 is right, this point is biased by 0.0027 g/mL (3.1 σ_ref), a seventh of Sage's error here (-0.0178 g/mL), on a metric with weight 0. |
+| `CCO` | 298.15 | 0.78514 | 0.00041 | thermoml:10.1016/j.jct.2018.12.019 | yes | 0.7893 @ 298 K | ml-peg: 0.78930 (+0.0042) | Chosen value is 0.0001 below the median of 278 archive papers (0.78520). ml-peg's value matches the 293.15 K median (0.78952, 102 papers), i.e. a 20 °C density (data_issues.md 1.1). |
+| `CNC(C)=O` | 323.15 | 0.93310 | 0.00020 | thermoml:10.1016/j.jct.2020.106233 | no | – | – | – |
+| `O` | 323.15 | 0.98804 | 0.00000 | iapws-95:10.1063/1.1461829 | yes | 0.9980 @ 298 K | – | – |
+| `CCOC(C)=O` | 298.15 | 0.89443 | 0.00015 | thermoml:10.1016/j.jct.2007.05.004 | yes | 0.9003 @ 298 K | 10.1021/acs.jced.7b01107 (ThermoML, rc2 validation): 0.89950 (+0.0051); ml-peg: 0.90032 (+0.0059) | Chosen value matches the median of 51 archive papers (0.89440). 10.1021/acs.jced.7b01107 is 0.0051 above it (data_issues.md 2.3). ml-peg's value matches the 293.15 K median (0.90048, 16 papers). |
+| `CCCNCCC` | 298.15 | 0.73362 | 0.00089 | thermoml:10.1021/acs.jced.5b00802 | no | – | – | – |
+| `CN(C)C=O` | 298.15 | 0.94408 | 0.00113 | thermoml:10.1021/acs.jced.5b00802 | yes | 0.9445 @ 303 K | 10.1007/s10765-016-2096-3 (ThermoML, rc2 validation): 0.95010 (+0.0060) | Chosen value is 0.0002 above the median of 86 archive papers (0.94392). 10.1007/s10765-016-2096-3 is 0.006 high, as are its other two pure liquids (data_issues.md 2.3). |
+| `CCCCCCC` | 298.15 | 0.67954 | 0.00013 | thermoml:10.1021/je400184t | no | – | – | – |
+| `Cc1ccccc1` | 298.15 | 0.86222 | 0.00011 | thermoml:10.1021/je400184t | yes | 0.8668 @ 298 K | ml-peg: 0.86680 (+0.0046) | Chosen value matches the median of 107 archive papers (0.86220). ml-peg's value equals the 293.15 K median (0.8668, 50 papers), i.e. a 20 °C density (data_issues.md 1.1). |
 
 Many ml-peg liquid_densities references appear to be measured about 5 K below their labelled temperature (20 °C values labelled 298 K, 25 °C values labelled 303 K), so they are not used here; see [`docs/data_issues.md`](../docs/data_issues.md) section 1.1. Pure densities of components already in ml-peg are simulated (needed for ΔHmix) but not re-scored.
 

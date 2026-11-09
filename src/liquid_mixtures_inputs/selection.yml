@@ -237,6 +237,67 @@ pure_density_references:
     sigma: 0.000165
     source: "thermoml:10.1016/j.jct.2006.07.021"
 
+# Why each pure density that another source disagrees with is still trusted,
+# for the report. Medians are per-paper values (101 kPa, ±0.05 K) from the
+# ThermoML archive (ThermoML.v2020-09-30.tgz); the report fails if a
+# disagreement has no note.
+pure_density_notes:
+  - smiles: c1ccncc1
+    temperature: 298.15
+    note: >-
+      Chosen value is 0.0002 below the median of 23 archive papers (0.97825;
+      interquartile range 0.97812 to 0.97825). 10.1016/j.fluid.2015.04.031
+      (and 10.1016/j.fluid.2015.03.027, same value) is 0.0046 above that
+      median. ml-peg's value is 0.0037 above it, between the 293.15 K median
+      (0.98316, 7 papers) and the 298.15 K one, as expected from its
+      temperature offset (data_issues.md 1.1).
+  - smiles: CO
+    temperature: 298.15
+    note: >-
+      Chosen value is 0.0006 above the median of 202 archive papers
+      (0.78660). ml-peg's value equals the 293.15 K median (0.79135, 79
+      papers), i.e. a 20 °C density (data_issues.md 1.1).
+  - smiles: CN1CCCC1=O
+    temperature: 298.15
+    note: >-
+      Chosen value is 0.0002 below the median of 34 archive papers
+      (1.02823). 10.1016/j.fluid.2008.02.023 is 0.0024 below that median
+      (data_issues.md 2.3).
+  - smiles: Cn1ccnc1
+    temperature: 298.15
+    note: >-
+      Unresolved: the archive has only three papers, 1.03052 (chosen), 1.03114
+      (10.1021/je200093f) and 1.03320. Chosen because it is the
+      mixture-density paper, so V^E is self-consistent, and its ethanol
+      (0.78514) matches the median of 278 archive papers (0.78520), so its
+      calibration is sound. If 1.03320 is right, this point is biased by
+      0.0027 g/mL (3.1 σ_ref), a seventh of Sage's error here (-0.0178 g/mL),
+      on a metric with weight 0.
+  - smiles: CCO
+    temperature: 298.15
+    note: >-
+      Chosen value is 0.0001 below the median of 278 archive papers
+      (0.78520). ml-peg's value matches the 293.15 K median (0.78952, 102
+      papers), i.e. a 20 °C density (data_issues.md 1.1).
+  - smiles: CCOC(C)=O
+    temperature: 298.15
+    note: >-
+      Chosen value matches the median of 51 archive papers (0.89440).
+      10.1021/acs.jced.7b01107 is 0.0051 above it (data_issues.md 2.3).
+      ml-peg's value matches the 293.15 K median (0.90048, 16 papers).
+  - smiles: CN(C)C=O
+    temperature: 298.15
+    note: >-
+      Chosen value is 0.0002 above the median of 86 archive papers
+      (0.94392). 10.1007/s10765-016-2096-3 is 0.006 high, as are its other
+      two pure liquids (data_issues.md 2.3).
+  - smiles: Cc1ccccc1
+    temperature: 298.15
+    note: >-
+      Chosen value matches the median of 107 archive papers (0.86220).
+      ml-peg's value equals the 293.15 K median (0.8668, 50 papers), i.e. a
+      20 °C density (data_issues.md 1.1).
+
 # Systems considered and dropped, for the report.
 dropped:
   - system: 1-propanol + benzene

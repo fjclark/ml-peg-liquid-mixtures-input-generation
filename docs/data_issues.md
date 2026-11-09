@@ -201,6 +201,12 @@ poor fitting targets.
     paper's uncertainty.
 - **Heptane + toluene** (10.1021/je400184t and 10.1016/j.jct.2008.12.004) agree within
   their uncertainties.
+- **Every other selected system** has one ΔHmix paper at ambient pressure within 5 K
+  of its temperature in the ThermoML archive (ThermoML.v2020-09-30.tgz), so there is
+  nothing to cross-check. N-methylacetamide + water (10.1021/je950294h) has no ThermoML
+  record at all. Ethyl acetate + ethanol also has a 27-point isotherm at 10 MPa
+  (10.1016/j.tca.2005.03.009, about 0.11 kJ/mol above the ambient one at equimolar);
+  it is excluded by the pressure window, not because it disagrees.
 
 ### 2.8 Slow conformer equilibration from single-conformer boxes (suspected for the fits)
 

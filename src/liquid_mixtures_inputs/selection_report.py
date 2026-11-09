@@ -825,7 +825,38 @@ def sage_baseline_section(systems: list[dict]) -> list[str]:
     return lines
 
 
-def pure_densities_section(systems: list[dict], mlpeg: dict) -> list[str]:
+def disagreeing_sources(pure: dict) -> str:
+    """
+    List the sources that disagree with a chosen pure density, with values.
+
+    Parameters
+    ----------
+    pure
+        Output of :func:`select_systems.choose_pure_density`.
+
+    Returns
+    -------
+    str
+        One entry per DOI (data sets citing the same paper are merged), or an
+        en dash if every source agrees.
+    """
+    labels = {"thermoml": "ThermoML", "sage-2.0-train": "Sage 2.0 train"}
+    labels["rc2-validation"] = "rc2 validation"
+    by_doi = defaultdict(list)
+    for name in pure["outliers"]:
+        set_name, _, doi = name.partition(":")
+        by_doi[doi or set_name].append(labels.get(set_name, set_name))
+    entries = []
+    for doi, sets in by_doi.items():
+        value = pure["checks"][next(n for n in pure["outliers"] if n.endswith(doi))]
+        where = "" if doi == "ml-peg" else f" ({', '.join(sets)})"
+        entries.append(f"{doi}{where}: {value:.5f} ({value - pure['density']:+.4f})")
+    return "; ".join(entries) or "–"
+
+
+def pure_densities_section(
+    systems: list[dict], mlpeg: dict, notes: list[dict]
+) -> list[str]:
     """
     Tabulate the chosen pure densities and any disagreeing sources.
 
@@ -835,12 +866,24 @@ def pure_densities_section(systems: list[dict], mlpeg: dict) -> list[str]:
         System dictionaries.
     mlpeg
         The ml-peg pure liquids.
+    notes
+        ``pure_density_notes`` from ``selection.yml``: why each disagreement
+        is not a concern.
 
     Returns
     -------
     list[str]
         Markdown lines.
+
+    Raises
+    ------
+    ValueError
+        If a pure density has disagreeing sources but no note.
     """
+    note_for = {
+        (canonical_smiles(n["smiles"]), round(n["temperature"], 2)): n["note"]
+        for n in notes
+    }
     lines = [
         "",
         "## Pure densities",
@@ -849,11 +892,18 @@ def pure_densities_section(systems: list[dict], mlpeg: dict) -> list[str]:
         "densities, so V^E is self-consistent, unless an explicit reference is given "
         "(water from [IAPWS-95](https://doi.org/10.1063/1.1461829)). Other sources "
         "disagreeing by more than "
-        f"{select_systems.PURE_DENSITY_TOLERANCE} g/mL are listed.",
+        f"{select_systems.PURE_DENSITY_TOLERANCE} g/mL are listed with their value "
+        "and difference from the chosen one, and each is checked against every "
+        "ThermoML archive paper for that liquid (`pure_density_notes` in "
+        "`selection.yml`). Every chosen value is within 0.0007 g/mL of the archive "
+        "median. Density metrics carry weight 0 in the score "
+        "([DECISIONS.md](../DECISIONS.md)), and V^E uses each paper's own pure "
+        "densities, so a wrong reference pure density cannot shift the weighted "
+        "score.",
         "",
         "| Component | T (K) | ρ (g/mL) | σ | Source | In ml-peg | ml-peg value | "
-        "Disagreeing sources |",
-        "|---|---|---|---|---|---|---|---|",
+        "Disagreeing sources (ρ, Δ) | Why not a concern |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     seen = set()
     for system in systems:
@@ -868,12 +918,21 @@ def pure_densities_section(systems: list[dict], mlpeg: dict) -> list[str]:
                 if liquid
                 else "–"
             )
+            note = "–"
+            if pure["outliers"]:
+                key = (smiles, round(system["temperature"], 2))
+                if key not in note_for:
+                    raise ValueError(
+                        f"{smiles} at {system['temperature']} K has disagreeing "
+                        "pure densities but no pure_density_notes entry"
+                    )
+                note = note_for[key]
             lines.append(
                 f"| `{smiles}` | {system['temperature']:.2f} | "
                 f"{format_number(pure['density'], 5)} | "
                 f"{format_number(pure['sigma'], 5)} | {pure['source']} | "
                 f"{'yes' if liquid else 'no'} | "
-                f"{mlpeg_text} | {', '.join(pure['outliers']) or '–'} |"
+                f"{mlpeg_text} | {disagreeing_sources(pure)} | {note} |"
             )
     lines += [
         "",
@@ -1221,7 +1280,9 @@ def write_report(
         *vex_coverage_section(systems),
         *box_plan_section(systems),
         *sage_baseline_section(systems),
-        *pure_densities_section(systems, mlpeg),
+        *pure_densities_section(
+            systems, mlpeg, selection.get("pure_density_notes", [])
+        ),
         "## Per-system details",
         "",
     ]
