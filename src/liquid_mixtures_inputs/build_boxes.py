@@ -34,7 +34,8 @@ from openff.units import Quantity
 import openmm
 from openmm import unit
 import pandas as pd
-from rdkit.Chem import AllChem
+from rdkit import Chem
+from rdkit.Chem import AllChem, rdMolTransforms
 import yaml
 
 from liquid_mixtures_inputs.constants import AVOGADRO
@@ -54,6 +55,14 @@ NVT_PS = 500.0
 ANNEAL_T_HOT = 450.0  # K
 ANNEAL_STEPS = 16
 ANNEAL_STEP_PS = 100.0
+# Acyclic secondary amides start trans (C-C(=O)-N-C dihedral near 180°), the
+# dominant form of N-methylacetamide and of the peptide bond. Sage's amide
+# rotation is too easy: without a restraint about 5 % of N-methylacetamide
+# turned cis during the 450 K anneal. So the dihedral is restrained to trans
+# for the whole build (not in production runs).
+SECONDARY_AMIDE = Chem.MolFromSmarts("[#6]-[CX3;!R](=O)-[NX3H1;!R]-[#6]")
+MIN_TRANS_DIHEDRAL = 150.0  # degrees
+TRANS_RESTRAINT_KJ_PER_MOL = 100.0
 
 LOGGER = logging.getLogger("build_boxes")
 
@@ -210,6 +219,7 @@ def set_low_energy_conformer(molecule: Molecule, n_conformers: int = 10) -> None
     leave (for tetrahydropyran it is often a twist-boat, 27 kJ/mol above the
     chair in MMFF, which flips to chair in Sage over ~1 ns). Packmol copies the
     conformer into every molecule, so the whole box would share the basin.
+    Only conformers whose secondary amides are all trans are considered.
 
     Parameters
     ----------
@@ -221,12 +231,69 @@ def set_low_energy_conformer(molecule: Molecule, n_conformers: int = 10) -> None
         prunes by RMSD and returns a single conformer for small molecules.
     """
     rdkit_molecule = molecule.to_rdkit()
-    AllChem.EmbedMultipleConfs(rdkit_molecule, n_conformers, randomSeed=1)
+    conformer_ids = AllChem.EmbedMultipleConfs(
+        rdkit_molecule, n_conformers, randomSeed=1
+    )
     results = AllChem.MMFFOptimizeMoleculeConfs(rdkit_molecule, maxIters=5000)
-    energies = [energy for _, energy in results]
-    best = rdkit_molecule.GetConformer(int(np.argmin(energies))).GetPositions()
+    amides = rdkit_molecule.GetSubstructMatches(SECONDARY_AMIDE)
+    energies = {
+        conformer_id: energy
+        for conformer_id, (_, energy) in zip(conformer_ids, results, strict=True)
+        if all(
+            abs(
+                rdMolTransforms.GetDihedralDeg(
+                    rdkit_molecule.GetConformer(conformer_id), a, b, n, c
+                )
+            )
+            >= MIN_TRANS_DIHEDRAL
+            for a, b, _, n, c in amides
+        )
+    }
+    if not energies:
+        raise ValueError(f"No conformer of {molecule.to_smiles()} has trans amides")
+    best_id = min(energies, key=energies.get)
+    best = rdkit_molecule.GetConformer(best_id).GetPositions()
     molecule._conformers = None
     molecule.add_conformer(Quantity(best, "angstrom"))
+
+
+def restrain_trans_amides(
+    simulation, molecules: list[Molecule], counts: list[int]
+) -> int:
+    """
+    Add a restraint holding every acyclic secondary amide trans.
+
+    The energy is k (1 + cos φ) for the C-C(=O)-N-C dihedral φ, zero at
+    trans and 2k at cis.
+
+    Parameters
+    ----------
+    simulation
+        OpenMM simulation of the packed box, modified in place.
+    molecules
+        One molecule per component, in box order.
+    counts
+        Number of copies of each molecule.
+
+    Returns
+    -------
+    int
+        Number of restrained dihedrals.
+    """
+    force = openmm.CustomTorsionForce("k * (1 + cos(theta))")
+    force.addGlobalParameter("k", TRANS_RESTRAINT_KJ_PER_MOL)
+    offset = 0
+    for molecule, count in zip(molecules, counts, strict=True):
+        amides = molecule.to_rdkit().GetSubstructMatches(SECONDARY_AMIDE)
+        for copy in range(count):
+            start = offset + copy * molecule.n_atoms
+            for a, b, _, n, c in amides:
+                force.addTorsion(start + a, start + b, start + n, start + c, [])
+        offset += count * molecule.n_atoms
+    if force.getNumTorsions():
+        simulation.system.addForce(force)
+        simulation.context.reinitialize(preserveState=True)
+    return force.getNumTorsions()
 
 
 def prepare_molecule(smiles: str) -> Molecule:
@@ -511,6 +578,7 @@ def build_box(
     simulation, _ = make_simulation(
         molecules, spec.counts, positions, edge, spec.temperature, False, seed, platform
     )
+    restrain_trans_amides(simulation, molecules, spec.counts)
     equilibrate_nvt(simulation, spec.temperature, seed)
     state = simulation.context.getState(getPositions=True)
     final = state.getPositions(asNumpy=True).value_in_unit(unit.angstrom)
