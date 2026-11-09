@@ -1,17 +1,17 @@
 # Sage (openff-2.3.0) reference runs
 
-Generated 2026-11-03 by `summarise_sage.py`. Methods and statistics: [details.md](details.md). Every flagged box: [inspection.csv](inspection.csv).
+Generated 2026-11-06 by `summarise_sage.py`. Methods and statistics: [details.md](details.md). Every flagged box: [inspection.csv](inspection.csv).
 
-Sage was run through the benchmark protocol (0.2 ns NPT equilibration, 1 ns production) on all 50 boxes, 5 independent replicates each (250 runs). The replicate spread gives σ_Sage, the MAZE denominator, and Sage's own score sets the 'bad' thresholds ([power analysis](../power_analysis/report.md)).
+Sage was run through the benchmark protocol (0.2 ns NPT equilibration, 1 ns production) on all 59 boxes, 5 independent replicates each (295 runs). The replicate spread gives σ_Sage, the MAZE denominator, and Sage's own score sets the 'bad' thresholds ([power analysis](../power_analysis/report.md)).
 
 ## Sage against experiment
 
 | Property | Points | MAE | MAZE |
 |---|---|---|---|
-| ΔHmix | 30 | 0.589 kJ/mol | 4.96 |
-| Density | 27 | 0.00937 g/mL | 10.1 |
-| V^E | 27 | 0.242 cm³/mol | 1.86 |
-| Pure density | 20 | 0.0103 g/mL | 9.95 |
+| ΔHmix | 36 | 0.637 kJ/mol | 6.38 |
+| Density | 33 | 0.0117 g/mL | 12.7 |
+| V^E | 33 | 0.273 cm³/mol | 2.35 |
+| Pure density | 23 | 0.0117 g/mL | 11.6 |
 
 The largest ΔHmix errors are for pyrrole_pyridine (1.90 kJ/mol) and water_pyridine (1.20 kJ/mol, wrong sign at 3 of 3 compositions). These are force-field misses, not run problems, and they are the systems most likely to separate models.
 
@@ -21,23 +21,23 @@ The largest ΔHmix errors are for pyrrole_pyridine (1.90 kJ/mol) and water_pyrid
 
 ## Run-to-run noise
 
-Pooled over all boxes, the SD of the replicate means is 1.17× the within-run standard error for h and 1.06× for density (p = 7e-04 and 2e-01). A single 1 ns run's standard error is therefore about 17% too small for h and 6% for density, because independently built boxes sample slow modes (conformers, local structure) that one run does not. This is why σ_Sage comes from the replicate spread rather than within-run errors. Per-box tests that survive Holm correction: none.
+Pooled over all boxes, the SD of the replicate means is 1.18× the within-run standard error for h and 1.05× for density (p = 2e-04 and 2e-01). A single 1 ns run's standard error is therefore about 18% too small for h and 5% for density, because independently built boxes sample slow modes (conformers, local structure) that one run does not. This is why σ_Sage comes from the replicate spread rather than within-run errors. Per-box tests that survive Holm correction: none.
 
 ![within vs between](figures/within_between.png)
 
 ## Boxes to inspect
 
-55 items over 35 boxes or systems, all in [inspection.csv](inspection.csv) with links to their plots. Most are places to look rather than problems:
+60 items over 38 boxes or systems, all in [inspection.csv](inspection.csv) with links to their plots. Most are places to look rather than problems:
 
 | Category | Items | Boxes or systems |
 |---|---|---|
-| within/between mismatch | 25 | 16 |
+| within/between mismatch | 27 | 17 |
 | low sampling | 11 | 11 |
 | start dependence | 1 | 1 |
-| early density shift | 8 | 6 |
+| early density shift | 9 | 7 |
 | microheterogeneity | 4 | 4 |
 | published-Sage gap | 1 | 1 |
-| force-field miss (not a run problem) | 5 | 5 |
+| force-field miss (not a run problem) | 7 | 7 |
 
 Those that matter for the benchmark:
 
@@ -47,7 +47,7 @@ Those that matter for the benchmark:
 
 ## Box size
 
-Our boxes (≥ 100 molecules) were compared with the published 1000-molecule openff-2.3.0 runs ([`fb-fit-v3-single-mean-k100`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/forcefields/fb-fit-v3-single-mean-k100.offxml?plain=1)) at 37 matched points. Points with |z| > 3: 1. Points that differ by more than 0.15 kJ/mol or 0.002 g/mL: 1, propanol_benzene_x246 (ΔHmix +0.22 kJ/mol, z = +1.7). The median ΔHmix gap is 0.043 kJ/mol and the median density gap 0.0004 g/mL, well below Sage's errors against experiment, so box size does not bias the reference overall; the points above are in [inspection.csv](inspection.csv).
+Our boxes (≥ 100 molecules) were compared with the published 1000-molecule openff-2.3.0 runs ([`fb-fit-v3-single-mean-k100`](https://github.com/openforcefield/ash-sage-rc2/blob/00c9524d38af53725a1a18feb3433f5c191cdb4a/04_benchmark/forcefields/fb-fit-v3-single-mean-k100.offxml?plain=1)) at 37 matched points. Points with |z| > 3: 1. Points that differ by more than 0.15 kJ/mol or 0.002 g/mL: 1, propanol_benzene_x246 (ΔHmix +0.22 kJ/mol, z = +1.7). The median ΔHmix gap is 0.038 kJ/mol and the median density gap 0.0004 g/mL, well below Sage's errors against experiment, so box size does not bias the reference overall; the points above are in [inspection.csv](inspection.csv).
 
 ![finite size](figures/finite_size.png)
 

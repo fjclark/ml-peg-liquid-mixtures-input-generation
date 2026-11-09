@@ -135,6 +135,7 @@ Values used in the Sage sets that differ from the consensus by more than 0.002 g
 | NMP | 1.0258 | 10.1016/j.fluid.2008.02.023 | 1.0280–1.0286 (three papers) | −0.0025 |
 | dibutylamine | 0.7578 | 10.1021/je800026p | 0.7555 (two papers) | +0.0023 |
 | pyridine | 0.9829 | 10.1016/j.fluid.2015.04.031 | 0.9780–0.9783 (three papers) | +0.005 |
+| ethyl acetate | 0.8995 | 10.1021/acs.jced.7b01107 | 0.8944 (10.1016/j.jct.2007.05.004, 10.1021/je800899w) | +0.005; ml-peg's 0.9003 at "298 K" fits its ~5 K offset (1.1) |
 
 - **Pattern:** all three pure densities from 10.1007/s10765-016-2096-3 are high, which
   suggests a temperature or calibration problem in that paper rather than isolated
@@ -231,6 +232,8 @@ protocol (200 ps equilibration, then 2 ns). Not checked:
 | Noisy mixture densities (2.4) | Points with σ > 0.002 g/mL are left out of the V^E fits (heptane + toluene: 10 points from 10.1016/j.jct.2005.10.011). |
 | Placeholder or near-zero ΔHmix errors (2.5) | Hard filter: relative ΔHmix uncertainty ≤ 15 %. |
 | Two-phase systems (2.6) | Linear-H^E filter (applied when the largest \|H^E\| ≥ 0.4 kJ/mol) and the RT/2 screen; the three aqueous systems are excluded with the evidence above. |
+| Duplicate pure formamide density in 10.1016/j.jct.2006.07.021 | The formamide + 1-propanol block lists pure formamide at 298.15 K as both 1.133 and 1.129 g/mL. The paper's other blocks and 13 other ThermoML papers give 1.1288 to 1.1297 g/mL, so `pure_density_references` in `selection.yml` pins 1.129 g/mL (formamide + 1-propanol is now a reserve). |
+| ΔHmix papers without a ThermoML record (water + N-methylacetamide, 10.1021/je950294h) | Entered by hand in `manual_points.csv`, which `select_systems.py` reads in place of the ThermoML record; every point is within 2 % of the paper's Redlich-Kister fit. |
 | ThermoML expanded vs standard uncertainties | Expanded uncertainties are divided by the coverage factor 2. This matches the rc2 convention (checked). |
 
 ### 3.2 Open items and caveats for the selected systems

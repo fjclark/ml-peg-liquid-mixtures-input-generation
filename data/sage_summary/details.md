@@ -1,8 +1,8 @@
 # Sage reference runs: details
 
-Generated 2026-11-03 by `summarise_sage.py`. Summary: [report.md](report.md).
+Generated 2026-11-06 by `summarise_sage.py`. Summary: [report.md](report.md).
 
-250 runs (50 boxes, 5 replicates), each 200 ps of equilibration and 1000 ps of production. 30 of 30 mixture points have all replicates. Per-run statistics: [runs.csv](runs.csv).
+295 runs (59 boxes, 5 replicates), each 200 ps of equilibration and 1000 ps of production. 36 of 36 mixture points have all replicates. Per-run statistics: [runs.csv](runs.csv).
 
 ## Within-run vs between-run uncertainty
 
@@ -10,24 +10,24 @@ Within-run standard errors come from the autocorrelation (Chodera) estimator on 
 
 | Level | Observable | Tests | Median ratio | Pooled ratio | p | p_high < 0.05 | p_low < 0.05 |
 |---|---|---|---|---|---|---|---|
-| box | h | 50 | 1.02 | 1.17 | 0.0007 | 11 | 2 |
-| box | density | 50 | 0.95 | 1.06 | 0.2 | 6 | 2 |
-| point | hmix | 30 | 1.08 | 1.23 | 0.0005 | 6 | 1 |
-| point | vex | 30 | 0.94 | 1.01 | 0.9 | 2 | 0 |
+| box | h | 59 | 1.02 | 1.18 | 0.0002 | 12 | 2 |
+| box | density | 59 | 0.93 | 1.05 | 0.2 | 6 | 2 |
+| point | hmix | 36 | 1.10 | 1.19 | 0.001 | 7 | 1 |
+| point | vex | 36 | 0.94 | 1.00 | 1 | 2 | 0 |
 
-**Multiple testing.** The pooled ratios are 4 tests; with a Bonferroni correction over them, box h, point hmix stay significant at p < 0.05. The per-box and per-point tests are two-sided and Holm-corrected together (160 tests). The p_high counts above are unadjusted: about 2.5 per row are expected by chance. Surviving correction: none. The evidence that within-run errors are too small therefore comes from the pooled test, not from any one box. MLP runs are single runs, so their confidence intervals will be too narrow by roughly the pooled ratio.
+**Multiple testing.** The pooled ratios are 4 tests; with a Bonferroni correction over them, box h, point hmix stay significant at p < 0.05. The per-box and per-point tests are two-sided and Holm-corrected together (190 tests). The p_high counts above are unadjusted: about 3.0 per row are expected by chance. Surviving correction: none. The evidence that within-run errors are too small therefore comes from the pooled test, not from any one box. MLP runs are single runs, so their confidence intervals will be too narrow by roughly the pooled ratio.
 
 Largest mismatches:
 
 ![propanol_benzene_x246](figures/replicates/propanol_benzene_x246.png)
+![ethylacetate_ethanol_x250](figures/replicates/ethylacetate_ethanol_x250.png)
 ![nmp_dichloroethane_x804](figures/replicates/nmp_dichloroethane_x804.png)
-![pure_acetone_298](figures/replicates/pure_acetone_298.png)
 
 ## Replicate spread (MAZE denominator)
 
 MAZE divides each error by a fixed σ_ref = sqrt(σ_Sage² + σ_exp²), the same for every model, and averages |error| / σ_ref over the points. σ_Sage is one value per mixture: the SD of the replicate means, pooled over its compositions (RMS) and floored at the median over mixtures. Pure densities use the same rule, with one box per liquid. The floor is there because model errors are mostly systematic and much larger than σ_ref, so σ_ref acts as a weight: without it, the mixtures where Sage happens to sample most quietly would dominate MAZE, although an MLP's noise there need not be as small. With the floor, MAZE stays close to the MAE divided by a single σ. nmp_dichloroethane and pure 1,2-dichloroethane are set to the floor, as their spread comes from a Sage artefact (last section).
 
-Median σ_Sage over mixtures: 0.109 kJ/mol (ΔHmix), 0.0008 g/mL (density), 0.124 cm³/mol (V^E). The values are written to `systems.csv` and `pure.csv` (`sigma_sage_*`, `sigma_ref_*`); per-point tables are in [points.csv](points.csv) and [pure_points.csv](pure_points.csv).
+Median σ_Sage over mixtures: 0.091 kJ/mol (ΔHmix), 0.0008 g/mL (density), 0.109 cm³/mol (V^E). The values are written to `systems.csv` and `pure.csv` (`sigma_sage_*`, `sigma_ref_*`); per-point tables are in [points.csv](points.csv) and [pure_points.csv](pure_points.csv).
 
 ![replicate spread](figures/replicate_spread.png)
 
@@ -39,10 +39,10 @@ Our replicate means are compared with the published runs [`fb-fit-v3-single-mean
 
 h is the enthalpy per molecule, (E_pot + pV) / N in kJ/mol. The drift test splits production into 10 blocks of 100 ps.
 
-- **Independent samples.** Median n_eff 284 (correlation time 3.5 ps), minimum 34. 15 runs fall below ml-peg's minimum of 100.
-- **Equilibration.** The first 200 ps of production (200 to 400 ps) minus the rest of the run: median |shift| 0.0013 g/mL, max 0.0098 g/mL. 8 runs exceed 0.005 g/mL. Mean shift by replicate (g/mL, with the share of boxes above 0): 0: -0.0010 (24%), 1: -0.0001 (44%), 2: +0.0000 (44%), 3: +0.0017 (80%), 4: +0.0013 (68%). A shift shared by most boxes of one replicate points at that replicate's starting structures rather than at a system.
-- **Trends within a run.** Drift (slope of the block means) tests on h and density: 500 tests, Holm-corrected. Flagged: 0.
-- **Start dependence.** Replicate 0 (the distributed box) against a prediction interval from the rebuilt replicates; |t| > 4.0 is reported. About 2.8 of the 100 tests are expected above this by chance. All tests: [start_dependence.csv](start_dependence.csv).
+- **Independent samples.** Median n_eff 281 (correlation time 3.6 ps), minimum 34. 15 runs fall below ml-peg's minimum of 100.
+- **Equilibration.** The first 200 ps of production (200 to 400 ps) minus the rest of the run: median |shift| 0.0014 g/mL, max 0.0098 g/mL. 9 runs exceed 0.005 g/mL. Mean shift by replicate (g/mL, with the share of boxes above 0): 0: -0.0012 (20%), 1: -0.0001 (46%), 2: +0.0002 (47%), 3: +0.0015 (83%), 4: +0.0016 (71%). A shift shared by most boxes of one replicate points at that replicate's starting structures rather than at a system.
+- **Trends within a run.** Drift (slope of the block means) tests on h and density: 590 tests, Holm-corrected. Flagged: 0.
+- **Start dependence.** Replicate 0 (the distributed box) against a prediction interval from the rebuilt replicates; |t| > 4.0 is reported. About 3.3 of the 118 tests are expected above this by chance. All tests: [start_dependence.csv](start_dependence.csv).
 
 Every box has a convergence plot in `figures/convergence/` and every system a plot in `figures/systems/`.
 
@@ -50,13 +50,13 @@ Every box has a convergence plot in `figures/convergence/` and every system a pl
 
 Every item is in [inspection.csv](inspection.csv), with its evidence and plots. The categories, in rough order of concern:
 
-- **within/between mismatch** (25). Replicates (independently built boxes) scatter more than the within-run standard errors allow: likely a slow mode (conformers, local structure) that one 1 ns run does not sample, so a single run's confidence interval is too narrow there. Most entries are p < 0.05 before Holm correction only, so they are places to look, not individual results.
+- **within/between mismatch** (27). Replicates (independently built boxes) scatter more than the within-run standard errors allow: likely a slow mode (conformers, local structure) that one 1 ns run does not sample, so a single run's confidence interval is too narrow there. Most entries are p < 0.05 before Holm correction only, so they are places to look, not individual results.
 - **low sampling** (11). A run with fewer than 100 independent samples (long correlation times, viscous or slowly reorganising liquids).
 - **start dependence** (1). The distributed box (replicate 0) differs from the rebuilt replicates, so the starting structure may bias MLP runs.
-- **early density shift** (8). The density of the first 200 ps of production differs from the rest of the run by more than 0.005 g/mL: still relaxing after the 0.2 ns discard, or a large fluctuation.
+- **early density shift** (9). The density of the first 200 ps of production differs from the rest of the run by more than 0.005 g/mL: still relaxing after the 0.2 ns discard, or a large fluctuation.
 - **microheterogeneity** (4). Sage itself shows like-like clustering beyond random mixing; MLP demixing flags for this box should be compared against this Sage value.
 - **published-Sage gap** (1). Our replicate mean differs from the published 1000-molecule run by more than 0.15 kJ/mol or 0.002 g/mL.
-- **force-field miss (not a run problem)** (5). Sage is far from experiment. Expected for some systems, and useful for separating models.
+- **force-field miss (not a run problem)** (7). Sage is far from experiment. Expected for some systems, and useful for separating models.
 
 ## Why NMP + 1,2-dichloroethane was kept
 

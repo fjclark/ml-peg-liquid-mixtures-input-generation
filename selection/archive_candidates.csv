@@ -1,0 +1,157 @@
+a,b,temperature,groups,hmix_eq,x_eq,n_hmix,n_density,new_pure_boxes,heavy_atoms,dois,failures,passes
+CO,O,298.15,,-0.777,0.5,11,11,0,2/1,10.1016/j.jct.2007.05.004 10.1016/j.tca.2006.02.028,,True
+CCCCCC,Cc1ccccc1,298.15,,0.5467,0.472,16,17,1,6/7,10.1016/j.jct.2006.08.011,,True
+CC1CCCO1,Clc1ccccc1,298.15,,-0.628,0.488,11,11,2,6/7,10.1016/j.tca.2005.08.034,,True
+CN(C)C=O,Cc1ccccc1Cl,308.15,,0.545,0.512,18,18,2,5/8,10.1016/j.jct.2013.12.006,,True
+CCCO,NC=O,298.15,N-H amide,0.741,0.517,22,15,1,4/3,10.1016/j.jct.2006.07.021 10.1016/j.tca.2013.02.010,,True
+CC(C)O,NC=O,308.15,N-H amide,0.961,0.504,22,10,2,4/3,10.1016/j.jct.2013.09.043 10.1016/j.tca.2013.02.010,,True
+CCCO,NC=O,308.15,N-H amide,0.831,0.492,22,15,2,4/3,10.1016/j.jct.2006.07.021 10.1016/j.tca.2013.02.010,,True
+CC(C)O,NC=O,298.15,N-H amide,0.772,0.532,22,10,2,4/3,10.1016/j.jct.2013.09.043 10.1016/j.tca.2013.02.010,,True
+CNC=O,Cc1ccccc1N,308.15,N-H amide,-0.7563,0.519,18,18,2,4/8,10.1016/j.tca.2011.06.020,,True
+CNC=O,Cc1ccccc1Cl,308.15,N-H amide,0.49,0.515,18,18,2,4/8,10.1016/j.jct.2013.12.006,,True
+CCO,CCOC(C)=O,298.15,ester,1.211,0.5,19,29,0,3/6,10.1016/j.jct.2007.05.004 10.1021/je200595b 10.1021/je600565m 10.1021/je800899w,,True
+CCOC(C)=O,ClCCCl,298.15,ester,-0.4506,0.497,19,24,0,6/4,10.1007/s10765-005-5570-x 10.1016/j.jct.2005.03.020,,True
+CO,COC=O,298.15,ester,1.179,0.487,21,15,1,2/4,10.1016/j.jct.2015.02.019,,True
+CCCCCCC,CCCOC(C)=O,298.15,ester,1.144,0.5,15,17,1,7/7,10.1021/je060184i 10.1021/je3011979,,True
+CCCCC(=O)OC,CO,298.15,ester,1.091,0.508,20,18,1,8/2,10.1016/j.jct.2015.02.019,,True
+CCCO,COC(=O)C(C)O,298.15,ester,0.713,0.499,11,11,1,4/7,10.1016/j.jct.2018.07.013,,True
+CCCOC(=O)CC,ClCCCl,298.15,ester,-0.557,0.518,13,16,1,8/4,10.1016/j.jct.2008.10.007,,True
+CCCOC(C)=O,ClCCCl,298.15,ester,-0.551,0.501,13,16,1,7/4,10.1016/j.jct.2008.10.007,,True
+CCCO,CCOC(=O)C(C)O,298.15,ester,0.481,0.483,11,30,1,4/8,10.1016/j.jct.2018.07.013 10.1021/je900481e,,True
+CCO,COC(=O)C(C)O,298.15,ester,0.461,0.536,11,11,1,3/7,10.1016/j.jct.2018.07.013,,True
+CCCC(=O)OCC,ClCCCl,298.15,ester,-0.456,0.484,17,16,1,8/4,10.1016/j.jct.2005.03.020,,True
+CCCOC(=O)CCC,ClCCCl,298.15,ester,-0.456,0.527,13,16,1,9/4,10.1016/j.jct.2008.10.007,,True
+CCCC(=O)OC,CCCCCCCC,298.15,ester,1.217,0.522,16,21,2,7/8,10.1021/acs.jced.5b00813,,True
+CCO,CCOC(=O)C(C)C,303.15,ester,1.172,0.509,11,11,2,3/8,10.1016/j.jct.2019.105884,,True
+CCCCCC,CCCOC(C)=O,298.15,ester,1.122,0.497,16,18,2,6/7,10.1021/je3011979,,True
+C1CCCCC1,CCCOC(C)=O,298.15,ester,1.11,0.492,12,9,2,6/7,10.1021/je060184i 10.1021/je8007217,,True
+CCCCC,CCCOC=O,298.15,ester,1.099,0.51,18,17,2,5/6,10.1016/j.fluid.2013.11.026,,True
+CC(C)CC(C)(C)C,CCCC(=O)OC,298.15,ester,1.064,0.477,17,19,2,8/7,10.1021/acs.jced.5b00813,,True
+CCCCC(=O)OC,CCCCCCCC,298.15,ester,1.053,0.489,19,19,2,8/8,10.1021/acs.jced.5b00813,,True
+CCCCC,CCCCOC=O,298.15,ester,0.959,0.491,17,12,2,5/7,10.1016/j.fluid.2013.11.026,,True
+CC(C)CC(C)(C)C,CCCCC(=O)OC,298.15,ester,0.866,0.482,18,16,2,8/8,10.1021/acs.jced.5b00813,,True
+CCCCO,COC(=O)C(C)O,298.15,ester,0.865,0.513,11,11,2,5/7,10.1016/j.jct.2018.07.013,,True
+COC=O,ClCCCCCCCl,298.15,ester,0.7287,0.503,14,16,2,4/8,10.1016/j.jct.2006.10.008,,True
+CCOC(=O)C(C)C,CO,303.15,ester,0.671,0.48,11,11,2,8/2,10.1016/j.jct.2019.105884,,True
+CCCCO,CCOC(=O)C(C)O,298.15,ester,0.61,0.473,11,11,2,5/8,10.1016/j.jct.2018.07.013,,True
+COC=O,ClCCCCCCl,298.15,ester,0.6096,0.476,15,16,2,4/7,10.1016/j.jct.2006.10.008,,True
+COC=O,ClCCCCCl,298.15,ester,0.5185,0.543,13,16,2,4/6,10.1016/j.jct.2006.10.008,,True
+CCOC=O,ClCCCCCCCl,298.15,ester,0.4655,0.532,15,30,2,5/8,10.1016/j.jct.2005.03.020 10.1016/j.jct.2006.10.008,,True
+CCCCC(=O)OC,COC=O,298.15,ester,0.409,0.523,18,17,2,8/4,10.1016/j.jct.2015.02.019,,True
+CO,OCC(F)(F)F,298.15,fluorine,-0.8516,0.503,25,16,1,2/6,10.1016/j.tca.2007.04.012,,True
+CCO,OCC(F)(F)F,298.15,fluorine,-0.6569,0.496,29,22,1,3/6,10.1016/j.tca.2007.04.012,,True
+O,OCC(F)(F)F,298.15,fluorine,0.6264,0.504,33,17,1,1/6,10.1016/j.tca.2007.04.012,,True
+C1CCOC1,OCC(F)(F)F,313.15,fluorine,-2.094,0.517,11,9,2,5/6,10.1021/je034076x,,True
+C1CCOC1,OCC(F)(F)F,298.15,fluorine,-1.956,0.517,11,10,2,5/6,10.1021/je034076x,,True
+C1CCOCC1,OCC(F)(F)F,313.15,fluorine,-1.856,0.466,11,9,2,6/6,10.1021/je025655p,,True
+C1CCOCC1,OCC(F)(F)F,298.15,fluorine,-1.689,0.466,11,9,2,6/6,10.1021/je025655p,,True
+CC1CCCO1,Fc1ccccc1,298.15,fluorine,-0.578,0.474,11,11,2,6/7,10.1016/j.tca.2005.08.034,,True
+CCO,Cn1ccnc1,298.15,imidazole,-0.998,0.491,11,11,0,3/6,10.1016/j.jct.2018.12.019,,True
+CCCO,Cn1ccnc1,298.15,imidazole,-0.788,0.502,11,11,0,4/6,10.1016/j.jct.2018.12.019,,True
+CCCO,CS(C)=O,298.15,sulfur,0.81,0.486,17,12,1,4/4,10.1021/je0601513,,True
+CS(C)=O,OCc1ccccc1,308.15,sulfur,-1.424,0.492,17,12,2,4/8,10.1021/je0501991,,True
+CCCCO,CS(C)=O,303.15,sulfur,1.063,0.538,17,9,2,5/4,10.1007/s10765-005-8102-9 10.1016/j.tca.2006.10.025,,True
+CCOC(=O)OCC,CS(C)=O,308.15,sulfur,1.042,0.467,17,12,2,8/4,10.1021/je050444g,,True
+CS(C)=O,OCCc1ccccc1,308.15,sulfur,-0.867,0.529,17,12,2,4/9,10.1021/je0501991,,True
+CCCO,CS(C)=O,303.15,sulfur,0.859,0.487,17,9,2,4/4,10.1016/j.jct.2006.10.016 10.1016/j.tca.2006.10.025,,True
+CCCO,CS(C)=O,308.15,sulfur,0.807,0.487,17,20,2,4/4,10.1016/j.jct.2006.10.016 10.1021/je0601513,,True
+COC(=O)OC,CS(C)=O,308.15,sulfur,0.605,0.456,17,12,2,6/4,10.1021/je050444g,,True
+CCO,CS(C)=O,303.15,sulfur,0.489,0.548,17,9,2,3/4,10.1016/j.jct.2006.10.016 10.1016/j.tca.2006.10.025,,True
+CC1COC(=O)O1,CS(C)=O,308.15,sulfur,0.414,0.508,17,12,2,7/4,10.1021/je050444g,,True
+CC1CCCO1,c1ccccc1,298.15,,-0.188,0.494,11,11,1,6/6,10.1016/j.tca.2005.08.034,small signal,False
+CN1CCOCC1,O,298.15,,-0.1399,0.005,5,5,1,7/1,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CN1CCCCC1,O,298.15,,-0.1296,0.004,4,4,1,7/1,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CC(=O)C(C)=O,O,298.15,,-0.1091,0.006,6,6,1,6/1,10.1021/je300280s,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CC(=O)C(C)=O,O,303.15,,-0.1017,0.006,6,6,1,6/1,10.1021/je300280s,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CN1CCCCC1,CO,298.15,,-0.1,0.01,6,6,1,7/2,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CO,Cc1cccc(C)n1,298.15,,-0.0796,0.99,6,5,1,2/8,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+Cc1cccc(C)n1,O,298.15,,-0.0724,0.005,5,5,1,8/1,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CN1CCOCC1,CO,298.15,,-0.0637,0.011,5,6,1,7/2,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CO,Cc1ccncc1,298.15,,-0.0612,0.988,5,5,1,2/7,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CO,Cc1cccnc1,298.15,,-0.0563,0.988,5,6,1,2/7,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+Cc1ccncc1,O,298.15,,-0.0521,0.005,5,15,1,7/1,10.1021/je200093f 10.1021/je8008182,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+Cc1cccnc1,O,298.15,,-0.0512,0.006,6,6,1,7/1,10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CC(=O)C(C)=O,O,308.15,,-0.097,0.006,6,6,2,6/1,10.1021/je300280s,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CC(=O)C(C)=O,O,313.15,,-0.0891,0.006,6,6,2,6/1,10.1021/je300280s,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CC/C=C\CCO,O,308.15,,-0.0061,0.002,3,3,2,7/1,10.1021/je300280s,"relative ΔHmix uncertainty > 15 %; no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+C1CCOCC1,CNC=O,308.15,N-H amide,0.3231,0.511,18,18,2,6/4,10.1016/j.tca.2011.06.020,small signal,False
+Cc1ccccc1Cl,NC=O,308.15,N-H amide,-0.0065,0.498,18,18,2,8/3,10.1016/j.jct.2013.12.006,relative ΔHmix uncertainty > 15 %; small signal,False
+CC(=O)O,CC(=O)OC(C)=O,298.15,carboxylic acid,0.356,0.5,19,9,2,4/7,10.1021/je200595b 10.1021/je8003782,small signal,False
+CCCCCCC,COC=O,298.15,ester,2.2852,0.5,34,34,1,7/4,10.1016/j.fluid.2015.05.031 10.1021/je030117d,two-phase (H^E > RT/2),False
+CCC(C)O,CCOC(C)=O,298.15,ester,2.0236,0.499,9,37,1,5/6,10.1016/j.jct.2012.01.002 10.1021/je400036b 10.1021/je5003225,two-phase (H^E > RT/2),False
+CCCCCCCCCC,CCOC(C)=O,298.15,ester,1.709,0.49,18,18,1,10/6,10.1021/je100832h,two-phase (H^E > RT/2),False
+CCO,CCOC(=O)CC(C)=O,298.15,ester,1.7079,0.5,13,19,1,3/9,10.1016/j.fluid.2008.03.012 10.1021/je050402s,two-phase (H^E > RT/2),False
+CCCCCCCC,CCOC(C)=O,298.15,ester,1.605,0.514,18,18,1,8/6,10.1021/je100832h,two-phase (H^E > RT/2),False
+CCCCCC,CCOC(C)=O,298.15,ester,1.364,0.505,17,28,1,6/6,10.1021/je100832h 10.1021/je800077r,two-phase (H^E > RT/2),False
+CCOC(=O)CC(C)=O,O,298.15,ester,0.684,0.449,9,11,1,9/1,10.1021/je200468r 10.1021/je800889y,two-phase (literature),False
+CCCCOC=O,ClCCCl,298.15,ester,-0.4289,0.52,30,27,1,7/4,10.1016/j.jct.2005.11.003 10.1016/j.jct.2006.10.008,relative ΔHmix uncertainty > 15 %,False
+CCCCC(=O)OCC,ClCCCl,298.15,ester,-0.3992,0.49,16,16,1,9/4,10.1016/j.jct.2005.03.020,small signal,False
+CCCCCOC=O,ClCCCl,298.15,ester,-0.3831,0.501,15,16,1,8/4,10.1016/j.jct.2006.10.008,missing pure density with uncertainty; small signal,False
+CCCOC=O,ClCCCl,298.15,ester,-0.254,0.503,28,30,1,6/4,10.1016/j.jct.2006.10.008 10.1016/j.jct.2008.10.007,small signal,False
+CCOC=O,ClCCCl,298.15,ester,-0.2501,0.509,16,30,1,5/4,10.1016/j.jct.2005.03.020 10.1016/j.jct.2006.10.008,small signal,False
+CCO,CCOC(=O)C(C)O,298.15,ester,0.225,0.489,11,11,1,3/8,10.1016/j.jct.2018.07.013,small signal,False
+CCCOC(=O)CC,Cc1ccccc1,298.15,ester,-0.1583,0.549,17,17,1,8/7,10.1016/j.jct.2006.08.011,small signal,False
+CCOC(=O)C(C)O,CO,298.15,ester,-0.158,0.437,11,30,1,8/2,10.1016/j.jct.2018.07.013 10.1021/je900481e,small signal,False
+CCCCC(=O)OCC,CCOC(C)=O,298.15,ester,0.154,0.52,15,16,1,9/6,10.1016/j.jct.2012.03.011,small signal,False
+CCOC(C)=O,ClCCCCCl,298.15,ester,-0.1294,0.492,19,15,1,6/6,10.1016/j.jct.2005.03.020,small signal,False
+COC=O,ClCCCl,298.15,ester,0.1028,0.487,15,16,1,4/4,10.1016/j.jct.2006.10.008,small signal,False
+CCOC(C)=O,ClCCCCCCCl,298.15,ester,0.0625,0.497,14,16,1,6/8,10.1016/j.jct.2005.03.020,relative ΔHmix uncertainty > 15 %; small signal,False
+CO,COC(=O)C(C)O,298.15,ester,-0.0301,0.518,12,11,1,2/7,10.1016/j.jct.2018.07.013,relative ΔHmix uncertainty > 15 %; small signal,False
+CCCCCCCC,COC=O,298.15,ester,2.531,0.508,18,19,2,8/4,10.1016/j.fluid.2015.05.031,two-phase (H^E > RT/2),False
+CCCCCCCC,COC(C)=O,298.15,ester,2.038,0.501,16,22,2,8/5,10.1021/acs.jced.5b00813,two-phase (H^E > RT/2),False
+CCC(C)O,CCCCOC(C)=O,298.15,ester,1.8733,0.498,9,22,2,5/8,10.1021/acs.jced.7b00141 10.1021/je400036b,two-phase (H^E > RT/2),False
+CC(C)CC(C)(C)C,COC(C)=O,298.15,ester,1.789,0.476,18,50,2,8/5,10.1021/acs.jced.5b00813 10.1021/acs.jced.9b00668,two-phase (H^E > RT/2),False
+CCCCO,CCOC(=O)C(C)C,303.15,ester,1.395,0.512,11,11,2,5/8,10.1016/j.jct.2019.105884,two-phase (H^E > RT/2),False
+CCCCCCCCCC,CCCOC(C)=O,298.15,ester,1.394,0.532,15,16,2,10/7,10.1021/je3011979,two-phase (H^E > RT/2),False
+CCCCC,CCOC=O,298.15,ester,1.354,0.5,17,14,2,5/5,10.1016/j.fluid.2013.11.026,two-phase (H^E > RT/2),False
+CCCO,CCOC(=O)C(C)C,303.15,ester,1.318,0.512,11,11,2,4/8,10.1016/j.jct.2019.105884,two-phase (H^E > RT/2),False
+CCCCCCCC,CCCOC(C)=O,298.15,ester,1.257,0.521,12,17,2,8/7,10.1021/je3011979,two-phase (H^E > RT/2),False
+CCCOC(=O)CC,ClCCCCl,298.15,ester,-0.388,0.528,12,15,2,8/5,10.1016/j.jct.2008.10.007,small signal,False
+COC=O,ClCCCCl,298.15,ester,0.3503,0.502,16,16,2,4/5,10.1016/j.jct.2006.10.008,small signal,False
+CCCOC(C)=O,ClCCCCl,298.15,ester,-0.34,0.507,13,15,2,7/5,10.1016/j.jct.2008.10.007,small signal,False
+CCCOC(=O)CCC,ClCCCCl,298.15,ester,-0.339,0.512,13,15,2,9/5,10.1016/j.jct.2008.10.007,small signal,False
+CCOC=O,ClCCCCCCl,298.15,ester,0.3389,0.527,15,30,2,5/7,10.1016/j.jct.2005.03.020 10.1016/j.jct.2006.10.008,small signal,False
+CC(Cl)CCl,CCCC(=O)OC,298.15,ester,-0.3371,0.499,19,19,2,5/7,10.1016/j.fluid.2011.01.005,small signal,False
+CCCC(=O)OCC,ClCCCCl,298.15,ester,-0.3345,0.501,16,15,2,8/5,10.1016/j.jct.2005.03.020,small signal,False
+CCCOC(=O)CC,ClCCCCCl,298.15,ester,-0.311,0.512,12,15,2,8/6,10.1016/j.jct.2008.10.007,small signal,False
+CCCCC(=O)OCC,ClCCCCl,298.15,ester,-0.3034,0.496,16,15,2,9/5,10.1016/j.jct.2005.03.020,small signal,False
+CCCCOC=O,ClCCCCl,298.15,ester,-0.2981,0.506,32,27,2,7/5,10.1016/j.jct.2005.11.003 10.1016/j.jct.2006.10.008,relative ΔHmix uncertainty > 15 %; small signal,False
+CCCCCOC=O,ClCCCCl,298.15,ester,-0.2836,0.512,14,14,2,8/5,10.1016/j.jct.2006.10.008,missing pure density with uncertainty; small signal,False
+CCCCC(=O)OCC,ClCCCCCl,298.15,ester,-0.2688,0.496,17,16,2,9/6,10.1016/j.jct.2005.03.020,small signal,False
+CC(Cl)CCl,CCC(=O)OC,298.15,ester,-0.2667,0.497,19,19,2,5/6,10.1016/j.fluid.2011.01.005,small signal,False
+CCCOC(=O)CCC,ClCCCCCl,298.15,ester,-0.263,0.558,12,11,2,9/6,10.1016/j.jct.2008.10.007,small signal,False
+CCCOC(=O)CC,ClCCCCCCl,298.15,ester,-0.255,0.524,13,13,2,8/7,10.1016/j.jct.2008.10.007,small signal,False
+CCCC(=O)OCC,ClCCCCCl,298.15,ester,-0.2501,0.476,16,14,2,8/6,10.1016/j.jct.2005.03.020,small signal,False
+CCCOC(C)=O,ClCCCCCl,298.15,ester,-0.241,0.498,13,13,2,7/6,10.1016/j.jct.2008.10.007,small signal,False
+CCCCC(=O)OC,COC(C)=O,298.15,ester,0.238,0.505,14,17,2,8/5,10.1021/acs.jced.5b00813,small signal,False
+CCOC=O,ClCCCCCl,298.15,ester,0.2303,0.473,15,31,2,5/6,10.1016/j.jct.2005.03.020 10.1016/j.jct.2006.10.008,small signal,False
+CCCCOC=O,ClCCCCCl,298.15,ester,-0.2232,0.49,32,29,2,7/6,10.1016/j.jct.2005.11.003 10.1016/j.jct.2006.10.008,relative ΔHmix uncertainty > 15 %; small signal,False
+CCCCC(=O)OCC,ClCCCCCCl,298.15,ester,-0.2143,0.479,17,15,2,9/7,10.1016/j.jct.2005.03.020,small signal,False
+CCCOC(=O)CCC,ClCCCCCCl,298.15,ester,-0.211,0.5,14,12,2,9/7,10.1016/j.jct.2008.10.007,small signal,False
+CCCCCOC=O,ClCCCCCl,298.15,ester,-0.2103,0.485,14,16,2,8/6,10.1016/j.jct.2006.10.008,missing pure density with uncertainty; small signal,False
+CC(Cl)CCl,COC(C)=O,298.15,ester,-0.2023,0.509,19,19,2,5/5,10.1016/j.fluid.2011.01.005,small signal,False
+CCCOC(=O)CC,ClCCCCCCCl,298.15,ester,-0.192,0.486,13,12,2,8/8,10.1016/j.jct.2008.10.007,small signal,False
+CCCCC(=O)OCC,ClCCCCCCCl,298.15,ester,-0.1835,0.495,17,12,2,9/8,10.1016/j.jct.2005.03.020,small signal,False
+CCCC(=O)OCC,ClCCCCCCl,298.15,ester,-0.1739,0.478,17,15,2,8/7,10.1016/j.jct.2005.03.020,small signal,False
+CCCOC(=O)CCC,ClCCCCCCCl,298.15,ester,-0.169,0.517,13,13,2,9/8,10.1016/j.jct.2008.10.007,small signal,False
+CCCOC=O,ClCCCCCCCl,298.15,ester,0.1686,0.5,27,28,2,6/8,10.1016/j.jct.2006.10.008 10.1016/j.jct.2008.10.007,small signal,False
+CCCOC=O,ClCCCCl,298.15,ester,-0.1662,0.503,28,27,2,6/5,10.1016/j.jct.2006.10.008 10.1016/j.jct.2008.10.007,small signal,False
+CCCOC(C)=O,ClCCCCCCl,298.15,ester,-0.164,0.484,12,14,2,7/7,10.1016/j.jct.2008.10.007,small signal,False
+CCCC(=O)OC,COC(C)=O,298.15,ester,0.151,0.482,16,19,2,7/5,10.1021/acs.jced.5b00813,small signal,False
+CCCCCOC=O,ClCCCCCCl,298.15,ester,-0.1486,0.524,14,14,2,8/7,10.1016/j.jct.2006.10.008,missing pure density with uncertainty; small signal,False
+CCCC(=O)OCC,ClCCCCCCCl,298.15,ester,-0.1186,0.478,15,16,2,8/8,10.1016/j.jct.2005.03.020,relative ΔHmix uncertainty > 15 %; small signal,False
+CCCCCOC=O,ClCCCCCCCl,298.15,ester,-0.1085,0.493,14,14,2,8/8,10.1016/j.jct.2006.10.008,missing pure density with uncertainty; small signal,False
+CCCOC(C)=O,ClCCCCCCCl,298.15,ester,-0.1,0.517,15,12,2,7/8,10.1016/j.jct.2008.10.007,small signal,False
+CCCOC=O,ClCCCCCCl,298.15,ester,0.0922,0.517,29,27,2,6/7,10.1016/j.jct.2006.10.008 10.1016/j.jct.2008.10.007,small signal,False
+CCCCOC=O,ClCCCCCCl,298.15,ester,0.0701,0.492,32,30,2,7/7,10.1016/j.jct.2005.11.003 10.1016/j.jct.2006.10.008,relative ΔHmix uncertainty > 15 %; small signal,False
+CCOC=O,ClCCCCl,298.15,ester,0.0692,0.515,16,30,2,5/5,10.1016/j.jct.2005.03.020 10.1016/j.jct.2006.10.008,relative ΔHmix uncertainty > 15 %; small signal,False
+CCCOC=O,ClCCCCCl,298.15,ester,0.042,0.5,27,27,2,6/6,10.1016/j.jct.2006.10.008 10.1016/j.jct.2008.10.007,small signal,False
+CCCCOC=O,ClCCCCCCCl,298.15,ester,-0.0291,0.495,32,26,2,7/8,10.1016/j.jct.2005.11.003 10.1016/j.jct.2006.10.008,small signal,False
+CCCO,OCC(F)(F)F,298.15,fluorine,-0.2698,0.504,25,17,1,4/6,10.1016/j.tca.2007.04.012,relative ΔHmix uncertainty > 15 %; small signal,False
+CO,Cn1ccnc1,298.15,imidazole,-0.1042,0.985,5,16,0,2/6,10.1016/j.jct.2018.12.019 10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+Cn1ccnc1,O,298.15,imidazole,-0.0626,0.007,6,26,0,6/1,10.1016/j.jct.2012.06.015 10.1016/j.jct.2018.12.019 10.1021/je200093f,"no ΔHmix near x = 0.25, 0.5 and 0.75; small signal",False
+CC(C)O,Cn1ccnc1,298.15,imidazole,-0.376,0.505,12,11,1,4/6,10.1016/j.jct.2018.12.019,small signal,False
+CCCCCCO,CS(C)=O,303.15,sulfur,1.36,0.532,17,9,2,7/4,10.1007/s10765-005-8102-9 10.1016/j.tca.2006.10.025,two-phase (H^E > RT/2),False
+CS(C)=O,OCCO,308.15,sulfur,-0.9102,0.54,17,24,2,4/4,10.1021/je034007i 10.1021/je100089s,viscous,False
+CO,CS(C)=O,303.15,sulfur,-0.433,0.466,18,9,2,2/4,10.1016/j.jct.2006.10.016 10.1016/j.tca.2006.10.025,relative ΔHmix uncertainty > 15 %,False
+CS(C)=O,OCCCc1ccccc1,308.15,sulfur,-0.333,0.488,17,12,2,4/10,10.1021/je0501991,small signal,False

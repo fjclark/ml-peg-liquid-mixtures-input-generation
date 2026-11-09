@@ -116,15 +116,85 @@ systems:
     miscibility: >-
       Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
 
-  - id: tetrahydropyran_ethanol
-    a: C1CCOCC1
+  - id: methylimidazole_ethanol
+    a: Cn1ccnc1
     b: CCO
-    names: [tetrahydropyran, ethanol]
+    names: [1-methylimidazole, ethanol]
     temperature: 298.15
-    interaction: cyclic ether with an alcohol
-    rationale: Endothermic; ether acceptor competes with alcohol self-association.
+    interaction: alcohol O-H donor with an imidazole N acceptor
+    extra_dois: [10.1016/j.jct.2018.12.019]
+    exception: >-
+      Not in the Sage training or validation sets; found by the ThermoML
+      archive screen (`archive_candidates.csv`), where it passes every filter
+      that needs no Sage results. Our own Sage replicates replace the missing
+      published repeat SDs.
+    rationale: >-
+      Only imidazole system (the histidine side-chain ring), replacing
+      tetrahydropyran + ethanol at about the same cost. 1-Methylimidazole has
+      no N-H, so this tests the imidazole N acceptor, not histidine's N-H
+      tautomerism. ΔHmix and densities from one paper.
     miscibility: >-
-      Single liquid phase across the whole composition range in the source papers (see the single-phase evidence below).
+      Exothermic and measured across the whole composition range in the
+      source paper. Single liquid phase.
+
+  - id: nma_water
+    a: CNC(C)=O
+    b: O
+    names: [N-methylacetamide, water]
+    temperature: 323.15
+    interaction: peptide-bond model (trans secondary amide) hydrated by water
+    extra_dois: [10.1021/je950294h, 10.1016/j.jct.2020.106233]
+    # One paper per property: ΔHmix from de Haan and Gmehling (50 °C, entered
+    # by hand in manual_points.csv, as the paper has no ThermoML record), and
+    # densities with both pure liquids from Makarov et al.
+    hmix_dois: [10.1021/je950294h]
+    density_dois: [10.1016/j.jct.2020.106233]
+    exception: >-
+      Not in the Sage training or validation sets, and outside the 297–315 K
+      screening window: N-methylacetamide melts near 301 K, and the only
+      ΔHmix isotherm with matching densities is at 323.15 K. The ΔHmix paper
+      predates ThermoML, so its 50 °C table is entered by hand
+      (`manual_points.csv`, checked against the paper's Redlich-Kister fit),
+      with the stated 1 % uncertainty as σ. Our own Sage replicates replace
+      the missing published repeat SDs. Every N-methylacetamide starts trans.
+    rationale: >-
+      N-methylacetamide is the standard model of the peptide bond, and its
+      hydration is the backbone's: the largest exothermic signal after pyrrole
+      + pyridine (-1.71 kJ/mol). It is predominantly trans, and amide
+      rotation is far slower than a run, so every molecule starts and stays
+      trans (a small, documented bias from the missing cis minority).
+    miscibility: >-
+      Miscible in all proportions: both source papers measure the whole
+      composition range at 323.15 K, and the mixture is strongly exothermic.
+
+  - id: ethylacetate_ethanol
+    a: CCOC(C)=O
+    b: CCO
+    names: [ethyl acetate, ethanol]
+    temperature: 298.15
+    interaction: alcohol O-H donor with an ester C=O acceptor
+    extra_dois: [10.1021/je200595b, 10.1016/j.jct.2007.05.004]
+    # ΔHmix from the only full isotherm. Three density papers agree at
+    # equimolar (0.8526, 0.852, 0.852 g/mL); this one also reports both pure
+    # liquids.
+    hmix_dois: [10.1021/je200595b]
+    density_dois: [10.1016/j.jct.2007.05.004]
+    exception: >-
+      The largest published Sage repeat SD is 0.12 kJ/mol (limit 0.10). Kept
+      because it is the only ester system within the atom budget with a
+      strong signal. Our own 5 Sage replicates have SDs of 0.13, 0.04 and
+      0.07 kJ/mol; pooled, 0.088 kJ/mol, below the median floor of σ_Sage,
+      so it is no noisier than the other systems in our smaller boxes.
+    rationale: >-
+      Only ester system, with the most common ester (as in lipid esters and
+      acetylcholine): ethyl acetate's C=O and ether O accept ethanol's O-H,
+      breaking alcohol self-association (+1.21 kJ/mol). Ethyl acetate + water
+      would be more biological but is only partially miscible. Both pure
+      densities are already in ml-peg and are not re-scored; the ethanol box
+      is shared with 1-methylimidazole + ethanol.
+    miscibility: >-
+      Miscible in all proportions; ΔHmix is measured from x = 0.05 to 0.95
+      and is below RT/2.
 
   - id: dipropylamine_dmf
     a: CCCNCCC
@@ -177,9 +247,46 @@ pure_density_references:
     density: 0.97298
     sigma: 0.000107
     source: "thermoml:10.1021/je900874z"
+  # The formamide + 1-propanol block of 10.1016/j.jct.2006.07.021 lists pure
+  # formamide twice, as 1.133 and 1.129 g/mL; the paper's other blocks and 13
+  # other ThermoML papers give 1.1288 to 1.1297 g/mL.
+  - smiles: O
+    temperature: 323.15
+    density: 0.988036
+    sigma: 0.000001
+    source: "iapws-95:10.1063/1.1461829"
+  - smiles: NC=O
+    temperature: 298.15
+    density: 1.129
+    sigma: 0.000165
+    source: "thermoml:10.1016/j.jct.2006.07.021"
 
 # Systems considered and dropped, for the report.
 dropped:
+  - system: 2,2,2-trifluoroethanol + methanol
+    a: OCC(F)(F)F
+    b: CO
+    reason: >-
+      Added on 2026-11-05 for fluorine and replaced the same day by ethyl
+      acetate + ethanol, as an ester was judged more important and both did
+      not fit the atom budget. Kept as a reserve (-0.85 kJ/mol,
+      10.1016/j.tca.2007.04.012; fails only the rc2 composition-match check).
+  - system: formamide + 1-propanol
+    a: NC=O
+    b: CCCO
+    reason: >-
+      Added on 2026-11-05 for the amide N-H and replaced the same day by
+      N-methylacetamide + water, which models the peptide bond itself, to stay
+      within the atom budget. Kept as a reserve (+0.74 kJ/mol; ΔHmix from
+      10.1016/j.tca.2013.02.010, densities from 10.1016/j.jct.2006.07.021);
+      a primary amide like the asparagine and glutamine side chains.
+  - system: tetrahydropyran + ethanol
+    a: C1CCOCC1
+    b: CCO
+    reason: >-
+      Replaced by 1-methylimidazole + ethanol on 2026-11-05 to cover the
+      imidazole group at about the same cost; its ether acceptor is still
+      covered by propionitrile + tert-amyl ethyl ether.
   - system: 2-(dimethylamino)ethanol + methanol
     a: CN(C)CCO
     b: CO
@@ -275,6 +382,8 @@ two_phase_fast_set:
       Aqueous solubility is 2.86 g/100 mL at 20 °C (x ≈ 0.004; ICSC, via [PubChem](https://pubchem.ncbi.nlm.nih.gov/compound/8868#section=Solubility)). PubChem also lists 110 g/L at 17 °C (AQUASOL, x ≈ 0.016); the sources disagree and no primary measurement was checked, but either value puts x = 0.2 inside the two-phase region. H^E/x is roughly constant (slopes 1.71 and 1.47 kJ/mol); x = 0.75 may lie near the organic-rich phase boundary.
 
 reserves:
+  - system: 2,2,2-trifluoroethanol + methanol
+  - system: formamide + 1-propanol
   - system: pyrrole + benzene
   - system: cyclohexane + benzene
   - system: methyl pentanoate + methanol
@@ -305,3 +414,65 @@ reserves:
     note: >-
       ThermoML [10.1016/j.jct.2013.12.006](https://trc.nist.gov/ThermoML/10.1016/j.jct.2013.12.006.json), +0.49 kJ/mol at equimolar, 18 points
       of each property with uncertainties. Same research group.
+
+# Functional groups the selection should cover, chosen for their biological
+# importance. `select_systems.py` fails if a required group is neither in a
+# curated system nor listed in `known_gaps`, and `screen_archive.py` searches
+# the ThermoML archive for systems containing any of them.
+functional_groups:
+  # Acyclic, so lactams (cis amides) do not count; carbamates and ureas are
+  # excluded. N-methylformamide matches
+  # but is not used: its ~10 % cis fraction would stay frozen at its starting
+  # value, as amide rotation is far slower than a 1 ns run.
+  - name: N-H amide
+    smarts: "[NX3;H1,H2;!R][CX3;!R;!$(C[OX2]);!$(C(N)N)](=O)"
+    required: true
+  - name: secondary amide (peptide-like)
+    smarts: "[NX3H1;!R][CX3;!R;!$(C[OX2]);!$(C(N)N)](=O)[#6]"
+  # Acyclic C(=O)-O-C, formates included; not carbamates, carbonates or
+  # anhydrides.
+  - name: ester
+    smarts: "[#6][OX2;!R][CX3;!R;!$(C(N)=O);!$(C(O)(O)=O);!$(C(=O)OC=O)](=O)"
+  - name: carboxylic acid
+    smarts: "[CX3](=O)[OX2H1]"
+  - name: imidazole
+    smarts: "c1ncn[c]1"
+  - name: carbamate
+    smarts: "[NX3][CX3](=O)[OX2][#6]"
+  - name: sulfur
+    smarts: "[#16]"
+  - name: fluorine
+    smarts: "[F]"
+
+# Groups the set already covers, shown in the report's coverage matrix so
+# overlap between systems is visible. Not screened for.
+other_groups:
+  - {name: water, smarts: "[OX2H2]"}
+  - {name: alcohol, smarts: "[CX4][OX2H1]"}
+  - {name: aromatic N acceptor, smarts: "[nX2]"}
+  - {name: aromatic N-H, smarts: "[nH]"}
+  - {name: amine, smarts: "[NX3;!$(N-C=[O,N,S]);!$(N-S=O)]"}
+  - {name: tertiary amide, smarts: "[NX3H0][CX3](=O)"}
+  - {name: ketone, smarts: "[#6][CX3](=O)[#6]"}
+  - {name: ether, smarts: "[OD2;!$(O-C=O)]([#6])[#6]"}
+  - {name: nitrile, smarts: "C#N"}
+  - {name: chloroalkane, smarts: "[CX4]Cl"}
+  - {name: aromatic ring, smarts: "a"}
+
+# Required or wanted groups the selection does not cover, with the reason.
+known_gaps:
+  - group: fluorine
+    reason: >-
+      Dropped for cost in favour of an ester. 2,2,2-Trifluoroethanol +
+      methanol (-0.85 kJ/mol) and THF + TFE (-1.96 kJ/mol) pass but did not
+      fit the atom budget.
+  - group: carboxylic acid
+    reason: >-
+      None in the Sage sets; the only acid system in the ThermoML archive
+      screen (acetic acid + acetic anhydride) fails the signal floor.
+  - group: carbamate
+    reason: No carbamate system in the Sage sets or the ThermoML archive screen.
+  - group: sulfur
+    reason: >-
+      Dropped for cost. 1-Propanol + DMSO (+0.81 kJ/mol) passes the ThermoML
+      archive screen but did not fit the atom budget.

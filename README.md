@@ -1,6 +1,6 @@
 # liquid_mixtures_inputs
 
-Inputs for the ml-peg `binary_mixtures` benchmark, which tests how well machine-learned potentials (MLPs) predict the enthalpy of mixing (ΔHmix), mixture density and excess molar volume (V^E) of binary liquid mixtures. We screened 370 binary systems in the OpenFF Sage training and validation sets, kept the 36 that pass a set of hard filters, and chose 10 diverse mixtures at 3 compositions each (50 boxes including the pure liquids). Every box was built and equilibrated with Sage 2.3.0, and Sage was run 5 times per box and analysed with the benchmark protocol to measure simulation noise. That noise sets the MAZE denominators and ml-peg's 'good' thresholds. With one 0.2 + 1 ns run per box, two models can be told apart when their ΔHmix MAE differs by 0.05 to 0.1 kJ/mol, at a cost of about 140 MACE-OFF23(M) A100 GPU-days per model.
+Inputs for the ml-peg `binary_mixtures` benchmark, which tests how well machine-learned potentials (MLPs) predict the enthalpy of mixing (ΔHmix), mixture density and excess molar volume (V^E) of binary liquid mixtures. We screened 370 binary systems in the OpenFF Sage training and validation sets and, for functional groups those sets lack, the NIST ThermoML archive, applied a set of hard filters, and chose 12 mixtures at 3 compositions each (59 boxes including the pure liquids) to cover a range of interactions and biologically important functional groups. Every box was built and equilibrated with Sage 2.3.0, and Sage was run 5 times per box and analysed with the benchmark protocol to measure simulation noise. That noise sets the MAZE denominators and ml-peg's 'good' thresholds. With one 0.2 + 1 ns run per box, two models can be told apart when their ΔHmix MAE differs by 0.05 to 0.08 kJ/mol, at a cost of about 160 MACE-OFF23(M) A100 GPU-days per model.
 
 ml-peg does not need this repository to run the benchmark: it reads the pre-built boxes and reference data from S3. This repository records how they were made and regenerates them.
 
@@ -8,19 +8,19 @@ ml-peg does not need this repository to run the benchmark: it reads the pre-buil
 
 Every decision, with its reason and history, is in [DECISIONS.md](DECISIONS.md).
 
-- **Data.** ΔHmix and densities from the Sage training and validation sets, with full isotherms and pure densities taken from each mixture's own source paper through the NIST ThermoML archive. All sources are pinned. ([scope and data](DECISIONS.md#scope-and-data))
-- **Filters.** H, C, N, O and Cl only; ≤ 10 heavy atoms; no viscous or likely two-phase systems; |ΔHmix(x ≈ 0.5)| ≥ 0.4 kJ/mol; a small published Sage replicate spread; experimental uncertainties throughout. 36 of 248 systems with enough data pass. ([filters](DECISIONS.md#filters))
-- **Systems.** 10 mixtures chosen to cover association, π interactions, amines, two aqueous systems and a non-polar control, without overlapping ml-peg's existing density benchmarks. ([systems](DECISIONS.md#systems))
+- **Data.** ΔHmix and densities from the Sage training and validation sets, plus a one-off screen of the ThermoML archive (papers to 2019) for under-represented functional groups, with full isotherms and pure densities taken from each mixture's own source paper through the NIST ThermoML archive. All sources are pinned. ([scope and data](DECISIONS.md#scope-and-data))
+- **Filters.** H, C, N, O, F, S and Cl only; ≤ 10 heavy atoms; no viscous, likely two-phase or acid-base systems; |ΔHmix(x ≈ 0.5)| ≥ 0.4 kJ/mol; a small published Sage replicate spread; experimental uncertainties throughout; at most 89,000 atoms in all. 37 of the 248 Sage systems with enough data pass. ([filters](DECISIONS.md#filters))
+- **Systems.** 12 mixtures chosen to cover association, π interactions, amines, three aqueous systems and a non-polar control, without overlapping ml-peg's existing density benchmarks. Functional groups are SMARTS patterns in `selection.yml`: the set must cover an N-H amide (N-methylacetamide + water at 323.15 K, the peptide-bond model, every molecule starting trans) and also covers imidazole (1-methylimidazole) and an ester (ethyl acetate); fluorine, carboxylic acid, carbamate and sulfur are stated gaps. ([functional groups](DECISIONS.md#functional-group-coverage), [systems](DECISIONS.md#systems))
 - **Boxes.** Edge ≥ 25 Å and ≥ 100 molecules (952 to 2,400 atoms), built from low-energy conformers and annealed with Sage 2.3.0, so runs start near equilibrium. ([boxes and protocol](DECISIONS.md#boxes-and-protocol))
 - **Protocol.** One run per model and box: 0.2 ns NPT equilibration and 1 ns production, chosen for cost (2 ns would cost 1.8× as much for a modest gain in precision). ([boxes and protocol](DECISIONS.md#boxes-and-protocol))
-- **Metrics.** ΔHmix and V^E are scored by MAZE, dividing each error by σ_ref = sqrt(σ_Sage² + σ_exp²), with the MAE shown at weight 0. Mixture and pure densities (all 20 pure liquids) are shown at weight 0: mixture density errors are mostly pure-density errors, which the liquid densities benchmark already scores. 'Good' is the score of a model that matches experiment exactly plus 2 SD of its noise; 'bad' is 5× Sage's score. ([metrics and thresholds](DECISIONS.md#metrics-and-thresholds))
+- **Metrics.** ΔHmix and V^E are scored by MAZE, dividing each error by σ_ref = sqrt(σ_Sage² + σ_exp²), with the MAE shown at weight 0. Mixture and pure densities (all 23 pure boxes) are shown at weight 0: mixture density errors are mostly pure-density errors, which the liquid densities benchmark already scores. 'Good' is the score of a model that matches experiment exactly plus 2 SD of its noise; 'bad' is 5× Sage's score. ([metrics and thresholds](DECISIONS.md#metrics-and-thresholds))
 
 ## Outcomes
 
-- **Resolution.** With one 0.2 + 1 ns run per box, two models are resolved (5 % test, 80 % power) when their ΔHmix MAE differs by 0.05 to 0.094 kJ/mol or their mixture density MAE by 0.0004 to 0.0007 g/mL. A single point detects an error above about 0.28 kJ/mol (ΔHmix) or 0.0027 g/mL (density). ([power analysis](data/power_analysis/report.md))
-- **Cost.** 76,065 atoms over 50 boxes, about 138 MACE-OFF23(M) A100 GPU-days per model (order of magnitude). 0.2 + 2 ns would cost 1.8× as much (254 GPU-days) and narrow the resolvable ΔHmix MAE difference for a model with Sage-sized errors from 0.094 to 0.073 kJ/mol. ([details](data/power_analysis/details.md#4-run-length-and-cost))
-- **Sage 2.3.0 against experiment.** ΔHmix MAE 0.59 kJ/mol (MAZE 5.0), mixture density MAE 0.0094 g/mL (MAZE 10.1), V^E MAE 0.24 cm³/mol (MAZE 1.9). Single 1 ns Sage runs understate their own standard errors by 17 % (h) and 6 % (density). ([Sage report](data/sage_summary/report.md))
-- **Thresholds.** For example ΔHmix MAZE good 0.82, bad 25; all eight metrics are in [thresholds.csv](data/power_analysis/thresholds.csv), with a ready-to-paste [metrics_snippet.yml](data/power_analysis/metrics_snippet.yml).
+- **Resolution.** With one 0.2 + 1 ns run per box, two models are resolved (5 % test, 80 % power) when their ΔHmix MAE differs by 0.05 to 0.082 kJ/mol or their mixture density MAE by 0.0004 to 0.0006 g/mL. A single point detects an error above about 0.27 kJ/mol (ΔHmix) or 0.0027 g/mL (density). ([power analysis](data/power_analysis/report.md))
+- **Cost.** 88,640 atoms over 59 boxes, about 161 MACE-OFF23(M) A100 GPU-days per model (order of magnitude). 0.2 + 2 ns would cost 1.8× as much (295 GPU-days) and narrow the resolvable ΔHmix MAE difference for a model with Sage-sized errors from 0.082 to 0.065 kJ/mol. ([details](data/power_analysis/details.md#4-run-length-and-cost))
+- **Sage 2.3.0 against experiment.** ΔHmix MAE 0.64 kJ/mol (MAZE 6.4), mixture density MAE 0.0117 g/mL (MAZE 12.7), V^E MAE 0.27 cm³/mol (MAZE 2.4). Sage gets the sign of ΔHmix wrong at every composition for water + pyridine and 1-methylimidazole + ethanol. Single 1 ns Sage runs understate their own standard errors by 18 % (h) and 5 % (density). ([Sage report](data/sage_summary/report.md))
+- **Thresholds.** For example ΔHmix MAZE good 0.89, bad 32; all eight metrics are in [thresholds.csv](data/power_analysis/thresholds.csv), with a ready-to-paste [metrics_snippet.yml](data/power_analysis/metrics_snippet.yml).
 - **Main caveat.** Sage stands in for MLP noise, which may be very different.
 
 ## Reports
@@ -43,6 +43,10 @@ Requires [pixi](https://pixi.sh) and, for `build-boxes` and `run-sage`, a CUDA G
 | `analysis` | `select`, `summarise-sage`, `power-analysis`, tests (ml-peg, RDKit) |
 
 ```bash
+# 0. (One-off) Screen the ThermoML archive for wanted functional groups
+#    (writes selection/archive_candidates.csv)
+pixi run -e analysis screen-archive --selection-dir selection
+
 # 1. Select the systems (writes selection/)
 pixi run -e analysis select --output-dir selection \
     --fast-set selection/inputs/dataset-fast-converging.csv
