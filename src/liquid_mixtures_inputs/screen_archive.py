@@ -212,7 +212,9 @@ def screen(
             "x_eq": round(hmix_eq.x, 3),
             "n_hmix": len(hmix),
             "n_density": len(density),
-            "new_pure_boxes": sum((c, temperature) not in selected_pure for c in (a, b)),
+            "new_pure_boxes": sum(
+                (c, temperature) not in selected_pure for c in (a, b)
+            ),
             "heavy_atoms": f"{info_a['heavy_atoms']}/{info_b['heavy_atoms']}",
             "dois": " ".join(sorted({p.doi for p in hmix + density})),
         }
@@ -225,7 +227,10 @@ def screen(
             failures.append("relative ΔHmix uncertainty > 15 %")
         if not all(pure.get((c, temperature)) for c in (a, b)):
             failures.append("missing pure density with uncertainty")
-        if len(sel.target_points(sorted(hmix, key=lambda p: p.x), (0.25, 0.5, 0.75))) < 3:
+        if (
+            len(sel.target_points(sorted(hmix, key=lambda p: p.x), (0.25, 0.5, 0.75)))
+            < 3
+        ):
             failures.append("no ΔHmix near x = 0.25, 0.5 and 0.75")
         if info_a["viscous"] or info_b["viscous"]:
             failures.append("viscous")
@@ -244,7 +249,12 @@ def screen(
         rows.append(row)
     return sorted(
         rows,
-        key=lambda r: (not r["passes"], r["groups"], r["new_pure_boxes"], -abs(r["hmix_eq"])),
+        key=lambda r: (
+            not r["passes"],
+            r["groups"],
+            r["new_pure_boxes"],
+            -abs(r["hmix_eq"]),
+        ),
     )
 
 

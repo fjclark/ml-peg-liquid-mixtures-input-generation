@@ -305,6 +305,7 @@ def write_summary(out: Path, tables: dict) -> None:
     reference = REFERENCE[1]
     cost = costs(tables["n_atoms"])
     hmix_low, hmix_high = resolvable_range(metrics, "hmix", "MAE", reference)
+    hmix_longer = resolvable_range(metrics, "hmix", "MAE", ALTERNATIVE_PS)[1]
     density_low, density_high = resolvable_range(metrics, "density", "MAE", reference)
     hmix_points = point_rows(points, "hmix", reference)
     density_points = point_rows(points, "density", reference)
@@ -359,13 +360,13 @@ def write_summary(out: Path, tables: dict) -> None:
         f"{gpu_days(cost[ALTERNATIVE_PS] - cost[reference]):.0f} GPU-days more) "
         "and narrow the resolvable ΔHmix MAE difference from "
         f"{hmix_high:.3f} to "
-        f"{resolvable_range(metrics, 'hmix', 'MAE', ALTERNATIVE_PS)[1]:.3f} "
+        f"{hmix_longer:.3f} "
         f"kJ/mol. Per-box run lengths would save only {saved:.0%}.",
         "",
         f"We run {protocol} for cost: it already resolves density gaps far "
         f"smaller than those between published MLPs, and {longer} would narrow "
         "the resolvable ΔHmix MAE difference by only "
-        f"{1 - resolvable_range(metrics, 'hmix', 'MAE', ALTERNATIVE_PS)[1] / hmix_high:.0%}"
+        f"{1 - hmix_longer / hmix_high:.0%}"
         f" for {cost[ALTERNATIVE_PS] / cost[reference]:.1f}× the cost. "
         "Equilibration stays at "
         f"{REFERENCE[0] / 1000:g} ns ([details](details.md#4-run-length-and-cost)).",
@@ -373,8 +374,8 @@ def write_summary(out: Path, tables: dict) -> None:
         "![resolvable difference](figures/resolvable.png)",
         "",
         "Blue: resolvable difference for a Sage-like error profile (band: 1 to 0 "
-        "× Sage's errors). Green: the score a model that matches experiment exactly gets from noise "
-        "alone. Grey: the 'good' threshold.",
+        "× Sage's errors). Green: the score a model that matches experiment "
+        "exactly gets from noise alone. Grey: the 'good' threshold.",
         "",
         "## Thresholds",
         "",
