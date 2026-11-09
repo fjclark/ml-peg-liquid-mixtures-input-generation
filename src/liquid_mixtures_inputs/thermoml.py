@@ -93,7 +93,8 @@ def mol_from_inchi(inchi: str) -> Chem.Mol | None:
     Returns
     -------
     Chem.Mol | None
-        The molecule, or ``None`` if RDKit cannot parse the InChI.
+        The molecule, or ``None`` if RDKit cannot parse the InChI or repair
+        the tautomer.
     """
     mol = Chem.MolFromInchi(inchi)
     while mol is not None and mol.HasSubstructMatch(IMIDIC_ACID):
@@ -101,7 +102,10 @@ def mol_from_inchi(inchi: str) -> Chem.Mol | None:
         for atom in product.GetAtoms():
             atom.SetNoImplicit(False)
             atom.SetNumExplicitHs(0)
-        Chem.SanitizeMol(product)
+        try:
+            Chem.SanitizeMol(product)
+        except Chem.rdchem.MolSanitizeException:
+            return None
         mol = Chem.MolFromSmiles(Chem.MolToSmiles(product))
     return mol
 
@@ -261,7 +265,9 @@ def parse_record(doi: str, record: dict) -> list[Measurement]:
     """
     org_to_smiles = {}
     for compound in record["Compound"]:
-        mol = mol_from_inchi(compound["sStandardInChI"])
+        # Some compounds (e.g. graphite) have no InChI; their blocks are skipped.
+        inchi = compound.get("sStandardInChI")
+        mol = mol_from_inchi(inchi) if inchi else None
         if mol is not None:
             org_to_smiles[compound["RegNum"]["nOrgNum"]] = Chem.MolToSmiles(mol)
 

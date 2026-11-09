@@ -451,3 +451,98 @@ def test_excess_volumes_cancel_shared_density_error():
         abs(grad[0] + grad[2]) * 1e-3 * rho,
     )
     assert mixed.sigma == pytest.approx(np.hypot(correlated, grad[1] * 1e-4), rel=1e-6)
+
+
+SELECTION = yaml.safe_load((select_systems.HERE / "selection.yml").read_text())
+
+
+@pytest.mark.parametrize(
+    ("smiles", "expected"),
+    [
+        ("CNC(C)=O", {"N-H amide", "secondary amide (peptide-like)"}),
+        ("CNC=O", {"N-H amide"}),
+        ("NC=O", {"N-H amide"}),
+        ("O=C1CCCN1", set()),  # lactams are cis amides
+        ("O=C1CCCCCN1", set()),
+        ("CN(C)C=O", set()),
+        ("CCOC(C)=O", {"ester"}),
+        ("COC=O", {"ester"}),
+        ("O=C1CCCO1", set()),  # lactone
+        ("COC(=O)OC", set()),  # carbonate
+        ("CC(=O)OC(C)=O", set()),  # anhydride
+        ("COC(N)=O", {"carbamate"}),
+        ("CNC(=O)NC", set()),  # urea
+        ("CC(=O)O", {"carboxylic acid"}),
+        ("Cn1ccnc1", {"imidazole"}),
+        ("c1c[nH]cn1", {"imidazole"}),
+        ("CS(C)=O", {"sulfur"}),
+        ("OCC(F)(F)F", {"fluorine"}),
+    ],
+)
+def test_functional_groups(smiles, expected):
+    """Test the group SMARTS match the intended molecules only."""
+    groups = SELECTION["functional_groups"]
+    assert set(select_systems.functional_groups(smiles, groups)) == expected
+
+
+def test_check_coverage():
+    """Test an uncovered required group fails unless it is a known gap."""
+    groups = SELECTION["functional_groups"]
+    systems = [{"a": "CCO", "b": "O"}]
+    with pytest.raises(ValueError, match="N-H amide"):
+        select_systems.check_coverage(systems, groups, [])
+    select_systems.check_coverage(systems, groups, [{"group": "N-H amide"}])
+    select_systems.check_coverage([{"a": "NC=O", "b": "O"}], groups, [])
+
+
+def test_check_budget():
+    """Test the atom budget counts mixture and pure boxes."""
+    limit = select_systems.MAX_TOTAL_ATOMS
+    assert (
+        select_systems.check_budget([{"n_atoms": limit - 1}], [{"n_atoms": 1}]) == limit
+    )
+    with pytest.raises(ValueError, match="budget"):
+        select_systems.check_budget([{"n_atoms": limit}], [{"n_atoms": 1}])
+
+
+@pytest.mark.parametrize(
+    ("smiles", "acid", "base"),
+    [
+        ("CC(=O)O", True, False),
+        ("CCCNCCC", False, True),
+        ("c1ccncc1", False, True),
+        ("Cn1ccnc1", False, True),
+        ("CN(C)C=O", False, False),
+        ("CNc1ccccc1", False, False),  # aniline N is too weak a base
+    ],
+)
+def test_acid_base_flags(smiles, acid, base):
+    """Test the flags behind the acid-base pair filter."""
+    info = select_systems.molecule_info(smiles)
+    assert (info["acid"], info["base"]) == (acid, base)
+
+
+@pytest.mark.parametrize(
+    ("smiles", "passes"),
+    [
+        ("CNC(C)=O", True),
+        ("OCC(F)(F)F", True),
+        ("CCn1cc[n+](C)c1.F[B-](F)(F)F", False),  # ionic liquid
+        ("CCBr", False),
+        ("CCCCCCCCCCCC", False),  # 12 heavy atoms
+    ],
+)
+def test_archive_component_filter(smiles, passes):
+    """Test the archive screen keeps only small neutral molecules."""
+    from liquid_mixtures_inputs.screen_archive import component_passes
+
+    assert component_passes(smiles) is passes
+
+
+def test_manual_measurements():
+    """Test hand-entered data load for their DOI only, with σ throughout."""
+    points = select_systems.manual_measurements("10.1021/je950294h")
+    assert len(points) == 11
+    assert all(p.uncertainty and p.temperature == 323.15 for p in points)
+    assert min(p.value for p in points) == pytest.approx(-1.7073)
+    assert select_systems.manual_measurements("10.0/none") is None

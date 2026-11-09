@@ -975,12 +975,107 @@ def system_details(number: int, system: dict, candidate: dict | None) -> list[st
     return lines
 
 
-def known_gaps_section(points: dict) -> list[str]:
+def coverage_section(
+    selection: dict, systems: list[dict], candidates: list[dict], out: Path
+) -> list[str]:
+    """
+    List each system's functional groups and the best candidates for each gap.
+
+    Parameters
+    ----------
+    selection
+        Parsed ``selection.yml``.
+    systems
+        System dictionaries.
+    candidates
+        Candidate rows from the Sage sets.
+    out
+        Output directory, which may hold ``archive_candidates.csv``.
+
+    Returns
+    -------
+    list[str]
+        Markdown lines.
+    """
+    groups = selection["functional_groups"] + selection["other_groups"]
+    lines = [
+        "## Functional-group coverage",
+        "",
+        "Groups are SMARTS matches from `selection.yml`; `select_systems.py` "
+        "fails if a required group is neither covered nor a known gap.",
+        "",
+        "| System | Groups |",
+        "|---|---|",
+    ]
+    covered = set()
+    for system in systems:
+        names = sorted(
+            {
+                g
+                for c in (system["a"], system["b"])
+                for g in select_systems.functional_groups(c, groups)
+            }
+        )
+        covered |= set(names)
+        lines.append(f"| {display_name(system)} | {', '.join(names)} |")
+    archive_path = out / "archive_candidates.csv"
+    archive = []
+    if archive_path.exists():
+        with archive_path.open() as handle:
+            archive = [r for r in csv.DictReader(handle) if r["passes"] == "True"]
+    lines += [
+        "",
+        "Cheapest passing candidates for each uncovered group, from the Sage sets "
+        "and the ThermoML archive screen (`archive_candidates.csv`), ranked by "
+        "new pure boxes and then |ΔHmix|:",
+        "",
+    ]
+    selected_pure = {
+        (c, round(system["temperature"], 2))
+        for system in systems
+        for c in (system["a"], system["b"])
+    }
+    for group in selection["functional_groups"]:
+        if group["name"] in covered:
+            continue
+        # (new pure boxes, -|ΔHmix|, text) for every passing candidate.
+        options = [
+            (
+                sum((x, 298.15) not in selected_pure for x in (c["a"], c["b"])),
+                -abs(c["hmix_eq"]),
+                f"`{c['a']}` + `{c['b']}` ({c['hmix_eq']:.2f} kJ/mol, Sage sets",
+            )
+            for c in candidates
+            if c["passes"] and group["name"] in c["groups"].split("; ")
+        ] + [
+            (
+                int(c["new_pure_boxes"]),
+                -abs(float(c["hmix_eq"])),
+                f"`{c['a']}` + `{c['b']}` ({float(c['hmix_eq']):.2f} kJ/mol at "
+                f"{float(c['temperature']):.2f} K, {c['dois'].split()[0]}",
+            )
+            for c in archive
+            if group["name"] in c["groups"].split("; ")
+        ]
+        shortlist = [
+            f"{text}, {new_boxes} new pure boxes)"
+            for new_boxes, _, text in sorted(options)[:5]
+        ]
+        lines.append(
+            f"- **{group['name']}**: " + ("; ".join(shortlist) if shortlist else "none")
+        )
+    lines.append("")
+    return lines
+
+
+def known_gaps_section(selection: dict, points: dict) -> list[str]:
     """
     List gaps in chemical coverage, with the amide systems the Sage sets have.
 
     Parameters
     ----------
+    selection
+        Parsed ``selection.yml``.
     points
         Sage data-set points.
 
@@ -989,16 +1084,17 @@ def known_gaps_section(points: dict) -> list[str]:
     list[str]
         Markdown lines.
     """
+    lines = ["## Known gaps", ""]
+    for gap in selection["known_gaps"]:
+        lines.append(f"- **No {gap['group']}.** {gap['reason']}")
     amide_systems = [
         (key, system_points)
         for key, system_points in points.items()
         if key[1] and set(key) & AMIDE_SMILES
     ]
-    lines = [
-        "## Known gaps",
-        "",
-        "- **No N-H (secondary) amide.** Systems with N-methylformamide, "
-        "N-methylacetamide, acetamide or formamide in the Sage sets:",
+    lines += [
+        "- **Secondary amides in the Sage sets** (N-methylformamide, "
+        "N-methylacetamide, acetamide or formamide):",
         "",
     ]
     if amide_systems:
@@ -1017,11 +1113,10 @@ def known_gaps_section(points: dict) -> list[str]:
         "308.15 K, but the ThermoML records carry full uncertainties (and the "
         "standard-InChI conversion would otherwise turn N-methylformamide into "
         "`CN=CO`; `thermoml.py` repairs amide tautomers). See reserves.",
-        "- **No amide-water system.** 2-pyrrolidone + water was dropped (see below).",
-        "- **No ester.** Methyl pentanoate + octane was dropped for cost (see below).",
-        "- **Selection bias.** Every system comes from the Sage training/validation "
-        "pools, so the set reflects ThermoML coverage and Sage's curation choices "
-        "rather than a designed spread.",
+        "- **Selection bias.** The candidates come from the Sage training/validation "
+        "pools and the ThermoML archive snapshot (papers from about 2003 to 2019), "
+        "so the set reflects ThermoML coverage and Sage's curation choices rather "
+        "than a designed spread.",
         "- **Endothermic range is capped** at RT/2 by the two-phase screen.",
         "",
     ]
@@ -1134,7 +1229,8 @@ def write_report(
         candidate = candidates_by_pair.get(tuple(sorted((system["a"], system["b"]))))
         lines += system_details(number, system, candidate)
     lines += [
-        *known_gaps_section(points),
+        *coverage_section(selection, systems, candidates, out),
+        *known_gaps_section(selection, points),
         *dropped_and_reserves_section(selection),
     ]
     path = out / "report.md"

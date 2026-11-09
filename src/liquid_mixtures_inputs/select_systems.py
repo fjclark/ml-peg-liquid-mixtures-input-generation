@@ -93,7 +93,7 @@ TAUTOMER_REVIEWED: set[str] = set()
 # Hard filters
 SCREEN_T_RANGE = (297.0, 299.5)  # K
 MAX_COMPOSITION_MISMATCH = 0.05
-ALLOWED_ELEMENTS = {"C", "H", "N", "O", "Cl"}
+ALLOWED_ELEMENTS = {"C", "H", "N", "O", "F", "S", "Cl"}
 MAX_HEAVY_ATOMS = 10
 VISCOUS_SMARTS = {
     "polyol": "[OX2H][CX4][CX4][OX2H]",
@@ -103,6 +103,11 @@ VISCOUS_SMARTS = {
     "polyamine-3": "[NX3;!$(N-C=O)][CX4][CX4][CX4][NX3;!$(N-C=O)]",
     "ethanolamine (2+ OH)": "[OX2H][CX4][CX4][NX3][CX4][CX4][OX2H]",
 }
+# A carboxylic acid next to a base would transfer protons and form ions.
+ACID_SMARTS = Chem.MolFromSmarts("[CX3](=O)[OX2H1]")
+BASE_SMARTS = Chem.MolFromSmarts(
+    "[$([NX3;!$(N-C=[O,N,S]);!$(N-a);!$(N-S=O)]),$([nX2])]"
+)
 UCST_LIMIT = 0.5 * GAS_CONSTANT_KJ_PER_MOL_K * 298.15  # RT/2 in kJ/mol
 MAX_REPEAT_SD = {"hmix": 0.10, "density": 0.001}  # kJ/mol, g/mL
 MIN_SIGNAL = 0.4  # kJ/mol, |ΔHmix| at x ~ 0.5
@@ -114,6 +119,10 @@ MAX_RELATIVE_SIGMA_HMIX = 0.15
 # two-phase test, 0.001 in absolute units for the Redlich-Kister fits.
 RELATIVE_SIGMA_FLOOR = 0.02
 FIT_SIGMA_FLOOR = 1e-3
+
+# Cost budget: the 76,065 atoms of the 50-box set plus about 17 %, set on
+# 2026-11-05 to fit N-methylacetamide + water and ethyl acetate + ethanol.
+MAX_TOTAL_ATOMS = 89_000
 
 # Box planning
 MIN_EDGE = 25.0  # Angstrom
@@ -298,7 +307,101 @@ def molecule_info(smiles: str) -> dict:
         "molar_mass": Descriptors.MolWt(molecule),
         "n_atoms": with_hydrogens.GetNumAtoms(),
         "viscous": viscous,
+        "acid": molecule.HasSubstructMatch(ACID_SMARTS),
+        "base": molecule.HasSubstructMatch(BASE_SMARTS),
     }
+
+
+def functional_groups(smiles: str, groups: list[dict]) -> list[str]:
+    """
+    Name the functional groups of a molecule.
+
+    Parameters
+    ----------
+    smiles
+        Molecule SMILES.
+    groups
+        ``functional_groups`` or ``other_groups`` entries from ``selection.yml``.
+
+    Returns
+    -------
+    list[str]
+        Names of the matching groups, in ``groups`` order.
+    """
+    molecule = Chem.MolFromSmiles(smiles)
+    return [
+        group["name"]
+        for group in groups
+        if molecule.HasSubstructMatch(Chem.MolFromSmarts(group["smarts"]))
+    ]
+
+
+def check_coverage(
+    systems: list[dict], groups: list[dict], known_gaps: list[dict]
+) -> None:
+    """
+    Raise if a required functional group is neither covered nor a known gap.
+
+    Parameters
+    ----------
+    systems
+        ``systems`` entries from ``selection.yml``.
+    groups
+        ``functional_groups`` entries from ``selection.yml``.
+    known_gaps
+        ``known_gaps`` entries from ``selection.yml``.
+
+    Raises
+    ------
+    ValueError
+        Listing every uncovered required group.
+    """
+    covered = {
+        name
+        for system in systems
+        for key in ("a", "b")
+        for name in functional_groups(system[key], groups)
+    }
+    gaps = {gap["group"] for gap in known_gaps}
+    missing = [
+        group["name"]
+        for group in groups
+        if group.get("required") and group["name"] not in covered | gaps
+    ]
+    if missing:
+        raise ValueError(
+            "Required functional groups not covered (add a system or a "
+            f"known_gaps entry): {', '.join(missing)}"
+        )
+
+
+def check_budget(system_rows: list[dict], pure: list[dict]) -> int:
+    """
+    Raise if the boxes exceed the atom budget.
+
+    Parameters
+    ----------
+    system_rows
+        Mixture box rows (``systems.csv``).
+    pure
+        Pure box rows (``pure.csv``).
+
+    Returns
+    -------
+    int
+        Total number of atoms over every box.
+
+    Raises
+    ------
+    ValueError
+        If the total exceeds ``MAX_TOTAL_ATOMS``.
+    """
+    total = sum(row["n_atoms"] for row in system_rows) + sum(
+        row["n_atoms"] for row in pure
+    )
+    if total > MAX_TOTAL_ATOMS:
+        raise ValueError(f"{total:,} atoms exceeds the budget of {MAX_TOTAL_ATOMS:,}")
+    return total
 
 
 def parse_sage_row(row: dict, source: str) -> tuple[tuple[str, str], Point]:
@@ -613,6 +716,8 @@ def filter_failures(row: dict, info_a: dict, info_b: dict) -> list[str]:
         failures.append("too many heavy atoms")
     if row["viscous"]:
         failures.append("viscous")
+    if (info_a["acid"] and info_b["base"]) or (info_a["base"] and info_b["acid"]):
+        failures.append("acid-base pair")
     if row["linear_two_phase"]:
         failures.append("two-phase (linear H^E)")
     if row["ucst_screen"]:
@@ -765,6 +870,40 @@ def thermoml_point(measurement: Measurement, x: float) -> Point:
     )
 
 
+def manual_measurements(doi: str) -> list[Measurement] | None:
+    """
+    Read hand-entered data for a paper that has no ThermoML record.
+
+    Parameters
+    ----------
+    doi
+        DOI of the paper.
+
+    Returns
+    -------
+    list[Measurement] | None
+        The paper's measurements from ``manual_points.csv``, or ``None`` if it
+        has none there.
+    """
+    with (HERE / "manual_points.csv").open() as handle:
+        rows = [row for row in csv.DictReader(handle) if row["doi"] == doi]
+    if not rows:
+        return None
+    return [
+        Measurement(
+            doi=doi,
+            property_name=row["property"],
+            smiles=(canonical_smiles(row["a"]), canonical_smiles(row["b"])),
+            mole_fractions=(float(row["x_a"]), 1 - float(row["x_a"])),
+            temperature=float(row["temperature"]),
+            pressure=None,
+            value=float(row["value"]),
+            uncertainty=float(row["sigma"]),
+        )
+        for row in rows
+    ]
+
+
 def thermoml_points(
     a: str,
     b: str,
@@ -802,7 +941,9 @@ def thermoml_points(
     mixture, pure, errors = [], defaultdict(list), {}
     for doi in sorted(dois):
         try:
-            measurements = parse_record(doi, fetch_record(doi, cache / "thermoml"))
+            measurements = manual_measurements(doi) or parse_record(
+                doi, fetch_record(doi, cache / "thermoml")
+            )
         except Exception as error:  # noqa: BLE001 - report and continue
             errors[doi] = str(error)
             continue
@@ -1684,11 +1825,25 @@ def main() -> None:
 
     selection = yaml.safe_load((HERE / "selection.yml").read_text())
     check_structures(selection["systems"])
+    check_coverage(
+        selection["systems"], selection["functional_groups"], selection["known_gaps"]
+    )
     points = load_points(args.cache_dir)
     sage = load_sage_benchmarks(args.cache_dir)
     mlpeg = load_mlpeg_liquids()
 
     candidates = screen_candidates(points, sage, mlpeg)
+    all_groups = selection["functional_groups"] + selection["other_groups"]
+    for row in candidates:
+        row["groups"] = "; ".join(
+            sorted(
+                {
+                    g
+                    for c in (row["a"], row["b"])
+                    for g in functional_groups(c, all_groups)
+                }
+            )
+        )
     write_csv(out / "candidates.csv", candidates)
 
     references = selection.get("pure_density_references", [])
@@ -1696,10 +1851,10 @@ def main() -> None:
         build_system(spec, points, sage, mlpeg, args.cache_dir, references)
         for spec in selection["systems"]
     ]
-    write_csv(
-        out / "systems.csv", [row for system in systems for row in system["rows"]]
-    )
+    system_rows = [row for system in systems for row in system["rows"]]
+    write_csv(out / "systems.csv", system_rows)
     pure = pure_rows(systems, mlpeg)
+    print(f"{check_budget(system_rows, pure):,} atoms over every box")
     isotherms = isotherm_rows(systems)
     write_csv(out / "pure.csv", pure)
     write_csv(out / "isotherms.csv", isotherms)
